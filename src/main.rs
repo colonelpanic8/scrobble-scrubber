@@ -52,7 +52,16 @@ async fn main() -> Result<()> {
         })?,
     ));
 
-    // Create action provider (for now, just rewrite rules)
+    // Check if we should skip existing rewrite rules (for pattern analysis)
+    let skip_existing_rules = matches!(
+        &args.command,
+        scrobble_scrubber::Commands::LastN {
+            no_existing_rules: true,
+            ..
+        }
+    );
+
+    // Create action provider
     let rules_state = storage
         .lock()
         .await
@@ -66,9 +75,12 @@ async fn main() -> Result<()> {
 
     let mut action_provider = OrScrubActionProvider::new();
 
-    if config.providers.enable_rewrite_rules {
+    if config.providers.enable_rewrite_rules && !skip_existing_rules {
         let rewrite_provider = RewriteRulesScrubActionProvider::new(&rules_state);
         action_provider = action_provider.add_provider(rewrite_provider);
+        info!("Enabled rewrite rules provider");
+    } else if skip_existing_rules {
+        info!("Skipping existing rewrite rules for pattern analysis");
     }
 
     // Add OpenAI provider if enabled and configured
@@ -98,11 +110,23 @@ async fn main() -> Result<()> {
                 openai_config.system_prompt.clone(),
                 rules_state.rewrite_rules.clone(),
             ) {
-                Ok(openai_provider) => {
-                    info!(
-                        "Enabled OpenAI provider with model: {}",
-                        openai_config.model.as_deref().unwrap_or("default")
-                    );
+                Ok(mut openai_provider) => {
+                    // Enable rule focus mode if requested
+                    if matches!(
+                        &args.command,
+                        scrobble_scrubber::Commands::LastN {
+                            rule_focus: true,
+                            ..
+                        }
+                    ) {
+                        openai_provider.enable_rule_focus_mode();
+                        info!("Enabled OpenAI provider with RULE FOCUS mode for pattern analysis");
+                    } else {
+                        info!(
+                            "Enabled OpenAI provider with model: {}",
+                            openai_config.model.as_deref().unwrap_or("default")
+                        );
+                    }
                     action_provider = action_provider.add_provider(openai_provider);
                 }
                 Err(e) => {
@@ -148,8 +172,23 @@ async fn main() -> Result<()> {
             info!("Running single pass");
             scrubber_guard.trigger_run().await?;
         }
-        scrobble_scrubber::Commands::LastN { tracks, .. } => {
-            info!("Processing last {tracks} tracks");
+        scrobble_scrubber::Commands::LastN {
+            tracks,
+            rule_focus,
+            no_existing_rules,
+            batch_size,
+            ..
+        } => {
+            let mode_info = match (rule_focus, no_existing_rules) {
+                (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                (true, false) => " (rule focus mode)",
+                (false, true) => " (no existing rules)",
+                (false, false) => "",
+            };
+            let batch_info = batch_size
+                .map(|s| format!(" with batch size {s}"))
+                .unwrap_or_default();
+            info!("Processing last {tracks} tracks{mode_info}{batch_info}");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
         scrobble_scrubber::Commands::Artist { name, .. } => {

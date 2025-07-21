@@ -375,12 +375,18 @@ impl ScrobbleScrubberConfig {
             }
             Commands::LastN {
                 tracks: _,
+                rule_focus: _,
+                no_existing_rules: _,
+                batch_size,
                 dry_run,
                 require_confirmation,
                 require_proposed_rule_confirmation,
                 enable_web_interface,
                 web_port,
             } => {
+                if let Some(batch_size) = batch_size {
+                    self.scrubber.processing_batch_size = *batch_size;
+                }
                 if *dry_run {
                     self.scrubber.dry_run = true;
                 }
@@ -396,7 +402,7 @@ impl ScrobbleScrubberConfig {
                 if let Some(web_port) = web_port {
                     self.scrubber.web_port = *web_port;
                 }
-                // Note: tracks count is handled in main.rs, not stored in config
+                // Note: tracks count, rule_focus, and no_existing_rules are handled in main.rs, not stored in config
             }
             Commands::Artist {
                 name: _,

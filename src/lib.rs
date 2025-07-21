@@ -105,6 +105,18 @@ pub enum Commands {
         #[arg(short, long)]
         tracks: u32,
 
+        /// Focus on pattern analysis and rewrite rule suggestions
+        #[arg(long)]
+        rule_focus: bool,
+
+        /// Skip applying existing rewrite rules (useful with --rule-focus)
+        #[arg(long)]
+        no_existing_rules: bool,
+
+        /// Override batch size for processing
+        #[arg(long)]
+        batch_size: Option<u32>,
+
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
         dry_run: bool,
