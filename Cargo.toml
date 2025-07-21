@@ -1,0 +1,32 @@
+[package]
+name = "scrobble-scrubber"
+version = "0.1.0"
+edition = "2021"
+description = "Automated Last.fm scrobble monitoring and correction tool"
+license = "MIT"
+repository = "https://github.com/imalison/lastfm-edit"
+keywords = ["lastfm", "scrobbling", "music", "metadata"]
+categories = ["multimedia::audio", "web-programming"]
+
+[dependencies]
+lastfm-edit = { path = ".." }
+http-client = { version = "6.5", features = ["curl_client"] }
+tokio = { version = "1.0", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.0"
+log = "0.4"
+env_logger = "0.11"
+pickledb = "0.5"
+async-trait = "0.1"
+thiserror = "2.0.12"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+reqwest = { version = "0.11", features = ["json"] }
+openai-api-rs = "6.0.7"
+config = "0.14"
+dirs = "6.0.0"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }

@@ -1,0 +1,41 @@
+# Example configuration file for scrobble-scrubber
+# Save this as config.toml in your XDG config directory:
+# ~/.config/scrobble-scrubber/config.toml
+
+[scrubber]
+# Check interval in seconds (default: 300)
+interval = 300
+# Maximum tracks to process per run (default: 100)
+max_tracks = 100
+# Dry run mode - don't actually make edits (default: false)
+dry_run = false
+# Require confirmation for all edits (default: false)
+require_confirmation = false
+
+[lastfm]
+# Last.fm credentials (required)
+username = "your_lastfm_username"
+password = "your_lastfm_password"
+# Base URL (optional, defaults to https://www.last.fm)
+base_url = "https://www.last.fm"
+
+[storage]
+# Path to state file for persistence (default: "scrobble_state.db")
+state_file = "scrobble_state.db"
+
+[providers]
+# Enable/disable different providers
+enable_rewrite_rules = true
+enable_openai = false
+enable_http = false
+
+# OpenAI provider configuration (only needed if enable_openai = true)
+[providers.openai]
+api_key = "sk-your-openai-api-key-here"
+model = "gpt-4o"  # Optional: gpt-4, gpt-4-turbo, gpt-4o, gpt-4o-mini, gpt-3.5-turbo
+# system_prompt = "Custom system prompt for metadata cleaning"  # Optional - uses intelligent default that explains rewrite rules
+
+# HTTP provider configuration (only needed if enable_http = true)
+[providers.http]
+endpoint_url = "https://api.example.com/metadata"
+timeout_seconds = 30
