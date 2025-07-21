@@ -159,6 +159,12 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .pending_rules;
 
+    let existing_rules = storage
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rewrite_rules;
+
     let html = format!(
         r#"
 <!DOCTYPE html>
@@ -188,6 +194,11 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
 
     <div class="section">
         <h2>Pending Rules ({})</h2>
+        {}
+    </div>
+
+    <div class="section">
+        <h2>Active Rewrite Rules ({})</h2>
         {}
     </div>
 
@@ -333,6 +344,24 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     transformation_preview,
                     rule.id,
                     rule.id
+                )
+            })
+            .collect::<String>(),
+        existing_rules.len(),
+        existing_rules
+            .iter()
+            .take(10)
+            .map(|rule| {
+                let rule_details = format_rule_details(rule);
+                format!(
+                    r#"
+                <div class="item">
+                    <div class="rule-details">
+                        {}
+                    </div>
+                </div>
+            "#,
+                    rule_details
                 )
             })
             .collect::<String>()

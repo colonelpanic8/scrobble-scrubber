@@ -621,11 +621,19 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
+        pending_edits: Option<&[crate::persistence::PendingEdit]>,
+        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         if tracks.is_empty() {
             return Ok(Vec::new());
         }
 
+        // If context is provided, use the context-aware implementation
+        if let (Some(pending_edits), Some(pending_rules)) = (pending_edits, pending_rules) {
+            return self.analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules).await;
+        }
+
+        // Otherwise, use basic analysis without context
         let existing_rules = self.format_existing_rules();
 
         // Create a message that includes all tracks for batch analysis
@@ -651,17 +659,6 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
         );
 
         self.make_openai_request(&user_message, tracks).await
-    }
-
-    async fn analyze_tracks_with_context(
-        &self,
-        tracks: &[Track],
-        pending_edits: &[crate::persistence::PendingEdit],
-        pending_rules: &[crate::persistence::PendingRewriteRule],
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
-        // Call the implementation method
-        self.analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules)
-            .await
     }
 
     fn provider_name(&self) -> &'static str {

@@ -441,15 +441,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
         );
 
+        // Call the unified analyze_tracks method with optional context
         match (pending_edits_result, pending_rules_result) {
             (Ok(pending_edits), Ok(pending_rules)) => {
-                // Try context-aware analysis first
-                match self.action_provider.analyze_tracks_with_context(tracks, &pending_edits, &pending_rules).await {
+                match self.action_provider.analyze_tracks(tracks, Some(&pending_edits), Some(&pending_rules)).await {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
                                 info!(
-                                    "Action provider '{}' (context-aware) suggested {} actions for track '{} - {}'",
+                                    "Action provider '{}' (with context) suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
                                     track.artist,
@@ -457,41 +457,79 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                                 );
                             }
                         }
-                        return suggestions;
+                        suggestions
                     }
                     Err(e) => {
                         warn!("Error from context-aware action provider: {e}, falling back to regular analysis");
-                        // Fall through to regular analysis
+                        // Fall back to no context
+                        match self.action_provider.analyze_tracks(tracks, None, None).await {
+                            Ok(suggestions) => {
+                                for (track_idx, track_suggestions) in &suggestions {
+                                    if let Some(track) = tracks.get(*track_idx) {
+                                        info!(
+                                            "Action provider '{}' suggested {} actions for track '{} - {}'",
+                                            self.action_provider.provider_name(),
+                                            track_suggestions.len(),
+                                            track.artist,
+                                            track.name
+                                        );
+                                    }
+                                }
+                                suggestions
+                            }
+                            Err(e) => {
+                                warn!("Error from action provider: {e}");
+                                Vec::new()
+                            }
+                        }
                     }
                 }
             }
             (Err(e1), Err(e2)) => {
-                warn!("Failed to load pending items: {} and {}, using regular analysis", e1, e2);
-            }
-            (Err(e), _) | (_, Err(e)) => {
-                warn!("Failed to load some pending items: {}, using regular analysis", e);
-            }
-        }
-
-        // Fall back to regular analysis if context-aware fails or context loading fails
-        match self.action_provider.analyze_tracks(tracks).await {
-            Ok(suggestions) => {
-                for (track_idx, track_suggestions) in &suggestions {
-                    if let Some(track) = tracks.get(*track_idx) {
-                        info!(
-                            "Action provider '{}' suggested {} actions for track '{} - {}'",
-                            self.action_provider.provider_name(),
-                            track_suggestions.len(),
-                            track.artist,
-                            track.name
-                        );
+                warn!("Failed to load pending items: {} and {}, using analysis without context", e1, e2);
+                match self.action_provider.analyze_tracks(tracks, None, None).await {
+                    Ok(suggestions) => {
+                        for (track_idx, track_suggestions) in &suggestions {
+                            if let Some(track) = tracks.get(*track_idx) {
+                                info!(
+                                    "Action provider '{}' suggested {} actions for track '{} - {}'",
+                                    self.action_provider.provider_name(),
+                                    track_suggestions.len(),
+                                    track.artist,
+                                    track.name
+                                );
+                            }
+                        }
+                        suggestions
+                    }
+                    Err(e) => {
+                        warn!("Error from action provider: {e}");
+                        Vec::new()
                     }
                 }
-                suggestions
             }
-            Err(e) => {
-                warn!("Error from action provider: {e}");
-                Vec::new()
+            (Err(e), _) | (_, Err(e)) => {
+                warn!("Failed to load some pending items: {}, using analysis without context", e);
+                match self.action_provider.analyze_tracks(tracks, None, None).await {
+                    Ok(suggestions) => {
+                        for (track_idx, track_suggestions) in &suggestions {
+                            if let Some(track) = tracks.get(*track_idx) {
+                                info!(
+                                    "Action provider '{}' suggested {} actions for track '{} - {}'",
+                                    self.action_provider.provider_name(),
+                                    track_suggestions.len(),
+                                    track.artist,
+                                    track.name
+                                );
+                            }
+                        }
+                        suggestions
+                    }
+                    Err(e) => {
+                        warn!("Error from action provider: {e}");
+                        Vec::new()
+                    }
+                }
             }
         }
     }

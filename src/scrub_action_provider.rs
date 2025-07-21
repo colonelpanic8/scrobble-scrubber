@@ -56,22 +56,16 @@ pub trait ScrubActionProvider: Send + Sync {
 
     /// Analyze multiple tracks and provide suggestions for improvements
     /// Returns a vector of (track_index, suggestions) pairs
+    ///
+    /// Optional context parameters help avoid duplicate suggestions:
+    /// - pending_edits: tracks that already have pending edits awaiting approval
+    /// - pending_rules: rewrite rules that are already pending approval
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
+        pending_edits: Option<&[crate::persistence::PendingEdit]>,
+        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error>;
-
-    /// Analyze tracks with context about pending items (optional optimization for providers that support it)
-    /// Default implementation falls back to analyze_tracks
-    async fn analyze_tracks_with_context(
-        &self,
-        tracks: &[Track],
-        _pending_edits: &[crate::persistence::PendingEdit],
-        _pending_rules: &[crate::persistence::PendingRewriteRule],
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
-        // Default implementation ignores context
-        self.analyze_tracks(tracks).await
-    }
 
     /// Get a human-readable name for this provider
     fn provider_name(&self) -> &str;
@@ -103,6 +97,8 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
+        _pending_edits: Option<&[crate::persistence::PendingEdit]>,
+        _pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         let mut results = Vec::new();
 
@@ -216,9 +212,11 @@ where
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
+        pending_edits: Option<&[crate::persistence::PendingEdit]>,
+        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         self.inner
-            .analyze_tracks(tracks)
+            .analyze_tracks(tracks, pending_edits, pending_rules)
             .await
             .map_err(std::convert::Into::into)
     }
@@ -235,12 +233,14 @@ impl ScrubActionProvider for OrScrubActionProvider {
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
+        pending_edits: Option<&[crate::persistence::PendingEdit]>,
+        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         let mut combined_results: Vec<(usize, Vec<ScrubActionSuggestion>)> = Vec::new();
 
         // Try each provider in sequence and combine results
         for (provider_idx, provider) in self.providers.iter().enumerate() {
-            match provider.analyze_tracks(tracks).await {
+            match provider.analyze_tracks(tracks, pending_edits, pending_rules).await {
                 Ok(provider_results) => {
                     // Add these results to our combined results
                     for (track_idx, suggestions) in provider_results {
