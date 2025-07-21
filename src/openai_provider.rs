@@ -74,7 +74,8 @@ struct SdRuleData {
     is_literal: bool,
     /// Regex flags (e.g., "i" for case insensitive)
     flags: Option<String>,
-    /// Maximum number of replacements (0 = unlimited)
+    /// Maximum number of replacements (0 = unlimited, defaults to 0 for wholesale replacement)
+    #[serde(default)]
     max_replacements: usize,
 }
 
@@ -400,6 +401,84 @@ impl OpenAIScrubActionProvider {
         }
     }
 
+    /// Analyze tracks with context about pending items (implementation method)
+    pub async fn analyze_tracks_with_context_impl(
+        &self,
+        tracks: &[Track],
+        pending_edits: &[crate::persistence::PendingEdit],
+        pending_rules: &[crate::persistence::PendingRewriteRule],
+    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, ActionProviderError> {
+        if tracks.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let existing_rules = self.format_existing_rules();
+
+        // Format pending edits information
+        let pending_edits_info = if pending_edits.is_empty() {
+            "PENDING EDITS: None".to_string()
+        } else {
+            let edits_list = pending_edits
+                .iter()
+                .map(|edit| {
+                    format!(
+                        "- \"{}\" by \"{}\" → changes pending approval",
+                        edit.original_track_name, edit.original_artist_name
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "PENDING EDITS (already suggested, avoid duplicates):\n{}",
+                edits_list
+            )
+        };
+
+        // Format pending rewrite rules information
+        let pending_rules_info = if pending_rules.is_empty() {
+            "PENDING REWRITE RULES: None".to_string()
+        } else {
+            let rules_list = pending_rules
+                .iter()
+                .map(|rule| {
+                    format!(
+                        "- {} (triggered by: \"{}\" by \"{}\")",
+                        rule.reason, rule.example_track_name, rule.example_artist_name
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "PENDING REWRITE RULES (already suggested, avoid duplicates):\n{}",
+                rules_list
+            )
+        };
+
+        // Create a message that includes all tracks for batch analysis
+        let tracks_info = tracks
+            .iter()
+            .enumerate()
+            .map(|(idx, track)| {
+                let album_info = if let Some(album) = &track.album {
+                    format!(" from album \"{album}\"")
+                } else {
+                    String::new()
+                };
+                format!(
+                    "Track {}: \"{}\" by \"{}\"{} (play count: {})",
+                    idx, track.name, track.artist, album_info, track.playcount
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let user_message = format!(
+            "Analyze these Last.fm scrobbles and provide suggestions for each track that needs improvement.\n\nIMPORTANT: Check the pending items below to avoid suggesting duplicates.\n\n{tracks_info}\n\n{existing_rules}\n\n{pending_edits_info}\n\n{pending_rules_info}"
+        );
+
+        self.make_openai_request(&user_message, tracks).await
+    }
+
     fn process_track_edit_suggestion(
         &self,
         arguments: &str,
@@ -525,9 +604,6 @@ impl OpenAIScrubActionProvider {
                         }
                     }
                 }
-                "no_action_needed" => {
-                    // Do nothing - no suggestions to add
-                }
                 _ => {
                     log::warn!("Unknown function call: {name}");
                 }
@@ -574,6 +650,32 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
             "Analyze these Last.fm scrobbles and provide suggestions for each track that needs improvement:\n\n{tracks_info}\n\n{existing_rules}"
         );
 
+        self.make_openai_request(&user_message, tracks).await
+    }
+
+    async fn analyze_tracks_with_context(
+        &self,
+        tracks: &[Track],
+        pending_edits: &[crate::persistence::PendingEdit],
+        pending_rules: &[crate::persistence::PendingRewriteRule],
+    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+        // Call the implementation method
+        self.analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules)
+            .await
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "OpenAI"
+    }
+}
+
+impl OpenAIScrubActionProvider {
+    /// Common OpenAI request logic extracted from analyze_tracks
+    async fn make_openai_request(
+        &self,
+        user_message: &str,
+        tracks: &[Track],
+    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, ActionProviderError> {
         // Add track_index parameter to edit function
         let mut edit_properties = Self::create_edit_function_properties();
         edit_properties.insert(
@@ -630,18 +732,6 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
             },
         };
 
-        let no_action_function = Function {
-            name: "no_action_needed".to_string(),
-            description: Some(
-                "Indicate that no changes are needed for any of the tracks".to_string(),
-            ),
-            parameters: FunctionParameters {
-                schema_type: JSONSchemaType::Object,
-                properties: None,
-                required: None,
-            },
-        };
-
         let req = ChatCompletionRequest::new(
             self.model.clone(),
             vec![
@@ -654,7 +744,7 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
                 },
                 chat_completion::ChatCompletionMessage {
                     role: chat_completion::MessageRole::user,
-                    content: chat_completion::Content::Text(user_message),
+                    content: chat_completion::Content::Text(user_message.to_string()),
                     name: None,
                     tool_calls: None,
                     tool_call_id: None,
@@ -670,18 +760,18 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
                 r#type: ToolType::Function,
                 function: suggest_rule_function,
             },
-            Tool {
-                r#type: ToolType::Function,
-                function: no_action_function,
-            },
         ])
         .tool_choice(ToolChoiceType::Auto);
 
         // Log the request being sent to OpenAI
         log::info!(
-            "OpenAI request: {}",
-            serde_json::to_string_pretty(&req)
-                .unwrap_or_else(|_| "Failed to serialize request".to_string())
+            "Making OpenAI request for {} tracks: {}",
+            tracks.len(),
+            tracks
+                .iter()
+                .map(|t| format!("\"{}\" by \"{}\"", t.name, t.artist))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
 
         let response = self
@@ -692,12 +782,36 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
             .await
             .map_err(|e| ActionProviderError(format!("OpenAI API error: {e}")))?;
 
-        // Log the full OpenAI response for debugging
+        // Log OpenAI response details
+        let tool_calls_count = response
+            .choices
+            .first()
+            .and_then(|choice| choice.message.tool_calls.as_ref())
+            .map(|calls| calls.len())
+            .unwrap_or(0);
         log::info!(
-            "OpenAI response: {}",
-            serde_json::to_string_pretty(&response)
-                .unwrap_or_else(|_| "Failed to serialize response".to_string())
+            "OpenAI response received with {} tool calls",
+            tool_calls_count
         );
+
+        // Log the full response for debugging
+        if let Ok(response_json) = serde_json::to_string_pretty(&response) {
+            log::debug!("OpenAI response: {}", response_json);
+        }
+
+        // Log individual tool calls for easier debugging
+        if let Some(choice) = response.choices.first() {
+            if let Some(tool_calls) = &choice.message.tool_calls {
+                for (i, tool_call) in tool_calls.iter().enumerate() {
+                    log::info!(
+                        "Tool call {}: {} with args: {}",
+                        i + 1,
+                        tool_call.function.name.as_deref().unwrap_or("unknown"),
+                        tool_call.function.arguments.as_deref().unwrap_or("none")
+                    );
+                }
+            }
+        }
 
         let mut results: Vec<(usize, Vec<ScrubActionSuggestion>)> = Vec::new();
 
@@ -705,9 +819,5 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
         self.process_tool_calls(&response, tracks, &mut results)?;
 
         Ok(results)
-    }
-
-    fn provider_name(&self) -> &'static str {
-        "OpenAI"
     }
 }

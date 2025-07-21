@@ -32,6 +32,7 @@ fn test_config_merge_args() {
         lastfm_password: None,
         enable_openai: false,
         openai_api_key: None,
+        last_n_tracks: None,
     };
 
     config = config.merge_args(&args);

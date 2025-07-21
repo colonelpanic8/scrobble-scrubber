@@ -156,7 +156,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
-        // Load current timestamp state to know where to start reading
+        // Check if we're in last-n-tracks mode
+        if let Some(n) = self.config.scrubber.last_n_tracks {
+            return self.process_last_n_tracks(n).await;
+        }
+
+        // Normal mode: Load current timestamp state to know where to start reading
         let timestamp_state = self
             .storage
             .lock()
@@ -247,6 +252,47 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
+    /// Process the last N tracks without updating timestamp state
+    async fn process_last_n_tracks(&mut self, n: u32) -> Result<()> {
+        info!("Processing last {n} tracks (no timestamp updates)");
+
+        let mut recent_iterator = self.client.recent_tracks();
+        let mut tracks_to_process = Vec::new();
+        let mut examined = 0;
+
+        // Collect the last n tracks
+        while let Some(track) = recent_iterator.next().await? {
+            examined += 1;
+            tracks_to_process.push(track);
+
+            if tracks_to_process.len() >= n as usize {
+                info!("Collected {n} tracks for processing");
+                break;
+            }
+        }
+
+        if tracks_to_process.is_empty() {
+            info!("No tracks found to process");
+            return Ok(());
+        }
+
+        info!(
+            "Processing {} tracks in batches of {} (no timestamp updates)...",
+            tracks_to_process.len(),
+            self.config.scrubber.processing_batch_size
+        );
+
+        // Process tracks without timestamp updates
+        self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process).await?;
+
+        info!(
+            "Processing complete: examined {} tracks, processed {} tracks",
+            examined,
+            tracks_to_process.len()
+        );
+        Ok(())
+    }
+
     /// Process tracks in configurable batches with incremental timestamp updates
     async fn process_tracks_in_batches(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
         let batch_size = self.config.scrubber.processing_batch_size as usize;
@@ -267,6 +313,25 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 self.update_timestamp_to_track(newest_track_in_batch)
                     .await?;
             }
+        }
+
+        Ok(())
+    }
+
+    /// Process tracks in configurable batches without timestamp updates
+    async fn process_tracks_in_batches_no_timestamp_update(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+        let batch_size = self.config.scrubber.processing_batch_size as usize;
+
+        for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
+            info!(
+                "Processing batch {} of {} (batch size: {}) - no timestamp updates",
+                batch_num + 1,
+                tracks.len().div_ceil(batch_size),
+                batch.len()
+            );
+
+            // Process this batch without timestamp updates
+            self.process_track_batch(batch).await?;
         }
 
         Ok(())
@@ -295,11 +360,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             for suggestion in suggestions {
-                if self.config.scrubber.dry_run {
-                    info!("DRY RUN: Would apply suggestion: {suggestion:?}");
-                } else {
-                    self.apply_suggestion(track, &suggestion).await?;
-                }
+                self.apply_suggestion(track, &suggestion).await?;
             }
         }
 
@@ -366,6 +427,53 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         &self,
         tracks: &[lastfm_edit::Track],
     ) -> Vec<(usize, Vec<ScrubActionSuggestion>)> {
+        // Load pending items to provide context for action providers
+        let (pending_edits_result, pending_rules_result) = tokio::join!(
+            async {
+                self.storage.lock().await.load_pending_edits_state().await
+                    .map(|state| state.pending_edits)
+                    .map_err(|e| format!("Failed to load pending edits: {e}"))
+            },
+            async {
+                self.storage.lock().await.load_pending_rewrite_rules_state().await
+                    .map(|state| state.pending_rules)
+                    .map_err(|e| format!("Failed to load pending rules: {e}"))
+            }
+        );
+
+        match (pending_edits_result, pending_rules_result) {
+            (Ok(pending_edits), Ok(pending_rules)) => {
+                // Try context-aware analysis first
+                match self.action_provider.analyze_tracks_with_context(tracks, &pending_edits, &pending_rules).await {
+                    Ok(suggestions) => {
+                        for (track_idx, track_suggestions) in &suggestions {
+                            if let Some(track) = tracks.get(*track_idx) {
+                                info!(
+                                    "Action provider '{}' (context-aware) suggested {} actions for track '{} - {}'",
+                                    self.action_provider.provider_name(),
+                                    track_suggestions.len(),
+                                    track.artist,
+                                    track.name
+                                );
+                            }
+                        }
+                        return suggestions;
+                    }
+                    Err(e) => {
+                        warn!("Error from context-aware action provider: {e}, falling back to regular analysis");
+                        // Fall through to regular analysis
+                    }
+                }
+            }
+            (Err(e1), Err(e2)) => {
+                warn!("Failed to load pending items: {} and {}, using regular analysis", e1, e2);
+            }
+            (Err(e), _) | (_, Err(e)) => {
+                warn!("Failed to load some pending items: {}, using regular analysis", e);
+            }
+        }
+
+        // Fall back to regular analysis if context-aware fails or context loading fails
         match self.action_provider.analyze_tracks(tracks).await {
             Ok(suggestions) => {
                 for (track_idx, track_suggestions) in &suggestions {
@@ -412,6 +520,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 if settings_state.require_confirmation || self.config.scrubber.require_confirmation
                 {
                     self.create_pending_edit(track, edit).await?;
+                    if self.config.scrubber.dry_run {
+                        info!("DRY RUN: Created pending edit for track '{}' by '{}'", track.name, track.artist);
+                    }
+                } else if self.config.scrubber.dry_run {
+                    info!("DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}", track.name, track.artist);
                 } else {
                     self.apply_edit(track, edit).await?;
                 }
@@ -422,6 +535,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     track.name, track.artist, motivation
                 );
                 self.handle_proposed_rule(track, rule, motivation).await?;
+                if self.config.scrubber.dry_run {
+                    info!("DRY RUN: Processed proposed rule for track '{}' by '{}'", track.name, track.artist);
+                }
             }
             ScrubActionSuggestion::NoAction => {
                 // This shouldn't happen since we filter NoAction in analyze_track
@@ -550,11 +666,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Check if confirmation is required for proposed rules
         if self.config.scrubber.require_proposed_rule_confirmation {
             // Create a pending rewrite rule for approval
-            let pending_rule = PendingRewriteRule::new(
+            let pending_rule = PendingRewriteRule::new_with_album_info(
                 rule.clone(),
                 motivation.to_string(),
                 track.name.clone(),
                 track.artist.clone(),
+                track.album.clone(),
+                None, // Track doesn't have album_artist field, will be populated from ScrobbleEdit if needed
             );
 
             // Load and save pending rewrite rules

@@ -61,6 +61,18 @@ pub trait ScrubActionProvider: Send + Sync {
         tracks: &[Track],
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error>;
 
+    /// Analyze tracks with context about pending items (optional optimization for providers that support it)
+    /// Default implementation falls back to analyze_tracks
+    async fn analyze_tracks_with_context(
+        &self,
+        tracks: &[Track],
+        _pending_edits: &[crate::persistence::PendingEdit],
+        _pending_rules: &[crate::persistence::PendingRewriteRule],
+    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+        // Default implementation ignores context
+        self.analyze_tracks(tracks).await
+    }
+
     /// Get a human-readable name for this provider
     fn provider_name(&self) -> &str;
 }

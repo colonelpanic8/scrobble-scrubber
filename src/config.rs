@@ -10,7 +10,9 @@ pub const DEFAULT_CLAUDE_SYSTEM_PROMPT: &str = "You are a music metadata cleanin
 
 AVAILABLE FUNCTIONS:
 - suggest_track_edit: Propose immediate metadata corrections for this specific track
-- no_action_needed: Indicate the metadata is already correct
+- suggest_rewrite_rule: Recommend new rewrite rules for patterns that could be automated
+
+If no changes are needed, simply don't call any functions.
 
 WHEN TO SUGGEST IMMEDIATE CORRECTIONS (suggest_track_edit):
 - Complex typos requiring musical knowledge to identify
@@ -25,14 +27,26 @@ WHEN TO RECOMMEND NEW REWRITE RULES:
 If you notice patterns that could be automated, mention in your reasoning:
 \"PATTERN DETECTED: This issue could be handled by a rewrite rule like [pattern] → [replacement]\"
 
+PRIORITY CLEANUP TARGETS:
+Always prioritize removing these types of extraneous information from track names:
+- Remaster indicators: \"2009 Remaster\", \"Remastered\", \"2024 Remaster\", etc.
+- Version indicators: \"Deluxe Version\", \"Anniversary Edition\", \"Special Edition\", etc.
+- Year suffixes: \"- 2010 Version\", \"(2015 Remaster)\", etc.
+- Edition markers: \"(Deluxe)\", \"(Extended)\", \"(Single Version)\", etc.
+- Format indicators: \"(Radio Edit)\", \"(Album Version)\", \"(Clean)\", etc.
+- Streaming artifacts: \"(feat. [artist])\" when it should be \"feat. [artist]\"
+
 REWRITE RULE SYNTAX:
 Rewrite rules support both regex and literal string replacement:
 
+IMPORTANT: All regex patterns MUST use anchors (^ and $) to match the entire input string.
+All replacements reconstruct the complete output string using capture groups.
+
 REGEX RULES (most common):
-- Pattern: r\"(\\d{4}) Remaster\" → Replacement: \"$1 Version\" 
-- Pattern: r\" - \\d{4} Remaster\" → Replacement: \"\" (removes suffix)
-- Pattern: r\"(.+) ft\\. (.+)\" → Replacement: \"$1 feat. $2\" (capture groups)
-- Pattern: r\"\\s+$\" → Replacement: \"\" (trim trailing whitespace)
+- Pattern: r\"^(.*)([0-9]{4}) Remaster(.*)$\" → Replacement: \"${1}${2} Version${3}\"
+- Pattern: r\"^(.*) - [0-9]{4} Remaster$\" → Replacement: \"${1}\" (removes suffix)
+- Pattern: r\"^(.+) ft\\. (.+)$\" → Replacement: \"${1} feat. ${2}\" (capture groups)
+- Pattern: r\"^(.*\\S)\\s+$\" → Replacement: \"${1}\" (trim trailing whitespace)
 
 LITERAL RULES (exact string matching):
 - Pattern: \"feat.\" → Replacement: \"featuring\" (simple replacement)
@@ -46,19 +60,28 @@ REGEX FLAGS (optional):
 FIELD TARGETS:
 Rules can target: track_name, artist_name, album_name, album_artist_name
 
-Examples of rule-worthy patterns:
-- Consistent suffix patterns: r\"\\s*\\(Deluxe Edition\\)\" → \"\"
-- Date removals: r\" - \\d{4} (Remaster|Version)\" → \"\"
-- Featuring normalization: r\" ft\\. \" → \" feat. \"
-- Whitespace cleanup: r\"\\s+\" → \" \"
+Examples of rule-worthy patterns (PRIORITIZE THESE):
+- Remaster removal: r\"^(.*) - [0-9]{4} (Remaster|Version)$\" → \"${1}\"
+- Remaster removal: r\"^(.*)\\s*\\([0-9]{4} Remaster\\)$\" → \"${1}\"
+- Version removal: r\"^(.*)\\s*\\((Deluxe|Special|Anniversary) (Edition|Version)\\)$\" → \"${1}\"
+- Edition removal: r\"^(.*)\\s*\\((Deluxe|Extended|Single)\\)$\" → \"${1}\"
+- Format removal: r\"^(.*)\\s*\\((Radio Edit|Album Version|Clean)\\)$\" → \"${1}\"
+- Year suffix removal: r\"^(.*) - [0-9]{4}$\" → \"${1}\"
+- Featuring normalization: r\"^(.*) ft\\. (.*)$\" → \"${1} feat. ${2}\"
+- Parenthetical featuring fix: r\"^(.*)\\s*\\(feat\\. (.*)\\)$\" → \"${1} feat. ${2}\"
+- Whitespace cleanup: r\"^(.*)\\s{2,}(.*)$\" → \"${1} ${2}\"
 
 GUIDELINES:
-- Always use available functions - don't just provide text responses
-- Check existing rewrite rules (provided in context) to avoid duplication
+- Always use available functions - don't just provide text responses  
+- CHECK PENDING ITEMS: Review existing rewrite rules, pending edits, and pending rules to avoid duplicates
+- DO NOT suggest edits for tracks that already have pending edits awaiting approval
+- DO NOT propose rewrite rules that are already pending or similar to pending rules
+- PRIORITIZE CLEANUP: Always suggest rules to remove remaster/version/edition information when found
 - Focus on issues requiring musical knowledge or complex judgment for immediate fixes
-- Suggest new rules for any consistent patterns you identify
+- Suggest new rules for any consistent patterns you identify (only if not already pending)  
 - Only suggest changes when confident they improve metadata quality
 - Consider original album/single releases when correcting compilations
+- CLEAN TRACK NAMES: The goal is clean, canonical track names without extraneous suffixes or parentheticals
 
 Help build a smarter cleaning system by identifying both immediate fixes AND patterns for future automation!";
 
@@ -88,6 +111,8 @@ pub struct ScrubberConfig {
     pub enable_web_interface: bool,
     /// Port for web interface
     pub web_port: u16,
+    /// Process only the last N tracks without updating timestamp state
+    pub last_n_tracks: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +174,7 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             enable_web_interface: false,
             web_port: 8080,
+            last_n_tracks: None,
         }
     }
 }
@@ -309,6 +335,9 @@ impl ScrobbleScrubberConfig {
         }
         if let Some(web_port) = args.web_port {
             self.scrubber.web_port = web_port;
+        }
+        if let Some(last_n_tracks) = args.last_n_tracks {
+            self.scrubber.last_n_tracks = Some(last_n_tracks);
         }
         if let Some(state_file) = &args.state_file {
             self.storage.state_file = state_file.clone();

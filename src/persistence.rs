@@ -55,6 +55,8 @@ pub struct PendingRewriteRule {
     /// Track that triggered this suggestion
     pub example_track_name: String,
     pub example_artist_name: String,
+    pub example_album_name: Option<String>,
+    pub example_album_artist_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -114,8 +116,90 @@ impl PendingRewriteRule {
             reason,
             example_track_name,
             example_artist_name,
+            example_album_name: None,
+            example_album_artist_name: None,
         }
     }
+
+    #[must_use]
+    pub fn new_with_album_info(
+        rule: RewriteRule,
+        reason: String,
+        example_track_name: String,
+        example_artist_name: String,
+        example_album_name: Option<String>,
+        example_album_artist_name: Option<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            created_at: Utc::now(),
+            rule,
+            reason,
+            example_track_name,
+            example_artist_name,
+            example_album_name,
+            example_album_artist_name,
+        }
+    }
+
+    /// Apply the rewrite rule to the example track and return the transformed values
+    pub fn apply_rule_to_example(&self) -> Result<TransformedExample, crate::rewrite::RewriteError> {
+        use lastfm_edit::Track;
+        
+        // Create a Track from the example data
+        let example_track = Track {
+            name: self.example_track_name.clone(),
+            artist: self.example_artist_name.clone(),
+            album: self.example_album_name.clone(),
+            playcount: 0,
+            timestamp: None,
+        };
+
+        // Apply the rule to see the transformation
+        let mut edit = crate::rewrite::create_no_op_edit(&example_track);
+        let changes_made = self.rule.apply(&mut edit)?;
+
+        Ok(TransformedExample {
+            original_track_name: self.example_track_name.clone(),
+            transformed_track_name: if edit.track_name != edit.track_name_original {
+                Some(edit.track_name)
+            } else {
+                None
+            },
+            original_artist_name: self.example_artist_name.clone(),
+            transformed_artist_name: if edit.artist_name != edit.artist_name_original {
+                Some(edit.artist_name)
+            } else {
+                None
+            },
+            original_album_name: self.example_album_name.clone(),
+            transformed_album_name: if edit.album_name != edit.album_name_original {
+                Some(edit.album_name)
+            } else {
+                None
+            },
+            original_album_artist_name: self.example_album_artist_name.clone(),
+            transformed_album_artist_name: if edit.album_artist_name != edit.album_artist_name_original {
+                Some(edit.album_artist_name)
+            } else {
+                None
+            },
+            changes_made,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransformedExample {
+    pub original_track_name: String,
+    pub transformed_track_name: Option<String>,
+    pub original_artist_name: String,
+    pub transformed_artist_name: Option<String>,
+    pub original_album_name: Option<String>,
+    pub transformed_album_name: Option<String>,
+    pub original_album_artist_name: Option<String>,
+    pub transformed_album_artist_name: Option<String>,
+    pub changes_made: bool,
 }
 
 #[async_trait]

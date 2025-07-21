@@ -11,6 +11,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use uuid::Uuid;
 
 use crate::persistence::StateStorage;
+use crate::rewrite::{RewriteRule, SdRule};
 use crate::scrub_action_provider::ScrubActionProvider;
 use crate::scrubber::ScrobbleScrubber;
 
@@ -45,6 +46,73 @@ pub enum ProcessingRequest {
 }
 
 pub type ProcessingRequestSender = mpsc::UnboundedSender<ProcessingRequest>;
+
+fn format_sd_rule(rule: &SdRule, field_name: &str) -> String {
+    let rule_type = if rule.is_literal {
+        "<span style='color: #28a745; font-weight: bold;'>literal</span>"
+    } else {
+        "<span style='color: #dc3545; font-weight: bold;'>regex</span>"
+    };
+    
+    let flags_str = rule.flags.as_ref()
+        .map(|f| format!(" <span style='color: #6c757d;'>(flags: {})</span>", f))
+        .unwrap_or_default();
+    
+    let max_replacements_str = if rule.max_replacements > 0 {
+        format!(" <span style='color: #6c757d;'>(max: {})</span>", rule.max_replacements)
+    } else {
+        String::new()
+    };
+
+    format!(
+        "&nbsp;&nbsp;<strong style='color: #495057;'>{}:</strong> {} <code style='background: #e9ecef; padding: 2px 4px;'>\"{}\"</code> → <code style='background: #e9ecef; padding: 2px 4px;'>\"{}\"</code>{}{}",
+        field_name,
+        rule_type,
+        html_escape(&rule.find),
+        html_escape(&rule.replace),
+        flags_str,
+        max_replacements_str
+    )
+}
+
+fn format_rule_details(rule: &RewriteRule) -> String {
+    let mut details = Vec::new();
+    
+    if let Some(track_rule) = &rule.track_name {
+        details.push(format_sd_rule(track_rule, "Track Name"));
+    }
+    
+    if let Some(artist_rule) = &rule.artist_name {
+        details.push(format_sd_rule(artist_rule, "Artist Name"));
+    }
+    
+    if let Some(album_rule) = &rule.album_name {
+        details.push(format_sd_rule(album_rule, "Album Name"));
+    }
+    
+    if let Some(album_artist_rule) = &rule.album_artist_name {
+        details.push(format_sd_rule(album_artist_rule, "Album Artist"));
+    }
+    
+    if rule.requires_confirmation {
+        details.push("&nbsp;&nbsp;<span style='color: #ffc107; font-weight: bold;'>⚠️ Requires confirmation</span>".to_string());
+    }
+    
+    if details.is_empty() {
+        "No transformations defined".to_string()
+    } else {
+        details.join("<br>")
+    }
+}
+
+fn html_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
 
 pub struct WebInterfaceState<S: StateStorage, P: ScrubActionProvider> {
     pub storage: Arc<Mutex<S>>,
@@ -100,9 +168,14 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; }}
         .section {{ margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; }}
-        .btn {{ padding: 8px 16px; margin: 4px; background: #007bff; color: white; border: none; cursor: pointer; }}
+        .btn {{ padding: 8px 16px; margin: 4px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }}
         .btn.danger {{ background: #dc3545; }}
-        .item {{ margin: 10px 0; padding: 10px; background: #f9f9f9; }}
+        .btn:hover {{ opacity: 0.8; }}
+        .item {{ margin: 10px 0; padding: 15px; background: #f9f9f9; border-radius: 6px; }}
+        .rule-details {{ margin: 10px 0; padding: 12px; background: #f0f0f0; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.4; }}
+        .rule-details strong {{ color: #2c3e50; }}
+        .transformation-preview {{ margin: 10px 0; padding: 12px; background: #e8f5e8; border: 2px solid #4CAF50; border-radius: 4px; font-size: 14px; line-height: 1.4; }}
+        .transformation-preview strong {{ color: #2e7d32; }}
     </style>
 </head>
 <body>
@@ -203,18 +276,61 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
             .iter()
             .take(5)
             .map(|rule| {
+                let rule_details = format_rule_details(&rule.rule);
+                let transformation_preview = match rule.apply_rule_to_example() {
+                    Ok(transformed) => {
+                        let mut changes = Vec::new();
+                        if let Some(new_track) = &transformed.transformed_track_name {
+                            changes.push(format!("Track: {} → <strong>{}</strong>", 
+                                html_escape(&transformed.original_track_name), html_escape(new_track)));
+                        }
+                        if let Some(new_artist) = &transformed.transformed_artist_name {
+                            changes.push(format!("Artist: {} → <strong>{}</strong>", 
+                                html_escape(&transformed.original_artist_name), html_escape(new_artist)));
+                        }
+                        if let Some(new_album) = &transformed.transformed_album_name {
+                            if let Some(orig_album) = &transformed.original_album_name {
+                                changes.push(format!("Album: {} → <strong>{}</strong>", 
+                                    html_escape(orig_album), html_escape(new_album)));
+                            }
+                        }
+                        if let Some(new_album_artist) = &transformed.transformed_album_artist_name {
+                            if let Some(orig_album_artist) = &transformed.original_album_artist_name {
+                                changes.push(format!("Album Artist: {} → <strong>{}</strong>", 
+                                    html_escape(orig_album_artist), html_escape(new_album_artist)));
+                            }
+                        }
+                        if changes.is_empty() {
+                            "<em>No changes would be made to this example</em>".to_string()
+                        } else {
+                            changes.join("<br>")
+                        }
+                    }
+                    Err(e) => format!("<em>Error applying rule: {}</em>", html_escape(&e.to_string()))
+                };
+                
                 format!(
                     r#"
                 <div class="item">
                     <strong>{}</strong><br>
-                    <small>Example: {} - {}</small><br>
+                    <small>Example track: {} - {}</small><br>
+                    <div class="rule-details">
+                        <strong>Rule Details:</strong><br>
+                        {}
+                    </div>
+                    <div class="transformation-preview">
+                        <strong>Example Transformation:</strong><br>
+                        {}
+                    </div>
                     <button class="btn" onclick="handleRule('{}', 'approve')">Approve</button>
                     <button class="btn danger" onclick="handleRule('{}', 'reject')">Reject</button>
                 </div>
             "#,
-                    rule.reason,
-                    rule.example_artist_name,
-                    rule.example_track_name,
+                    html_escape(&rule.reason),
+                    html_escape(&rule.example_artist_name),
+                    html_escape(&rule.example_track_name),
+                    rule_details,
+                    transformation_preview,
                     rule.id,
                     rule.id
                 )

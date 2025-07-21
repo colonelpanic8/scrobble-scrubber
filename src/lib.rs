@@ -2,6 +2,7 @@ pub mod config;
 pub mod openai_provider;
 pub mod persistence;
 pub mod rewrite;
+pub mod rewrite_processor;
 pub mod scrub_action_provider;
 pub mod scrubber;
 pub mod web_interface;
@@ -63,4 +64,8 @@ pub struct Args {
     /// Port for web interface (default: 8080)
     #[arg(long)]
     pub web_port: Option<u16>,
+
+    /// Process only the last N tracks without updating timestamp state
+    #[arg(long)]
+    pub last_n_tracks: Option<u32>,
 }
