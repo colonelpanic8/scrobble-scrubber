@@ -398,6 +398,31 @@ impl ScrobbleScrubberConfig {
                 }
                 // Note: tracks count is handled in main.rs, not stored in config
             }
+            Commands::Artist {
+                name: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+                enable_web_interface,
+                web_port,
+            } => {
+                if *dry_run {
+                    self.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    self.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    self.scrubber.require_proposed_rule_confirmation = true;
+                }
+                if *enable_web_interface {
+                    self.scrubber.enable_web_interface = true;
+                }
+                if let Some(web_port) = web_port {
+                    self.scrubber.web_port = *web_port;
+                }
+                // Note: artist name is handled in main.rs, not stored in config
+            }
         }
         if let Some(state_file) = &args.state_file {
             self.storage.state_file = state_file.clone();

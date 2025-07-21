@@ -125,4 +125,30 @@ pub enum Commands {
         #[arg(long)]
         web_port: Option<u16>,
     },
+    /// Process all tracks for a specific artist
+    Artist {
+        /// Artist name to process
+        #[arg(short, long)]
+        name: String,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
 }

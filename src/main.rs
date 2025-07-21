@@ -15,7 +15,9 @@ use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let args = Args::parse();
 
     // Load configuration from args, env vars, and config files
@@ -149,6 +151,10 @@ async fn main() -> Result<()> {
         scrobble_scrubber::Commands::LastN { tracks, .. } => {
             info!("Processing last {tracks} tracks");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
+        }
+        scrobble_scrubber::Commands::Artist { name, .. } => {
+            info!("Processing all tracks for artist '{name}'");
+            scrubber_guard.process_artist(name).await?;
         }
     }
 
