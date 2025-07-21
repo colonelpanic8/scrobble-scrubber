@@ -60,6 +60,62 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         self.check_and_process_tracks().await
     }
 
+    /// Ensure timestamp state is initialized with the most recent track if not set
+    async fn ensure_timestamp_initialized(
+        &mut self,
+        timestamp_state: TimestampState,
+    ) -> Result<TimestampState> {
+        if timestamp_state.last_processed_timestamp.is_some() {
+            return Ok(timestamp_state);
+        }
+
+        info!("No timestamp anchor found, initializing with most recent track...");
+
+        let mut recent_iterator = self.client.recent_tracks();
+
+        // Get the first (most recent) track to use as our anchor
+        if let Some(first_track) = recent_iterator.next().await? {
+            info!(
+                "Most recent track found: '{}' by '{}' (playcount: {})",
+                first_track.name, first_track.artist, first_track.playcount
+            );
+
+            if let Some(ts) = first_track.timestamp {
+                let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
+                let new_state = TimestampState {
+                    last_processed_timestamp: Some(track_time),
+                };
+
+                // Save the new timestamp state
+                self.storage
+                    .lock()
+                    .await
+                    .save_timestamp_state(&new_state)
+                    .await
+                    .map_err(|e| {
+                        lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                            "Failed to save initial timestamp state: {e}"
+                        )))
+                    })?;
+
+                info!(
+                    "Initialized timestamp anchor at: {} for track '{}' by '{}'",
+                    track_time, first_track.name, first_track.artist
+                );
+                return Ok(new_state);
+            } else {
+                info!(
+                    "Most recent track '{}' by '{}' has no timestamp, using original state",
+                    first_track.name, first_track.artist
+                );
+            }
+        } else {
+            info!("No recent tracks found, using original state");
+        }
+
+        Ok(timestamp_state)
+    }
+
     pub async fn run(&mut self) -> Result<()> {
         loop {
             // Check if we should stop
@@ -113,97 +169,149 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
+        // Ensure timestamp state is initialized
+        let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
+
         let mut recent_iterator = self.client.recent_tracks();
 
-        let mut processed = 0;
-        let mut latest_processed_timestamp: Option<DateTime<Utc>> = None;
-        let mut found_anchor = timestamp_state.last_processed_timestamp.is_none();
+        let mut examined = 0;
 
-        // Collect tracks first to avoid borrow checker issues
+        // Step 1: Collect all tracks newer than our anchor point
         let mut tracks_to_process = Vec::new();
-        while let Some(track) = recent_iterator.next().await? {
-            if processed >= self.config.scrubber.max_tracks {
-                return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
-                    format!(
-                        "Reached maximum track limit ({}), unable to proceed",
-                        self.config.scrubber.max_tracks
-                    ),
-                )));
-            }
+        info!("Scanning recent tracks to find new tracks since last run...");
 
-            // Check if this track matches our last processed timestamp (our anchor point)
-            if !found_anchor {
-                if let (Some(track_ts), Some(last_processed)) =
-                    (track.timestamp, timestamp_state.last_processed_timestamp)
-                {
+        while let Some(track) = recent_iterator.next().await? {
+            examined += 1;
+
+            // Check if we've reached our last processed track (anchor point)
+            if let Some(last_processed) = timestamp_state.last_processed_timestamp {
+                if let Some(track_ts) = track.timestamp {
                     let track_time = DateTime::from_timestamp(track_ts as i64, 0);
                     if let Some(track_time) = track_time {
-                        if track_time == last_processed {
-                            info!("Found anchor track at timestamp {last_processed}, starting processing from next track");
-                            found_anchor = true;
-                            continue; // Skip this track since we've already processed it
-                        } else if track_time < last_processed {
-                            info!(
-                                "Reached track older than last processed ({last_processed}), stopping"
-                            );
-                            break;
+                        if track_time <= last_processed {
+                            info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
+                                  track.name, track.artist, track_time, tracks_to_process.len());
+                            break; // Stop here - we've caught up to where we left off
                         }
+                        // Track is newer than our anchor, collect it for processing
+                        info!(
+                            "Found new track: '{}' by '{}' at {}",
+                            track.name, track.artist, track_time
+                        );
                     }
                 }
-                // If we haven't found our anchor yet, continue looking but don't process
-                continue;
+            } else {
+                // First run - no anchor timestamp, collect tracks up to limit
+                info!(
+                    "First run - found track: '{}' by '{}'",
+                    track.name, track.artist
+                );
             }
 
-            // Track the timestamp of this track since we're processing it
-            if let Some(ts) = track.timestamp {
-                let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
-                if latest_processed_timestamp.is_none()
-                    || latest_processed_timestamp.unwrap() < track_time
-                {
-                    latest_processed_timestamp = Some(track_time);
-                }
+            // Check if we've hit the collection limit
+            if tracks_to_process.len() >= self.config.scrubber.max_tracks as usize {
+                info!(
+                    "Reached maximum track collection limit ({}), stopping scan",
+                    self.config.scrubber.max_tracks
+                );
+                break;
             }
 
             tracks_to_process.push(track);
-            processed += 1;
         }
 
-        // Process collected tracks in batch
+        info!(
+            "Scan complete: examined {} tracks, collected {} tracks to process",
+            examined,
+            tracks_to_process.len()
+        );
+
+        // Step 2: Process all collected tracks (oldest first) with incremental timestamp updates
         if !tracks_to_process.is_empty() {
-            let batch_suggestions = self.analyze_tracks(&tracks_to_process).await;
+            // Reverse to process oldest first (tracks were collected newest first)
+            tracks_to_process.reverse();
+            info!(
+                "Processing {} tracks in batches of {} (oldest first)...",
+                tracks_to_process.len(),
+                self.config.scrubber.processing_batch_size
+            );
 
-            for (track_index, suggestions) in batch_suggestions {
-                if track_index >= tracks_to_process.len() {
-                    log::warn!(
-                        "Invalid track index {} for batch size {}",
-                        track_index,
-                        tracks_to_process.len()
-                    );
-                    continue;
-                }
+            self.process_tracks_in_batches(&tracks_to_process).await?;
+        }
 
-                let track = &tracks_to_process[track_index];
-                info!(
-                    "Processing track: {} - {} ({} suggestions)",
-                    track.artist,
-                    track.name,
-                    suggestions.len()
+        info!(
+            "Processing complete: examined {} tracks, processed {} tracks",
+            examined,
+            tracks_to_process.len()
+        );
+        Ok(())
+    }
+
+    /// Process tracks in configurable batches with incremental timestamp updates
+    async fn process_tracks_in_batches(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+        let batch_size = self.config.scrubber.processing_batch_size as usize;
+
+        for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
+            info!(
+                "Processing batch {} of {} (batch size: {})",
+                batch_num + 1,
+                tracks.len().div_ceil(batch_size),
+                batch.len()
+            );
+
+            // Process this batch
+            self.process_track_batch(batch).await?;
+
+            // Update timestamp incrementally after each batch (using the newest track in batch)
+            if let Some(newest_track_in_batch) = batch.last() {
+                self.update_timestamp_to_track(newest_track_in_batch)
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Process a single batch of tracks with their suggestions
+    async fn process_track_batch(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+        let batch_suggestions = self.analyze_tracks(tracks).await;
+
+        for (track_index, suggestions) in batch_suggestions {
+            if track_index >= tracks.len() {
+                log::warn!(
+                    "Invalid track index {} for batch size {}",
+                    track_index,
+                    tracks.len()
                 );
+                continue;
+            }
 
-                for suggestion in suggestions {
-                    if self.config.scrubber.dry_run {
-                        info!("DRY RUN: Would apply suggestion: {suggestion:?}");
-                    } else {
-                        self.apply_suggestion(track, &suggestion).await?;
-                    }
+            let track = &tracks[track_index];
+            info!(
+                "Processing track: {} - {} ({} suggestions)",
+                track.artist,
+                track.name,
+                suggestions.len()
+            );
+
+            for suggestion in suggestions {
+                if self.config.scrubber.dry_run {
+                    info!("DRY RUN: Would apply suggestion: {suggestion:?}");
+                } else {
+                    self.apply_suggestion(track, &suggestion).await?;
                 }
             }
         }
 
-        // Update timestamp with the latest scrobble timestamp we actually processed
-        if let Some(latest) = latest_processed_timestamp {
+        Ok(())
+    }
+
+    /// Update timestamp state to a specific track
+    async fn update_timestamp_to_track(&mut self, track: &lastfm_edit::Track) -> Result<()> {
+        if let Some(ts) = track.timestamp {
+            let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
             let updated_state = TimestampState {
-                last_processed_timestamp: Some(latest),
+                last_processed_timestamp: Some(track_time),
             };
 
             self.storage
@@ -217,10 +325,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )))
                 })?;
 
-            info!("Updated last processed timestamp to: {latest}");
+            info!(
+                "Updated timestamp anchor to: {} (track: '{}' by '{}')",
+                track_time, track.name, track.artist
+            );
         }
-
-        info!("Processed {processed} tracks");
         Ok(())
     }
 
@@ -246,34 +355,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Process collected tracks in batch
         if !tracks_to_process.is_empty() {
-            let batch_suggestions = self.analyze_tracks(&tracks_to_process).await;
-
-            for (track_index, suggestions) in batch_suggestions {
-                if track_index >= tracks_to_process.len() {
-                    log::warn!(
-                        "Invalid track index {} for batch size {}",
-                        track_index,
-                        tracks_to_process.len()
-                    );
-                    continue;
-                }
-
-                let track = &tracks_to_process[track_index];
-                info!(
-                    "Processing track: {} - {} ({} suggestions)",
-                    track.artist,
-                    track.name,
-                    suggestions.len()
-                );
-
-                for suggestion in suggestions {
-                    if self.config.scrubber.dry_run {
-                        info!("DRY RUN: Would apply suggestion: {suggestion:?}");
-                    } else {
-                        self.apply_suggestion(track, &suggestion).await?;
-                    }
-                }
-            }
+            self.process_track_batch(&tracks_to_process).await?;
         }
 
         info!("Processed {processed} tracks for artist '{artist}'");

@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, oneshot, Mutex};
 use uuid::Uuid;
 
 use crate::persistence::StateStorage;
@@ -24,15 +24,32 @@ struct ApproveRuleRequest {
     action: String, // "approve" or "reject"
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct ProcessArtistRequest {
+    artist_name: String,
+}
+
 #[derive(Serialize, Deserialize)]
 struct ApiResponse {
     success: bool,
     message: String,
 }
 
+// Channel message types for background processing
+#[derive(Debug)]
+pub enum ProcessingRequest {
+    ProcessArtist {
+        artist_name: String,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
+}
+
+pub type ProcessingRequestSender = mpsc::UnboundedSender<ProcessingRequest>;
+
 pub struct WebInterfaceState<S: StateStorage, P: ScrubActionProvider> {
     pub storage: Arc<Mutex<S>>,
     pub scrubber: Arc<Mutex<ScrobbleScrubber<S, P>>>,
+    pub processing_tx: ProcessingRequestSender,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> Clone for WebInterfaceState<S, P> {
@@ -40,17 +57,21 @@ impl<S: StateStorage, P: ScrubActionProvider> Clone for WebInterfaceState<S, P> 
         Self {
             storage: self.storage.clone(),
             scrubber: self.scrubber.clone(),
+            processing_tx: self.processing_tx.clone(),
         }
     }
 }
 
-pub fn create_router<S: StateStorage + 'static, P: ScrubActionProvider + 'static>(
-) -> Router<WebInterfaceState<S, P>> {
+pub fn create_router<
+    S: StateStorage + Send + Sync + 'static,
+    P: ScrubActionProvider + Send + Sync + 'static,
+>() -> Router<WebInterfaceState<S, P>> {
     Router::new()
         .route("/", get(dashboard))
         .route("/api/edits/:id/:action", post(handle_edit_action))
         .route("/api/rules/:id/:action", post(handle_rule_action))
         .route("/api/scrubber/status", get(scrubber_status))
+        .route("/api/scrubber/process-artist", post(process_artist))
 }
 
 async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
@@ -86,17 +107,26 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
 </head>
 <body>
     <h1>🎵 Scrobble Scrubber Dashboard</h1>
-    
+
     <div class="section">
         <h2>Pending Edits ({})</h2>
         {}
     </div>
-    
+
     <div class="section">
         <h2>Pending Rules ({})</h2>
         {}
     </div>
-    
+
+    <div class="section">
+        <h2>Process Artist</h2>
+        <form id="artistForm">
+            <input type="text" id="artistName" placeholder="Enter artist name..." style="width: 300px; padding: 8px;">
+            <button type="submit" class="btn" style="margin-left: 10px;">Process Artist</button>
+        </form>
+        <div id="artistStatus" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
     <script>
         async function handleEdit(id, action) {{
             const response = await fetch(`/api/edits/${{id}}/${{action}}`, {{ method: 'POST' }});
@@ -104,13 +134,48 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
             alert(result.message);
             if (result.success) location.reload();
         }}
-        
+
         async function handleRule(id, action) {{
             const response = await fetch(`/api/rules/${{id}}/${{action}}`, {{ method: 'POST' }});
             const result = await response.json();
             alert(result.message);
             if (result.success) location.reload();
         }}
+
+        document.getElementById('artistForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            const artistName = document.getElementById('artistName').value.trim();
+            const statusDiv = document.getElementById('artistStatus');
+
+            if (!artistName) {{
+                statusDiv.textContent = 'Please enter an artist name';
+                statusDiv.style.color = 'red';
+                return;
+            }}
+
+            statusDiv.textContent = 'Processing...';
+            statusDiv.style.color = 'blue';
+
+            try {{
+                const response = await fetch('/api/scrubber/process-artist', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ artist_name: artistName }})
+                }});
+
+                const result = await response.json();
+                statusDiv.textContent = result.message;
+                statusDiv.style.color = result.success ? 'green' : 'red';
+
+                if (result.success) {{
+                    document.getElementById('artistName').value = '';
+                    setTimeout(() => location.reload(), 2000);
+                }}
+            }} catch (error) {{
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.style.color = 'red';
+            }}
+        }});
     </script>
 </body>
 </html>
@@ -290,12 +355,132 @@ async fn scrubber_status<S: StateStorage, P: ScrubActionProvider>(
     })))
 }
 
-pub async fn start_web_server<S: StateStorage + 'static, P: ScrubActionProvider + 'static>(
+async fn process_artist<S: StateStorage + 'static, P: ScrubActionProvider + 'static>(
+    State(state): State<WebInterfaceState<S, P>>,
+    Json(request): Json<ProcessArtistRequest>,
+) -> Result<Json<ApiResponse>, StatusCode> {
+    if request.artist_name.trim().is_empty() {
+        return Ok(Json(ApiResponse {
+            success: false,
+            message: "Artist name cannot be empty".to_string(),
+        }));
+    }
+
+    {
+        let scrubber = state.scrubber.lock().await;
+        // Check if scrubber is already running
+        if scrubber.is_running().await {
+            return Ok(Json(ApiResponse {
+                success: false,
+                message: "Scrubber is already running, please wait".to_string(),
+            }));
+        }
+    }
+
+    // Process artist using channel-based approach
+    let artist_name = request.artist_name.trim().to_string();
+
+    // Create oneshot channel for response
+    let (response_tx, response_rx) = oneshot::channel();
+
+    // Send processing request via channel
+    let request = ProcessingRequest::ProcessArtist {
+        artist_name: artist_name.clone(),
+        response_tx,
+    };
+
+    if state.processing_tx.send(request).is_err() {
+        return Ok(Json(ApiResponse {
+            success: false,
+            message: "Processing service is unavailable".to_string(),
+        }));
+    }
+
+    // Wait for response from background worker
+    match response_rx.await {
+        Ok(Ok(())) => Ok(Json(ApiResponse {
+            success: true,
+            message: format!("Successfully processed artist '{artist_name}'"),
+        })),
+        Ok(Err(e)) => Ok(Json(ApiResponse {
+            success: false,
+            message: format!("Failed to process artist '{artist_name}': {e}"),
+        })),
+        Err(_) => Ok(Json(ApiResponse {
+            success: false,
+            message: "Processing service did not respond".to_string(),
+        })),
+    }
+}
+
+// Background worker task that processes requests
+pub async fn processing_worker<S: StateStorage + 'static, P: ScrubActionProvider + 'static>(
+    mut receiver: mpsc::UnboundedReceiver<ProcessingRequest>,
+    scrubber: Arc<Mutex<ScrobbleScrubber<S, P>>>,
+) {
+    while let Some(request) = receiver.recv().await {
+        match request {
+            ProcessingRequest::ProcessArtist {
+                artist_name,
+                response_tx,
+            } => {
+                log::info!("Got process artist request '{artist_name}'");
+                // Process in blocking context since it's not Send
+                let scrubber_clone = scrubber.clone();
+                let artist_name_clone = artist_name.clone();
+
+                let result = tokio::task::spawn_blocking(move || {
+                    tokio::runtime::Handle::current().block_on(async move {
+                        let mut scrubber = scrubber_clone.lock().await;
+                        scrubber.process_artist(&artist_name_clone).await
+                    })
+                })
+                .await;
+
+                let response = match result {
+                    Ok(Ok(())) => {
+                        log::info!("Successfully processed artist '{artist_name}'");
+                        Ok(())
+                    }
+                    Ok(Err(e)) => {
+                        log::error!("Failed to process artist '{artist_name}': {e}");
+                        Err(e.to_string())
+                    }
+                    Err(e) => {
+                        log::error!("Task error processing artist '{artist_name}': {e}");
+                        Err(format!("Task error: {e}"))
+                    }
+                };
+
+                // Send response back (ignore if receiver dropped)
+                let _ = response_tx.send(response);
+            }
+        }
+    }
+}
+
+pub async fn start_web_server<
+    S: StateStorage + Send + Sync + 'static,
+    P: ScrubActionProvider + Send + Sync + 'static,
+>(
     storage: Arc<Mutex<S>>,
     scrubber: Arc<Mutex<ScrobbleScrubber<S, P>>>,
     port: u16,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let state = WebInterfaceState { storage, scrubber };
+    // Create processing channel
+    let (processing_tx, processing_rx) = mpsc::unbounded_channel();
+
+    // Start background worker
+    let worker_scrubber = scrubber.clone();
+    tokio::spawn(async move {
+        processing_worker(processing_rx, worker_scrubber).await;
+    });
+
+    let state = WebInterfaceState {
+        storage,
+        scrubber,
+        processing_tx,
+    };
 
     let app = create_router().with_state(state);
 

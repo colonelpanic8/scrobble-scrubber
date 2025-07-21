@@ -5,7 +5,7 @@ use scrobble_scrubber::Args;
 fn test_default_config() {
     let config = ScrobbleScrubberConfig::default();
     assert_eq!(config.scrubber.interval, 300);
-    assert_eq!(config.scrubber.max_tracks, 100);
+    assert_eq!(config.scrubber.max_tracks, 1000);
     assert!(!config.scrubber.dry_run);
     assert!(!config.scrubber.require_confirmation);
     assert!(config.scrubber.require_proposed_rule_confirmation);

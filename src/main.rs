@@ -1,7 +1,7 @@
 use clap::Parser;
 use lastfm_edit::{LastFmEditClient, LastFmError, Result};
 use log::info;
-use scrobble_scrubber::config::ScrobbleScrubberConfig;
+use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use scrobble_scrubber::scrub_action_provider::{
@@ -41,6 +41,7 @@ async fn main() -> Result<()> {
     info!("Successfully logged in to Last.fm");
 
     // Create storage wrapped in Arc<Mutex<>>
+    info!("Using state file: {}", config.storage.state_file);
     let storage = Arc::new(Mutex::new(
         FileStorage::new(&config.storage.state_file).map_err(|e| {
             LastFmError::Io(std::io::Error::other(format!(
@@ -70,7 +71,25 @@ async fn main() -> Result<()> {
 
     // Add OpenAI provider if enabled and configured
     if config.providers.enable_openai {
-        if let Some(openai_config) = &config.providers.openai {
+        // Try to get OpenAI config, or create default from environment variables
+        let openai_config_opt = if let Some(openai_config) = &config.providers.openai {
+            Some(openai_config.clone())
+        } else {
+            // Check if API key is available from environment variables
+            if let Ok(api_key) = std::env::var("SCROBBLE_SCRUBBER_OPENAI_API_KEY") {
+                info!("Creating default OpenAI configuration from environment variable");
+                Some(OpenAIProviderConfig {
+                    api_key,
+                    model: std::env::var("SCROBBLE_SCRUBBER_OPENAI_MODEL").ok(),
+                    system_prompt: std::env::var("SCROBBLE_SCRUBBER_OPENAI_SYSTEM_PROMPT").ok(),
+                })
+            } else {
+                log::warn!("OpenAI provider enabled but no API key found in configuration or SCROBBLE_SCRUBBER_OPENAI_API_KEY environment variable");
+                None
+            }
+        };
+
+        if let Some(openai_config) = openai_config_opt {
             match OpenAIScrubActionProvider::new(
                 openai_config.api_key.clone(),
                 openai_config.model.clone(),
@@ -78,15 +97,16 @@ async fn main() -> Result<()> {
                 rules_state.rewrite_rules.clone(),
             ) {
                 Ok(openai_provider) => {
-                    info!("Enabled OpenAI provider");
+                    info!(
+                        "Enabled OpenAI provider with model: {}",
+                        openai_config.model.as_deref().unwrap_or("default")
+                    );
                     action_provider = action_provider.add_provider(openai_provider);
                 }
                 Err(e) => {
                     log::warn!("Failed to create OpenAI provider: {e}");
                 }
             }
-        } else {
-            log::warn!("OpenAI provider enabled but no configuration provided");
         }
     }
 
