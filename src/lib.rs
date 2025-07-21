@@ -7,39 +7,19 @@ pub mod scrub_action_provider;
 pub mod scrubber;
 pub mod web_interface;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(name = "scrobble-scrubber")]
 #[command(about = "Automated Last.fm track monitoring and scrubbing system")]
 pub struct Args {
-    /// Check interval in seconds
-    #[arg(short, long)]
-    pub interval: Option<u64>,
-
-    /// Maximum number of tracks to check per run
-    #[arg(short, long)]
-    pub max_tracks: Option<usize>,
-
-    /// Dry run mode - don't actually make any edits
-    #[arg(long)]
-    pub dry_run: bool,
-
-    /// Path to state file for persistence
-    #[arg(short, long)]
-    pub state_file: Option<String>,
-
     /// Configuration file path
     #[arg(short, long)]
     pub config: Option<String>,
 
-    /// Require confirmation for all edits
-    #[arg(long)]
-    pub require_confirmation: bool,
-
-    /// Require confirmation for proposed rewrite rules
-    #[arg(long)]
-    pub require_proposed_rule_confirmation: bool,
+    /// Path to state file for persistence
+    #[arg(short, long)]
+    pub state_file: Option<String>,
 
     /// Last.fm username
     #[arg(long)]
@@ -57,15 +37,92 @@ pub struct Args {
     #[arg(long)]
     pub openai_api_key: Option<String>,
 
-    /// Enable web interface for managing pending rules and edits
-    #[arg(long)]
-    pub enable_web_interface: bool,
+    #[command(subcommand)]
+    pub command: Commands,
+}
 
-    /// Port for web interface (default: 8080)
-    #[arg(long)]
-    pub web_port: Option<u16>,
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Run continuously, monitoring for new tracks (default mode)
+    Run {
+        /// Check interval in seconds
+        #[arg(short, long)]
+        interval: Option<u64>,
 
-    /// Process only the last N tracks without updating timestamp state
-    #[arg(long)]
-    pub last_n_tracks: Option<u32>,
+        /// Maximum number of tracks to check per run
+        #[arg(short, long)]
+        max_tracks: Option<usize>,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+    /// Run once and exit after processing new tracks since last run
+    Once {
+        /// Maximum number of tracks to check
+        #[arg(short, long)]
+        max_tracks: Option<usize>,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+    /// Process the last N tracks without updating timestamp state
+    LastN {
+        /// Number of tracks to process
+        #[arg(short, long)]
+        tracks: u32,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
 }

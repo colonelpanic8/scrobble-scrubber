@@ -143,9 +143,11 @@ impl PendingRewriteRule {
     }
 
     /// Apply the rewrite rule to the example track and return the transformed values
-    pub fn apply_rule_to_example(&self) -> Result<TransformedExample, crate::rewrite::RewriteError> {
+    pub fn apply_rule_to_example(
+        &self,
+    ) -> Result<TransformedExample, crate::rewrite::RewriteError> {
         use lastfm_edit::Track;
-        
+
         // Create a Track from the example data
         let example_track = Track {
             name: self.example_track_name.clone(),
@@ -179,7 +181,9 @@ impl PendingRewriteRule {
                 None
             },
             original_album_artist_name: self.example_album_artist_name.clone(),
-            transformed_album_artist_name: if edit.album_artist_name != edit.album_artist_name_original {
+            transformed_album_artist_name: if edit.album_artist_name
+                != edit.album_artist_name_original
+            {
                 Some(edit.album_artist_name)
             } else {
                 None

@@ -156,12 +156,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
-        // Check if we're in last-n-tracks mode
-        if let Some(n) = self.config.scrubber.last_n_tracks {
-            return self.process_last_n_tracks(n).await;
-        }
-
-        // Normal mode: Load current timestamp state to know where to start reading
+        // Load current timestamp state to know where to start reading
         let timestamp_state = self
             .storage
             .lock()
@@ -253,7 +248,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Process the last N tracks without updating timestamp state
-    async fn process_last_n_tracks(&mut self, n: u32) -> Result<()> {
+    pub async fn process_last_n_tracks(&mut self, n: u32) -> Result<()> {
         info!("Processing last {n} tracks (no timestamp updates)");
 
         let mut recent_iterator = self.client.recent_tracks();
@@ -283,7 +278,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         );
 
         // Process tracks without timestamp updates
-        self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process).await?;
+        self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process)
+            .await?;
 
         info!(
             "Processing complete: examined {} tracks, processed {} tracks",
@@ -319,7 +315,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Process tracks in configurable batches without timestamp updates
-    async fn process_tracks_in_batches_no_timestamp_update(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+    async fn process_tracks_in_batches_no_timestamp_update(
+        &mut self,
+        tracks: &[lastfm_edit::Track],
+    ) -> Result<()> {
         let batch_size = self.config.scrubber.processing_batch_size as usize;
 
         for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
@@ -430,12 +429,20 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Load pending items to provide context for action providers
         let (pending_edits_result, pending_rules_result) = tokio::join!(
             async {
-                self.storage.lock().await.load_pending_edits_state().await
+                self.storage
+                    .lock()
+                    .await
+                    .load_pending_edits_state()
+                    .await
                     .map(|state| state.pending_edits)
                     .map_err(|e| format!("Failed to load pending edits: {e}"))
             },
             async {
-                self.storage.lock().await.load_pending_rewrite_rules_state().await
+                self.storage
+                    .lock()
+                    .await
+                    .load_pending_rewrite_rules_state()
+                    .await
                     .map(|state| state.pending_rules)
                     .map_err(|e| format!("Failed to load pending rules: {e}"))
             }
@@ -444,7 +451,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Call the unified analyze_tracks method with optional context
         match (pending_edits_result, pending_rules_result) {
             (Ok(pending_edits), Ok(pending_rules)) => {
-                match self.action_provider.analyze_tracks(tracks, Some(&pending_edits), Some(&pending_rules)).await {
+                match self
+                    .action_provider
+                    .analyze_tracks(tracks, Some(&pending_edits), Some(&pending_rules))
+                    .await
+                {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
@@ -462,7 +473,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Err(e) => {
                         warn!("Error from context-aware action provider: {e}, falling back to regular analysis");
                         // Fall back to no context
-                        match self.action_provider.analyze_tracks(tracks, None, None).await {
+                        match self
+                            .action_provider
+                            .analyze_tracks(tracks, None, None)
+                            .await
+                        {
                             Ok(suggestions) => {
                                 for (track_idx, track_suggestions) in &suggestions {
                                     if let Some(track) = tracks.get(*track_idx) {
@@ -486,8 +501,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
             }
             (Err(e1), Err(e2)) => {
-                warn!("Failed to load pending items: {} and {}, using analysis without context", e1, e2);
-                match self.action_provider.analyze_tracks(tracks, None, None).await {
+                warn!(
+                    "Failed to load pending items: {e1} and {e2}, using analysis without context"
+                );
+                match self
+                    .action_provider
+                    .analyze_tracks(tracks, None, None)
+                    .await
+                {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
@@ -509,8 +530,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
             }
             (Err(e), _) | (_, Err(e)) => {
-                warn!("Failed to load some pending items: {}, using analysis without context", e);
-                match self.action_provider.analyze_tracks(tracks, None, None).await {
+                warn!("Failed to load some pending items: {e}, using analysis without context");
+                match self
+                    .action_provider
+                    .analyze_tracks(tracks, None, None)
+                    .await
+                {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
@@ -559,10 +584,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 {
                     self.create_pending_edit(track, edit).await?;
                     if self.config.scrubber.dry_run {
-                        info!("DRY RUN: Created pending edit for track '{}' by '{}'", track.name, track.artist);
+                        info!(
+                            "DRY RUN: Created pending edit for track '{}' by '{}'",
+                            track.name, track.artist
+                        );
                     }
                 } else if self.config.scrubber.dry_run {
-                    info!("DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}", track.name, track.artist);
+                    info!(
+                        "DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}",
+                        track.name, track.artist
+                    );
                 } else {
                     self.apply_edit(track, edit).await?;
                 }
@@ -574,7 +605,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 );
                 self.handle_proposed_rule(track, rule, motivation).await?;
                 if self.config.scrubber.dry_run {
-                    info!("DRY RUN: Processed proposed rule for track '{}' by '{}'", track.name, track.artist);
+                    info!(
+                        "DRY RUN: Processed proposed rule for track '{}' by '{}'",
+                        track.name, track.artist
+                    );
                 }
             }
             ScrubActionSuggestion::NoAction => {

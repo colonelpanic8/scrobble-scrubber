@@ -111,8 +111,6 @@ pub struct ScrubberConfig {
     pub enable_web_interface: bool,
     /// Port for web interface
     pub web_port: u16,
-    /// Process only the last N tracks without updating timestamp state
-    pub last_n_tracks: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,7 +172,6 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             enable_web_interface: false,
             web_port: 8080,
-            last_n_tracks: None,
         }
     }
 }
@@ -314,30 +311,93 @@ impl ScrobbleScrubberConfig {
     /// Merge command line arguments into the configuration
     #[must_use]
     pub fn merge_args(mut self, args: &crate::Args) -> Self {
-        // Override with command line arguments if provided
-        if let Some(interval) = args.interval {
-            self.scrubber.interval = interval;
-        }
-        if let Some(max_tracks) = args.max_tracks {
-            self.scrubber.max_tracks = max_tracks as u32;
-        }
-        if args.dry_run {
-            self.scrubber.dry_run = true;
-        }
-        if args.require_confirmation {
-            self.scrubber.require_confirmation = true;
-        }
-        if args.require_proposed_rule_confirmation {
-            self.scrubber.require_proposed_rule_confirmation = true;
-        }
-        if args.enable_web_interface {
-            self.scrubber.enable_web_interface = true;
-        }
-        if let Some(web_port) = args.web_port {
-            self.scrubber.web_port = web_port;
-        }
-        if let Some(last_n_tracks) = args.last_n_tracks {
-            self.scrubber.last_n_tracks = Some(last_n_tracks);
+        use crate::Commands;
+
+        // Apply command-specific overrides
+        match &args.command {
+            Commands::Run {
+                interval,
+                max_tracks,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+                enable_web_interface,
+                web_port,
+            } => {
+                if let Some(interval) = interval {
+                    self.scrubber.interval = *interval;
+                }
+                if let Some(max_tracks) = max_tracks {
+                    self.scrubber.max_tracks = *max_tracks as u32;
+                }
+                if *dry_run {
+                    self.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    self.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    self.scrubber.require_proposed_rule_confirmation = true;
+                }
+                if *enable_web_interface {
+                    self.scrubber.enable_web_interface = true;
+                }
+                if let Some(web_port) = web_port {
+                    self.scrubber.web_port = *web_port;
+                }
+            }
+            Commands::Once {
+                max_tracks,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+                enable_web_interface,
+                web_port,
+            } => {
+                if let Some(max_tracks) = max_tracks {
+                    self.scrubber.max_tracks = *max_tracks as u32;
+                }
+                if *dry_run {
+                    self.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    self.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    self.scrubber.require_proposed_rule_confirmation = true;
+                }
+                if *enable_web_interface {
+                    self.scrubber.enable_web_interface = true;
+                }
+                if let Some(web_port) = web_port {
+                    self.scrubber.web_port = *web_port;
+                }
+            }
+            Commands::LastN {
+                tracks: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+                enable_web_interface,
+                web_port,
+            } => {
+                if *dry_run {
+                    self.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    self.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    self.scrubber.require_proposed_rule_confirmation = true;
+                }
+                if *enable_web_interface {
+                    self.scrubber.enable_web_interface = true;
+                }
+                if let Some(web_port) = web_port {
+                    self.scrubber.web_port = *web_port;
+                }
+                // Note: tracks count is handled in main.rs, not stored in config
+            }
         }
         if let Some(state_file) = &args.state_file {
             self.storage.state_file = state_file.clone();

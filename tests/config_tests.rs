@@ -1,5 +1,5 @@
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
-use scrobble_scrubber::Args;
+use scrobble_scrubber::{Args, Commands};
 
 #[test]
 fn test_default_config() {
@@ -19,20 +19,21 @@ fn test_default_config() {
 fn test_config_merge_args() {
     let mut config = ScrobbleScrubberConfig::default();
     let args = Args {
-        interval: Some(600),
-        max_tracks: Some(50),
-        dry_run: true,
-        state_file: Some("custom.db".to_string()),
         config: None,
-        require_confirmation: false,
-        require_proposed_rule_confirmation: false,
-        enable_web_interface: false,
-        web_port: None,
+        state_file: Some("custom.db".to_string()),
         lastfm_username: None,
         lastfm_password: None,
         enable_openai: false,
         openai_api_key: None,
-        last_n_tracks: None,
+        command: Commands::Run {
+            interval: Some(600),
+            max_tracks: Some(50),
+            dry_run: true,
+            require_confirmation: false,
+            require_proposed_rule_confirmation: false,
+            enable_web_interface: false,
+            web_port: None,
+        },
     };
 
     config = config.merge_args(&args);

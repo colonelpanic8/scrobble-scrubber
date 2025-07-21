@@ -53,13 +53,18 @@ fn format_sd_rule(rule: &SdRule, field_name: &str) -> String {
     } else {
         "<span style='color: #dc3545; font-weight: bold;'>regex</span>"
     };
-    
-    let flags_str = rule.flags.as_ref()
-        .map(|f| format!(" <span style='color: #6c757d;'>(flags: {})</span>", f))
+
+    let flags_str = rule
+        .flags
+        .as_ref()
+        .map(|f| format!(" <span style='color: #6c757d;'>(flags: {f})</span>"))
         .unwrap_or_default();
-    
+
     let max_replacements_str = if rule.max_replacements > 0 {
-        format!(" <span style='color: #6c757d;'>(max: {})</span>", rule.max_replacements)
+        format!(
+            " <span style='color: #6c757d;'>(max: {})</span>",
+            rule.max_replacements
+        )
     } else {
         String::new()
     };
@@ -77,27 +82,27 @@ fn format_sd_rule(rule: &SdRule, field_name: &str) -> String {
 
 fn format_rule_details(rule: &RewriteRule) -> String {
     let mut details = Vec::new();
-    
+
     if let Some(track_rule) = &rule.track_name {
         details.push(format_sd_rule(track_rule, "Track Name"));
     }
-    
+
     if let Some(artist_rule) = &rule.artist_name {
         details.push(format_sd_rule(artist_rule, "Artist Name"));
     }
-    
+
     if let Some(album_rule) = &rule.album_name {
         details.push(format_sd_rule(album_rule, "Album Name"));
     }
-    
+
     if let Some(album_artist_rule) = &rule.album_artist_name {
         details.push(format_sd_rule(album_artist_rule, "Album Artist"));
     }
-    
+
     if rule.requires_confirmation {
         details.push("&nbsp;&nbsp;<span style='color: #ffc107; font-weight: bold;'>⚠️ Requires confirmation</span>".to_string());
     }
-    
+
     if details.is_empty() {
         "No transformations defined".to_string()
     } else {
@@ -292,23 +297,36 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     Ok(transformed) => {
                         let mut changes = Vec::new();
                         if let Some(new_track) = &transformed.transformed_track_name {
-                            changes.push(format!("Track: {} → <strong>{}</strong>", 
-                                html_escape(&transformed.original_track_name), html_escape(new_track)));
+                            changes.push(format!(
+                                "Track: {} → <strong>{}</strong>",
+                                html_escape(&transformed.original_track_name),
+                                html_escape(new_track)
+                            ));
                         }
                         if let Some(new_artist) = &transformed.transformed_artist_name {
-                            changes.push(format!("Artist: {} → <strong>{}</strong>", 
-                                html_escape(&transformed.original_artist_name), html_escape(new_artist)));
+                            changes.push(format!(
+                                "Artist: {} → <strong>{}</strong>",
+                                html_escape(&transformed.original_artist_name),
+                                html_escape(new_artist)
+                            ));
                         }
                         if let Some(new_album) = &transformed.transformed_album_name {
                             if let Some(orig_album) = &transformed.original_album_name {
-                                changes.push(format!("Album: {} → <strong>{}</strong>", 
-                                    html_escape(orig_album), html_escape(new_album)));
+                                changes.push(format!(
+                                    "Album: {} → <strong>{}</strong>",
+                                    html_escape(orig_album),
+                                    html_escape(new_album)
+                                ));
                             }
                         }
                         if let Some(new_album_artist) = &transformed.transformed_album_artist_name {
-                            if let Some(orig_album_artist) = &transformed.original_album_artist_name {
-                                changes.push(format!("Album Artist: {} → <strong>{}</strong>", 
-                                    html_escape(orig_album_artist), html_escape(new_album_artist)));
+                            if let Some(orig_album_artist) = &transformed.original_album_artist_name
+                            {
+                                changes.push(format!(
+                                    "Album Artist: {} → <strong>{}</strong>",
+                                    html_escape(orig_album_artist),
+                                    html_escape(new_album_artist)
+                                ));
                             }
                         }
                         if changes.is_empty() {
@@ -317,9 +335,12 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                             changes.join("<br>")
                         }
                     }
-                    Err(e) => format!("<em>Error applying rule: {}</em>", html_escape(&e.to_string()))
+                    Err(e) => format!(
+                        "<em>Error applying rule: {}</em>",
+                        html_escape(&e.to_string())
+                    ),
                 };
-                
+
                 format!(
                     r#"
                 <div class="item">
@@ -357,11 +378,10 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     r#"
                 <div class="item">
                     <div class="rule-details">
-                        {}
+                        {rule_details}
                     </div>
                 </div>
-            "#,
-                    rule_details
+            "#
                 )
             })
             .collect::<String>()

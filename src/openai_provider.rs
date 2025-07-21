@@ -428,10 +428,7 @@ impl OpenAIScrubActionProvider {
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
-            format!(
-                "PENDING EDITS (already suggested, avoid duplicates):\n{}",
-                edits_list
-            )
+            format!("PENDING EDITS (already suggested, avoid duplicates):\n{edits_list}")
         };
 
         // Format pending rewrite rules information
@@ -448,10 +445,7 @@ impl OpenAIScrubActionProvider {
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
-            format!(
-                "PENDING REWRITE RULES (already suggested, avoid duplicates):\n{}",
-                rules_list
-            )
+            format!("PENDING REWRITE RULES (already suggested, avoid duplicates):\n{rules_list}")
         };
 
         // Create a message that includes all tracks for batch analysis
@@ -630,7 +624,9 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
 
         // If context is provided, use the context-aware implementation
         if let (Some(pending_edits), Some(pending_rules)) = (pending_edits, pending_rules) {
-            return self.analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules).await;
+            return self
+                .analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules)
+                .await;
         }
 
         // Otherwise, use basic analysis without context
@@ -786,14 +782,11 @@ impl OpenAIScrubActionProvider {
             .and_then(|choice| choice.message.tool_calls.as_ref())
             .map(|calls| calls.len())
             .unwrap_or(0);
-        log::info!(
-            "OpenAI response received with {} tool calls",
-            tool_calls_count
-        );
+        log::info!("OpenAI response received with {tool_calls_count} tool calls");
 
         // Log the full response for debugging
         if let Ok(response_json) = serde_json::to_string_pretty(&response) {
-            log::debug!("OpenAI response: {}", response_json);
+            log::debug!("OpenAI response: {response_json}");
         }
 
         // Log individual tool calls for easier debugging

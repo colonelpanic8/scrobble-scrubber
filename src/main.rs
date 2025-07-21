@@ -135,9 +135,22 @@ async fn main() -> Result<()> {
         info!("Web interface started on port {}", config.scrubber.web_port);
     }
 
-    // Run the main scrubber loop
+    // Run based on the command
     let mut scrubber_guard = scrubber.lock().await;
-    scrubber_guard.run().await?;
+    match &args.command {
+        scrobble_scrubber::Commands::Run { .. } => {
+            info!("Starting continuous monitoring mode");
+            scrubber_guard.run().await?;
+        }
+        scrobble_scrubber::Commands::Once { .. } => {
+            info!("Running single pass");
+            scrubber_guard.trigger_run().await?;
+        }
+        scrobble_scrubber::Commands::LastN { tracks, .. } => {
+            info!("Processing last {tracks} tracks");
+            scrubber_guard.process_last_n_tracks(*tracks).await?;
+        }
+    }
 
     Ok(())
 }

@@ -1,8 +1,8 @@
 /// Focused rewrite processing module for full string replacements
-/// 
+///
 /// This module implements rewrite rules where:
 /// 1. Regex patterns should match the entire input string (with captures)
-/// 2. Replacements reconstruct the entire output string 
+/// 2. Replacements reconstruct the entire output string
 /// 3. This ensures predictable, testable behavior
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl TransformRule {
             max_applications: 0,
         }
     }
-    
+
     /// Create a new literal string replacement rule
     pub fn new_literal(find: &str, replace: &str) -> Self {
         Self {
@@ -55,13 +55,13 @@ impl TransformRule {
             max_applications: 0,
         }
     }
-    
+
     /// Add regex flags (i=case insensitive, m=multiline, s=dot matches newline)
     pub fn with_flags(mut self, flags: &str) -> Self {
         self.flags = Some(flags.to_string());
         self
     }
-    
+
     /// Set maximum number of applications
     pub const fn with_max_applications(mut self, max: usize) -> Self {
         self.max_applications = max;
@@ -86,75 +86,88 @@ impl RewriteProcessor {
     /// Create a new processor with the given rules
     pub fn new(rules: Vec<TransformRule>) -> Result<Self, RewriteProcessorError> {
         let mut compiled_rules = HashMap::new();
-        
+
         for rule in rules {
             let (pattern, replacement) = if rule.is_literal {
                 // For literal matching, we need to create a full-string regex that captures everything
                 // and replaces the literal pattern within it
                 let escaped_find = regex::escape(&rule.pattern);
-                let pattern = format!("^(.*){}(.*)$", escaped_find);
+                let pattern = format!("^(.*){escaped_find}(.*)$");
                 // Replacement reconstructs the full string with the literal replacement
                 let replacement = format!("${{1}}{}${{2}}", &rule.replacement);
                 (pattern, replacement)
             } else {
                 // Validate that regex patterns use anchors for full string matching
                 if !rule.pattern.starts_with('^') || !rule.pattern.ends_with('$') {
-                    return Err(RewriteProcessorError::MissingAnchorsError(rule.pattern.clone()));
+                    return Err(RewriteProcessorError::MissingAnchorsError(
+                        rule.pattern.clone(),
+                    ));
                 }
                 (rule.pattern.clone(), rule.replacement.clone())
             };
-            
+
             let mut regex_builder = regex::RegexBuilder::new(&pattern);
-            
+
             // Apply flags if specified
             if let Some(flags) = &rule.flags {
                 for flag in flags.chars() {
                     match flag {
-                        'i' => { regex_builder.case_insensitive(true); },
-                        'm' => { regex_builder.multi_line(true); },
-                        's' => { regex_builder.dot_matches_new_line(true); },
+                        'i' => {
+                            regex_builder.case_insensitive(true);
+                        }
+                        'm' => {
+                            regex_builder.multi_line(true);
+                        }
+                        's' => {
+                            regex_builder.dot_matches_new_line(true);
+                        }
                         _ => {} // Ignore unknown flags
                     }
                 }
             }
-            
+
             let regex = regex_builder.build()?;
-            
+
             let compiled = CompiledRule {
                 regex,
                 replacement,
                 max_applications: rule.max_applications,
             };
-            
+
             compiled_rules.insert(rule.pattern.clone(), compiled);
         }
-        
+
         Ok(Self { compiled_rules })
     }
-    
+
     /// Apply all rules to the input string, returning the transformed result
     pub fn process(&self, input: &str) -> Result<String, RewriteProcessorError> {
         let mut result = input.to_string();
-        
+
         for compiled_rule in self.compiled_rules.values() {
             result = self.apply_rule(&result, compiled_rule)?;
         }
-        
+
         Ok(result)
     }
-    
+
     /// Apply a single rule to the input
-    fn apply_rule(&self, input: &str, rule: &CompiledRule) -> Result<String, RewriteProcessorError> {
+    fn apply_rule(
+        &self,
+        input: &str,
+        rule: &CompiledRule,
+    ) -> Result<String, RewriteProcessorError> {
         // For full string replacement, we expect exactly one match of the entire string
         if let Some(captures) = rule.regex.captures(input) {
             if captures.get(0).unwrap().as_str() != input {
                 return Err(RewriteProcessorError::PartialMatchError(input.to_string()));
             }
-            
+
             let result = if rule.max_applications == 0 {
                 rule.regex.replace_all(input, &rule.replacement)
             } else {
-                rule.regex.replacen(input, rule.max_applications, &rule.replacement)
+                rule.regex
+                    .replacen(input, rule.max_applications, &rule.replacement)
             };
             Ok(result.to_string())
         } else {
@@ -162,7 +175,7 @@ impl RewriteProcessor {
             Ok(input.to_string())
         }
     }
-    
+
     /// Check if any rules would modify the input
     pub fn would_modify(&self, input: &str) -> Result<bool, RewriteProcessorError> {
         let result = self.process(input)?;
@@ -201,25 +214,25 @@ impl MetadataRewriteProcessor {
         } else {
             None
         };
-        
+
         let artist_processor = if let Some(rule) = rule.artist_name {
             Some(RewriteProcessor::new(vec![rule])?)
         } else {
             None
         };
-        
+
         let album_processor = if let Some(rule) = rule.album_name {
             Some(RewriteProcessor::new(vec![rule])?)
         } else {
             None
         };
-        
+
         let album_artist_processor = if let Some(rule) = rule.album_artist_name {
             Some(RewriteProcessor::new(vec![rule])?)
         } else {
             None
         };
-        
+
         Ok(Self {
             track_processor,
             artist_processor,
@@ -227,7 +240,7 @@ impl MetadataRewriteProcessor {
             album_artist_processor,
         })
     }
-    
+
     /// Apply rules to track metadata
     pub fn process_track_name(&self, track_name: &str) -> Result<String, RewriteProcessorError> {
         if let Some(processor) = &self.track_processor {
@@ -236,7 +249,7 @@ impl MetadataRewriteProcessor {
             Ok(track_name.to_string())
         }
     }
-    
+
     /// Apply rules to artist metadata  
     pub fn process_artist_name(&self, artist_name: &str) -> Result<String, RewriteProcessorError> {
         if let Some(processor) = &self.artist_processor {
@@ -245,7 +258,7 @@ impl MetadataRewriteProcessor {
             Ok(artist_name.to_string())
         }
     }
-    
+
     /// Apply rules to album metadata
     pub fn process_album_name(&self, album_name: &str) -> Result<String, RewriteProcessorError> {
         if let Some(processor) = &self.album_processor {
@@ -254,9 +267,12 @@ impl MetadataRewriteProcessor {
             Ok(album_name.to_string())
         }
     }
-    
+
     /// Apply rules to album artist metadata
-    pub fn process_album_artist_name(&self, album_artist_name: &str) -> Result<String, RewriteProcessorError> {
+    pub fn process_album_artist_name(
+        &self,
+        album_artist_name: &str,
+    ) -> Result<String, RewriteProcessorError> {
         if let Some(processor) = &self.album_artist_processor {
             processor.process(album_artist_name)
         } else {
@@ -268,86 +284,78 @@ impl MetadataRewriteProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_literal_replacement() {
         let rule = TransformRule::new_literal("feat.", "featuring");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
-        
+
         let result = processor.process("Song Title (feat. Artist)").unwrap();
         assert_eq!(result, "Song Title (featuring Artist)");
     }
-    
+
     #[test]
     fn test_regex_full_string_replacement() {
         // Pattern that captures everything and replaces "feat." with "featuring"
-        let rule = TransformRule::new_regex(
-            r"^(.*)feat\.(.*)$",
-            "${1}featuring${2}"
-        );
+        let rule = TransformRule::new_regex(r"^(.*)feat\.(.*)$", "${1}featuring${2}");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
-        
+
         let result = processor.process("Song Title (feat. Artist)").unwrap();
         assert_eq!(result, "Song Title (featuring Artist)");
     }
-    
+
     #[test]
     fn test_regex_requires_anchors() {
         // This should fail because it doesn't use ^ and $ anchors
         let rule = TransformRule::new_regex("feat.", "featuring");
         let result = RewriteProcessor::new(vec![rule]);
-        
-        assert!(matches!(result, Err(RewriteProcessorError::MissingAnchorsError(_))));
+
+        assert!(matches!(
+            result,
+            Err(RewriteProcessorError::MissingAnchorsError(_))
+        ));
     }
-    
+
     #[test]
     fn test_case_insensitive_replacement() {
-        let rule = TransformRule::new_regex(
-            r"^(.*)FEAT\.(.*)$",
-            "${1}featuring${2}"
-        ).with_flags("i");
+        let rule =
+            TransformRule::new_regex(r"^(.*)FEAT\.(.*)$", "${1}featuring${2}").with_flags("i");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
-        
+
         let result = processor.process("Song Title (feat. Artist)").unwrap();
         assert_eq!(result, "Song Title (featuring Artist)");
     }
-    
+
     #[test]
     fn test_no_change_when_no_match() {
-        let rule = TransformRule::new_regex(
-            r"^(.*)feat\.(.*)$",
-            "$1featuring$2"
-        );
+        let rule = TransformRule::new_regex(r"^(.*)feat\.(.*)$", "$1featuring$2");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
-        
+
         let result = processor.process("Song Title").unwrap();
         assert_eq!(result, "Song Title");
     }
-    
+
     #[test]
     fn test_metadata_processor() {
         let rule = MetadataRewriteRule {
             track_name: Some(TransformRule::new_regex(
                 r"^(.*)feat\.(.*)$",
-                "${1}featuring${2}"
+                "${1}featuring${2}",
             )),
-            artist_name: Some(TransformRule::new_regex(
-                r"^(.*)&(.*)$", 
-                "${1} and ${2}"
-            )),
+            artist_name: Some(TransformRule::new_regex(r"^(.*)&(.*)$", "${1} and ${2}")),
             album_name: None,
             album_artist_name: None,
             requires_confirmation: false,
         };
-        
+
         let processor = MetadataRewriteProcessor::from_rule(rule).unwrap();
-        
+
         let track_result = processor.process_track_name("Song (feat. Artist)").unwrap();
         assert_eq!(track_result, "Song (featuring Artist)");
-        
+
         let artist_result = processor.process_artist_name("Artist A&Artist B").unwrap();
         assert_eq!(artist_result, "Artist A and Artist B");
-        
+
         let album_result = processor.process_album_name("Album Name").unwrap();
         assert_eq!(album_result, "Album Name"); // No change since no rule
     }

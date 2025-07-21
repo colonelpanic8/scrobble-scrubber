@@ -240,7 +240,10 @@ impl ScrubActionProvider for OrScrubActionProvider {
 
         // Try each provider in sequence and combine results
         for (provider_idx, provider) in self.providers.iter().enumerate() {
-            match provider.analyze_tracks(tracks, pending_edits, pending_rules).await {
+            match provider
+                .analyze_tracks(tracks, pending_edits, pending_rules)
+                .await
+            {
                 Ok(provider_results) => {
                     // Add these results to our combined results
                     for (track_idx, suggestions) in provider_results {
