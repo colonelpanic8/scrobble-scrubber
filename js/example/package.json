@@ -1,0 +1,17 @@
+{
+  "name": "scrobble-scrubber-example",
+  "version": "0.1.0",
+  "description": "Example usage of scrobble-scrubber WASM bindings",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "scrobble-scrubber-js": "file:../pkg"
+  }
+}

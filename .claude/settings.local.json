@@ -46,7 +46,11 @@
       "Bash(SCROBBLE_SCRUBBER_LASTFM_USERNAME=test_user SCROBBLE_SCRUBBER_LASTFM_PASSWORD=test_pass SCROBBLE_SCRUBBER_PROVIDERS_ENABLE_OPENAI=true SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_API_KEY=sk-test123 cargo run -- --help)",
       "Bash(echo:*)",
       "Bash(just readme)",
-      "Bash(just clippy:*)"
+      "Bash(just clippy:*)",
+      "Bash(wasm-pack:*)",
+      "Bash(rustup target:*)",
+      "Bash(rustup which:*)",
+      "Bash(PATH=\"$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH\" wasm-pack build --target web --out-dir pkg)"
     ],
     "deny": []
   }

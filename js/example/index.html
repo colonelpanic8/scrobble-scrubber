@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrobble Scrubber WASM Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .rule-builder, .track-tester {
+            background: #f9f9f9;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            font-family: monospace;
+        }
+        input, select {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Scrobble Scrubber WASM Demo</h1>
+    
+    <div class="container">
+        <div class="section rule-builder">
+            <h2>Rule Builder</h2>
+            <div>
+                <label>Field:</label>
+                <select id="ruleField">
+                    <option value="track_name">Track Name</option>
+                    <option value="artist_name">Artist Name</option>
+                    <option value="album_name">Album Name</option>
+                    <option value="album_artist_name">Album Artist</option>
+                </select>
+            </div>
+            <div>
+                <label>Find Pattern:</label>
+                <input type="text" id="findPattern" placeholder="e.g., \\s*\\(Remaster\\)" />
+            </div>
+            <div>
+                <label>Replace With:</label>
+                <input type="text" id="replaceWith" placeholder="e.g., empty for removal" />
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" id="isLiteral" />
+                    Literal Match (not regex)
+                </label>
+            </div>
+            <button onclick="createRule()">Create Rule</button>
+            <div id="ruleResult" class="result"></div>
+            
+            <h3>Regex Tester</h3>
+            <div>
+                <label>Pattern:</label>
+                <input type="text" id="regexPattern" placeholder="^(.*)\\s*\\(.*Remaster.*\\)$" />
+            </div>
+            <div>
+                <label>Test Text:</label>
+                <input type="text" id="testText" placeholder="Song Name (2009 Remaster)" />
+            </div>
+            <div>
+                <label>Replacement:</label>
+                <input type="text" id="replacement" placeholder="$1" />
+            </div>
+            <button onclick="testRegex()">Test Regex</button>
+            <div id="regexResult" class="result"></div>
+        </div>
+
+        <div class="section track-tester">
+            <h2>Track Tester</h2>
+            <div>
+                <label>Track Name:</label>
+                <input type="text" id="trackName" value="Bohemian Rhapsody (2011 Remaster)" />
+            </div>
+            <div>
+                <label>Artist:</label>
+                <input type="text" id="trackArtist" value="Queen" />
+            </div>
+            <div>
+                <label>Album:</label>
+                <input type="text" id="trackAlbum" value="A Night at the Opera (Deluxe Edition)" />
+            </div>
+            <div>
+                <label>Playcount:</label>
+                <input type="number" id="trackPlaycount" value="42" />
+            </div>
+            
+            <h3>Rule to Test</h3>
+            <textarea id="ruleJson" placeholder="Paste rule JSON here">{
+  "track_name": {
+    "find": "^(.*)\\\\s*\\\\(.*Remaster.*\\\\)$",
+    "replace": "$1",
+    "is_literal": false,
+    "flags": null,
+    "max_replacements": 0
+  },
+  "artist_name": null,
+  "album_name": null,
+  "album_artist_name": null,
+  "requires_confirmation": false
+}</textarea>
+            
+            <button onclick="testRule()">Test Rule</button>
+            <div id="testResult" class="result"></div>
+        </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>

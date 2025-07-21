@@ -1,0 +1,47 @@
+[package]
+name = "scrobble-scrubber-js"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ivan Malison <ivanmalison@gmail.com>"]
+license = "MIT"
+description = "WebAssembly bindings for scrobble-scrubber - Last.fm track metadata cleaning"
+repository = "https://github.com/imalison/scrobble-scrubber"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+scrobble-scrubber = { path = "..", default-features = false, features = ["wasm"] }
+lastfm-edit = { path = "../../lastfm-edit", default-features = false }
+http-client = { version = "6.5", features = ["wasm_client"] }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+regex = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["serde", "wasmbind"] }
+getrandom = { version = "0.2", features = ["js"] }
+async-std = { version = "1.0", default-features = false }
+futures = "0.3"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "console",
+  "Request",
+  "RequestInit",
+  "RequestMode",
+  "Response",
+  "Headers",
+]
+
+[dependencies.wasm-bindgen-futures]
+version = "0.4"
+
+[package.metadata.wasm-pack.profile.release]
+wee-alloc = false
+
+[package.metadata.wasm-pack.profile.dev]
+wee-alloc = false

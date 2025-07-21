@@ -1,0 +1,36 @@
+{
+  "name": "scrobble-scrubber-js",
+  "version": "0.1.0",
+  "description": "WebAssembly bindings for scrobble-scrubber - Last.fm track metadata cleaning",
+  "main": "pkg/scrobble_scrubber_js.js",
+  "types": "pkg/scrobble_scrubber_js.d.ts",
+  "files": [
+    "pkg/*"
+  ],
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg",
+    "build:nodejs": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
+    "test": "wasm-pack test --headless --firefox",
+    "pack": "npm run build && npm pack pkg/",
+    "publish": "npm run build && npm publish pkg/",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imalison/scrobble-scrubber.git"
+  },
+  "keywords": [
+    "lastfm",
+    "scrobble",
+    "metadata",
+    "wasm",
+    "webassembly",
+    "music"
+  ],
+  "author": "Ivan Malison <ivanmalison@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "wasm-pack": "^0.12.1"
+  }
+}

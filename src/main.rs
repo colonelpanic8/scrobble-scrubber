@@ -1,4 +1,5 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use config::ConfigError;
 use lastfm_edit::{LastFmEditClient, LastFmError, Result};
 use log::info;
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
@@ -9,9 +10,308 @@ use scrobble_scrubber::scrub_action_provider::{
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
 use scrobble_scrubber::web_interface;
-use scrobble_scrubber::Args;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+#[derive(Parser, Debug)]
+#[command(name = "scrobble-scrubber")]
+#[command(about = "Automated Last.fm track monitoring and scrubbing system")]
+struct Args {
+    /// Configuration file path
+    #[arg(short, long)]
+    config: Option<String>,
+
+    /// Path to state file for persistence
+    #[arg(short, long)]
+    state_file: Option<String>,
+
+    /// Last.fm username
+    #[arg(long)]
+    lastfm_username: Option<String>,
+
+    /// Last.fm password
+    #[arg(long)]
+    lastfm_password: Option<String>,
+
+    /// Enable `OpenAI` provider
+    #[arg(long)]
+    enable_openai: bool,
+
+    /// `OpenAI` API key
+    #[arg(long)]
+    openai_api_key: Option<String>,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Run continuously, monitoring for new tracks (default mode)
+    Run {
+        /// Check interval in seconds
+        #[arg(short, long)]
+        interval: Option<u64>,
+
+        /// Maximum number of tracks to check per run
+        #[arg(short, long)]
+        max_tracks: Option<usize>,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+    /// Run once and exit after processing new tracks since last run
+    Once {
+        /// Maximum number of tracks to check
+        #[arg(short, long)]
+        max_tracks: Option<usize>,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+    /// Process the last N tracks without updating timestamp state
+    LastN {
+        /// Number of tracks to process
+        #[arg(short, long)]
+        tracks: u32,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+    /// Process all tracks for a specific artist
+    Artist {
+        /// Artist name to process
+        #[arg(short, long)]
+        name: String,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+
+        /// Enable web interface for managing pending rules and edits
+        #[arg(long)]
+        enable_web_interface: bool,
+
+        /// Port for web interface (default: 8080)
+        #[arg(long)]
+        web_port: Option<u16>,
+    },
+}
+
+/// Load configuration from args with optional config file override
+fn load_config_from_args(args: &Args) -> std::result::Result<ScrobbleScrubberConfig, ConfigError> {
+    let config = if let Some(config_path) = &args.config {
+        ScrobbleScrubberConfig::load_with_file(Some(config_path))?
+    } else {
+        ScrobbleScrubberConfig::load()?
+    };
+
+    Ok(merge_args_into_config(config, args))
+}
+
+/// Merge command line arguments into the configuration
+fn merge_args_into_config(
+    mut config: ScrobbleScrubberConfig,
+    args: &Args,
+) -> ScrobbleScrubberConfig {
+    // Apply command-specific overrides
+    match &args.command {
+        Commands::Run {
+            interval,
+            max_tracks,
+            dry_run,
+            require_confirmation,
+            require_proposed_rule_confirmation,
+            enable_web_interface,
+            web_port,
+        } => {
+            if let Some(interval) = interval {
+                config.scrubber.interval = *interval;
+            }
+            if let Some(max_tracks) = max_tracks {
+                config.scrubber.max_tracks = *max_tracks as u32;
+            }
+            if *dry_run {
+                config.scrubber.dry_run = true;
+            }
+            if *require_confirmation {
+                config.scrubber.require_confirmation = true;
+            }
+            if *require_proposed_rule_confirmation {
+                config.scrubber.require_proposed_rule_confirmation = true;
+            }
+            if *enable_web_interface {
+                config.scrubber.enable_web_interface = true;
+            }
+            if let Some(web_port) = web_port {
+                config.scrubber.web_port = *web_port;
+            }
+        }
+        Commands::Once {
+            max_tracks,
+            dry_run,
+            require_confirmation,
+            require_proposed_rule_confirmation,
+            enable_web_interface,
+            web_port,
+        } => {
+            if let Some(max_tracks) = max_tracks {
+                config.scrubber.max_tracks = *max_tracks as u32;
+            }
+            if *dry_run {
+                config.scrubber.dry_run = true;
+            }
+            if *require_confirmation {
+                config.scrubber.require_confirmation = true;
+            }
+            if *require_proposed_rule_confirmation {
+                config.scrubber.require_proposed_rule_confirmation = true;
+            }
+            if *enable_web_interface {
+                config.scrubber.enable_web_interface = true;
+            }
+            if let Some(web_port) = web_port {
+                config.scrubber.web_port = *web_port;
+            }
+        }
+        Commands::LastN {
+            tracks: _,
+            dry_run,
+            require_confirmation,
+            require_proposed_rule_confirmation,
+            enable_web_interface,
+            web_port,
+        } => {
+            if *dry_run {
+                config.scrubber.dry_run = true;
+            }
+            if *require_confirmation {
+                config.scrubber.require_confirmation = true;
+            }
+            if *require_proposed_rule_confirmation {
+                config.scrubber.require_proposed_rule_confirmation = true;
+            }
+            if *enable_web_interface {
+                config.scrubber.enable_web_interface = true;
+            }
+            if let Some(web_port) = web_port {
+                config.scrubber.web_port = *web_port;
+            }
+            // Note: tracks count is handled in main.rs, not stored in config
+        }
+        Commands::Artist {
+            name: _,
+            dry_run,
+            require_confirmation,
+            require_proposed_rule_confirmation,
+            enable_web_interface,
+            web_port,
+        } => {
+            if *dry_run {
+                config.scrubber.dry_run = true;
+            }
+            if *require_confirmation {
+                config.scrubber.require_confirmation = true;
+            }
+            if *require_proposed_rule_confirmation {
+                config.scrubber.require_proposed_rule_confirmation = true;
+            }
+            if *enable_web_interface {
+                config.scrubber.enable_web_interface = true;
+            }
+            if let Some(web_port) = web_port {
+                config.scrubber.web_port = *web_port;
+            }
+            // Note: artist name is handled in main.rs, not stored in config
+        }
+    }
+
+    // Apply global args overrides
+    if let Some(state_file) = &args.state_file {
+        config.storage.state_file = state_file.clone();
+    }
+    if let Some(username) = &args.lastfm_username {
+        config.lastfm.username = username.clone();
+    }
+    if let Some(password) = &args.lastfm_password {
+        config.lastfm.password = password.clone();
+    }
+    if args.enable_openai {
+        config.providers.enable_openai = true;
+    }
+    if let Some(api_key) = &args.openai_api_key {
+        if config.providers.openai.is_none() {
+            config.providers.openai = Some(OpenAIProviderConfig {
+                api_key: api_key.clone(),
+                model: None,
+                system_prompt: None,
+            });
+        } else {
+            config.providers.openai.as_mut().unwrap().api_key = api_key.clone();
+        }
+    }
+
+    config
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +321,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Load configuration from args, env vars, and config files
-    let config = ScrobbleScrubberConfig::load_from_args(&args).map_err(|e| {
+    let config = load_config_from_args(&args).map_err(|e| {
         LastFmError::Io(std::io::Error::other(format!(
             "Failed to load configuration: {e}"
         )))
@@ -140,19 +440,19 @@ async fn main() -> Result<()> {
     // Run based on the command
     let mut scrubber_guard = scrubber.lock().await;
     match &args.command {
-        scrobble_scrubber::Commands::Run { .. } => {
+        Commands::Run { .. } => {
             info!("Starting continuous monitoring mode");
             scrubber_guard.run().await?;
         }
-        scrobble_scrubber::Commands::Once { .. } => {
+        Commands::Once { .. } => {
             info!("Running single pass");
             scrubber_guard.trigger_run().await?;
         }
-        scrobble_scrubber::Commands::LastN { tracks, .. } => {
+        Commands::LastN { tracks, .. } => {
             info!("Processing last {tracks} tracks");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
-        scrobble_scrubber::Commands::Artist { name, .. } => {
+        Commands::Artist { name, .. } => {
             info!("Processing all tracks for artist '{name}'");
             scrubber_guard.process_artist(name).await?;
         }

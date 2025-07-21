@@ -1,5 +1,4 @@
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
-use scrobble_scrubber::{Args, Commands};
 
 #[test]
 fn test_default_config() {
@@ -13,35 +12,6 @@ fn test_default_config() {
     assert_eq!(config.scrubber.web_port, 8080);
     assert!(config.providers.enable_rewrite_rules);
     assert!(!config.providers.enable_openai);
-}
-
-#[test]
-fn test_config_merge_args() {
-    let mut config = ScrobbleScrubberConfig::default();
-    let args = Args {
-        config: None,
-        state_file: Some("custom.db".to_string()),
-        lastfm_username: None,
-        lastfm_password: None,
-        enable_openai: false,
-        openai_api_key: None,
-        command: Commands::Run {
-            interval: Some(600),
-            max_tracks: Some(50),
-            dry_run: true,
-            require_confirmation: false,
-            require_proposed_rule_confirmation: false,
-            enable_web_interface: false,
-            web_port: None,
-        },
-    };
-
-    config = config.merge_args(&args);
-
-    assert_eq!(config.scrubber.interval, 600);
-    assert_eq!(config.scrubber.max_tracks, 50);
-    assert!(config.scrubber.dry_run);
-    assert_eq!(config.storage.state_file, "custom.db");
 }
 
 #[test]

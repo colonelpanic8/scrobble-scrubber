@@ -1,4 +1,4 @@
-use crate::persistence::RewriteRulesState;
+use crate::persistence::{PendingEdit, PendingRewriteRule, RewriteRulesState};
 use crate::rewrite::{RewriteError, RewriteRule};
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
@@ -63,8 +63,8 @@ pub trait ScrubActionProvider: Send + Sync {
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
-        pending_edits: Option<&[crate::persistence::PendingEdit]>,
-        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
+        pending_edits: Option<&[PendingEdit]>,
+        pending_rules: Option<&[PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error>;
 
     /// Get a human-readable name for this provider
@@ -212,8 +212,8 @@ where
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
-        pending_edits: Option<&[crate::persistence::PendingEdit]>,
-        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
+        pending_edits: Option<&[PendingEdit]>,
+        pending_rules: Option<&[PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         self.inner
             .analyze_tracks(tracks, pending_edits, pending_rules)
@@ -233,8 +233,8 @@ impl ScrubActionProvider for OrScrubActionProvider {
     async fn analyze_tracks(
         &self,
         tracks: &[Track],
-        pending_edits: Option<&[crate::persistence::PendingEdit]>,
-        pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
+        pending_edits: Option<&[PendingEdit]>,
+        pending_rules: Option<&[PendingRewriteRule]>,
     ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
         let mut combined_results: Vec<(usize, Vec<ScrubActionSuggestion>)> = Vec::new();
 
