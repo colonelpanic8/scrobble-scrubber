@@ -1,4 +1,4 @@
 [workspace]
-members = ["lib", "cli", "wasm", "napi"]
+members = ["lib", "cli", "wasm", "napi", "app", "app/src-tauri"]
 resolver = "2"
 

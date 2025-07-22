@@ -33,6 +33,12 @@
 
               # For TUI development
               libiconv
+
+              # Tauri dependencies
+              gtk3
+              webkitgtk_4_1
+              librsvg
+              libsoup_3
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies

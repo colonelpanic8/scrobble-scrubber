@@ -21,10 +21,10 @@ log = "0.4"
 async-trait = "0.1"
 thiserror = "2.0.12"
 # uuid = { version = "1.0", features = ["v4", "serde", "js"] }
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde", "std"], default-features = false }
 
 # External dependencies
-lastfm-edit = { version = "0.3.1", default-features = false, features = ["wasm"] }
+lastfm-edit = { version = "0.3.1", default-features = false }
 
 # Optional dependencies for different feature sets
 http-client = { version = "^6.6.3", package = "http-client-2", optional = true, default-features = false }
@@ -49,6 +49,6 @@ default = ["tokio", "http-client/curl_client", "cli"]
 full = ["tokio", "web", "openai", "cli", "pickledb", "http-client/curl_client"]
 cli = ["config", "dirs"]
 pickledb = ["dep:pickledb"]
-wasm = ["http-client/wasm_client"]  # WASM-compatible feature set
+wasm = ["http-client/wasm_client", "lastfm-edit/wasm", "chrono/wasm-bindgen"]  # WASM-compatible feature set
 web = ["axum", "tower", "tower-http"]
 openai = ["reqwest", "openai-api-rs"]
