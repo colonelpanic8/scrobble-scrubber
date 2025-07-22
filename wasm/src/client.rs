@@ -1,3 +1,5 @@
+use http_client::wasm::WasmClient;
+use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient as InnerClient};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -17,67 +19,154 @@ pub struct LastFmAuthResult {
     pub session_key: Option<String>,
 }
 
-/// Simple Last.fm client for WASM that works entirely client-side
-#[wasm_bindgen]
-pub struct LastFmClient {
-    username: Option<String>,
-    password: Option<String>,
-    #[allow(dead_code)]
-    session_key: Option<String>,
+/// Convert lastfm_edit::Track to our LastFmTrack struct
+fn convert_track(track: &lastfm_edit::Track) -> LastFmTrack {
+    LastFmTrack {
+        name: track.name.clone(),
+        artist: track.artist.clone(),
+        album: track.album.clone(),
+        playcount: track.playcount,
+        timestamp: track.timestamp,
+    }
 }
 
-impl Default for LastFmClient {
+/// WASM wrapper for the real LastFmEditClient from lastfm-edit crate
+#[wasm_bindgen]
+pub struct LastFmEditClient {
+    credentials: Option<(String, String)>,
+    is_authenticated: bool,
+}
+
+impl Default for LastFmEditClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[wasm_bindgen]
-impl LastFmClient {
+impl LastFmEditClient {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> LastFmClient {
-        LastFmClient {
-            username: None,
-            password: None,
-            session_key: None,
+    pub fn new() -> LastFmEditClient {
+        LastFmEditClient {
+            credentials: None,
+            is_authenticated: false,
         }
     }
 
     /// Set credentials for authentication
     #[wasm_bindgen]
     pub fn set_credentials(&mut self, username: String, password: String) {
-        self.username = Some(username);
-        self.password = Some(password);
+        self.credentials = Some((username, password));
     }
 
-    /// Test authentication by attempting to login
-    /// Note: This is a mock implementation - real Last.fm auth requires server-side handling
+    /// Test authentication by attempting to login with the real Last.fm client
     #[wasm_bindgen]
-    pub async fn test_auth(&self) -> JsValue {
-        if self.username.is_none() || self.password.is_none() {
+    pub async fn test_auth(&mut self) -> JsValue {
+        let Some((username, password)) = &self.credentials else {
             let result = LastFmAuthResult {
                 success: false,
                 message: "Username and password are required".to_string(),
                 session_key: None,
             };
             return serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null());
-        }
-
-        // Mock authentication - in a real implementation, this would involve
-        // Last.fm's authentication flow which requires server-side handling
-        let result = LastFmAuthResult {
-            success: true,
-            message:
-                "Mock authentication successful (real auth requires server-side implementation)"
-                    .to_string(),
-            session_key: Some("mock_session_key".to_string()),
         };
 
-        serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
+        // Create HTTP client for WASM
+        let http_client = WasmClient::new();
+        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
+        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
+
+        // Add some debugging
+        web_sys::console::log_1(&"About to attempt Last.fm login".into());
+        
+        // Attempt real login
+        match client.login(username, password).await {
+            Ok(()) => {
+                self.is_authenticated = true;
+                let result = LastFmAuthResult {
+                    success: true,
+                    message: "Authentication successful".to_string(),
+                    session_key: Some("authenticated".to_string()),
+                };
+                serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
+            }
+            Err(e) => {
+                self.is_authenticated = false;
+                // Don't mask the real error - show it directly
+                let error_message = format!("{}", e);
+                
+                let result = LastFmAuthResult {
+                    success: false,
+                    message: format!("Authentication failed: {}", error_message),
+                    session_key: None,
+                };
+                serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
+            }
+        }
     }
 
-    /// Get mock recent tracks data for testing
-    /// In a real implementation, this would fetch from Last.fm API
+    /// Get recent tracks from the real Last.fm client
+    #[wasm_bindgen]
+    pub async fn get_recent_tracks(&self, count: u32) -> JsValue {
+        if !self.is_authenticated {
+            return JsValue::null();
+        }
+
+        let Some((username, password)) = &self.credentials else {
+            return JsValue::null();
+        };
+
+        // Create fresh client for this request
+        let http_client = WasmClient::new();
+        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
+        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
+        
+        match client.login(username, password).await {
+            Ok(()) => {
+                match client.recent_tracks().take(count as usize).await {
+                    Ok(tracks) => {
+                        let converted_tracks: Vec<LastFmTrack> = tracks.iter().map(convert_track).collect();
+                        serde_wasm_bindgen::to_value(&converted_tracks).unwrap_or(JsValue::null())
+                    }
+                    Err(_) => JsValue::null(),
+                }
+            }
+            Err(_) => JsValue::null(),
+        }
+    }
+
+    /// Get artist tracks from the real Last.fm client
+    #[wasm_bindgen]
+    pub async fn get_artist_tracks(&self, artist: &str, count: u32) -> JsValue {
+        if !self.is_authenticated {
+            return JsValue::null();
+        }
+
+        let Some((username, password)) = &self.credentials else {
+            return JsValue::null();
+        };
+
+        // Create fresh client for this request
+        let http_client = WasmClient::new();
+        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
+        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
+        
+        match client.login(username, password).await {
+            Ok(()) => {
+                match client.artist_tracks(artist).take(count as usize).await {
+                    Ok(tracks) => {
+                        let converted_tracks: Vec<LastFmTrack> = tracks.iter().map(convert_track).collect();
+                        serde_wasm_bindgen::to_value(&converted_tracks).unwrap_or(JsValue::null())
+                    }
+                    Err(_) => JsValue::null(),
+                }
+            }
+            Err(_) => JsValue::null(),
+        }
+    }
+
+    /// Get mock recent tracks data for testing (backwards compatibility)
+    /// This provides the same mock data as before for UI testing
     #[wasm_bindgen]
     pub fn get_mock_recent_tracks(&self, count: u32) -> JsValue {
         let tracks = vec![
@@ -122,7 +211,7 @@ impl LastFmClient {
         serde_wasm_bindgen::to_value(&limited_tracks).unwrap_or(JsValue::null())
     }
 
-    /// Get mock artist tracks for testing
+    /// Get mock artist tracks for testing (backwards compatibility)
     #[wasm_bindgen]
     pub fn get_mock_artist_tracks(&self, artist: &str, count: u32) -> JsValue {
         // Generate some mock tracks for the given artist

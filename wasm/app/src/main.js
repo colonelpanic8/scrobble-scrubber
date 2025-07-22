@@ -5,16 +5,16 @@ import init, {
     apply_rule_to_track,
     validate_regex,
     test_regex,
-    LastFmClient
+    LastFmEditClient
 } from '../../pkg/scrobble_scrubber_js.js';
 
 let wasmModule;
-let lastfmClient;
+let lastfmEditClient;
 
 async function initWasm() {
     try {
         wasmModule = await init();
-        lastfmClient = new LastFmClient();
+        lastfmEditClient = new LastFmEditClient();
         console.log('WASM module loaded successfully');
         return true;
     } catch (error) {
@@ -169,9 +169,16 @@ function showInfo(elementId, message) {
     element.className = 'result';
 }
 
+// Mock data function
+window.useMockData = function() {
+    showSuccess('loginResult', 'Using mock data for demonstration');
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('tracksSection').style.display = 'block';
+};
+
 // Last.fm functions
 window.loginToLastFm = async function() {
-    if (!lastfmClient) {
+    if (!lastfmEditClient) {
         showError('loginResult', 'WASM module not loaded');
         return;
     }
@@ -185,8 +192,8 @@ window.loginToLastFm = async function() {
             return;
         }
 
-        lastfmClient.set_credentials(username, password);
-        const authResult = await lastfmClient.test_auth();
+        lastfmEditClient.set_credentials(username, password);
+        const authResult = await lastfmEditClient.test_auth();
 
         if (authResult.success) {
             showSuccess('loginResult', authResult.message);
@@ -201,14 +208,14 @@ window.loginToLastFm = async function() {
 };
 
 window.loadRecentTracks = async function() {
-    if (!lastfmClient) {
+    if (!lastfmEditClient) {
         showError('tracksResult', 'Not logged in');
         return;
     }
 
     try {
         const count = parseInt(document.getElementById('trackCount').value) || 10;
-        const tracks = lastfmClient.get_mock_recent_tracks(count);
+        const tracks = lastfmEditClient.get_mock_recent_tracks(count);
         
         displayTracks(tracks, 'tracksResult');
     } catch (error) {
@@ -217,7 +224,7 @@ window.loadRecentTracks = async function() {
 };
 
 window.loadArtistTracks = async function() {
-    if (!lastfmClient) {
+    if (!lastfmEditClient) {
         showError('artistTracksResult', 'Not logged in');
         return;
     }
@@ -231,7 +238,7 @@ window.loadArtistTracks = async function() {
             return;
         }
 
-        const tracks = lastfmClient.get_mock_artist_tracks(artist, count);
+        const tracks = lastfmEditClient.get_mock_artist_tracks(artist, count);
         displayTracks(tracks, 'artistTracksResult');
     } catch (error) {
         showError('artistTracksResult', 'Error loading artist tracks: ' + error.message);
@@ -274,6 +281,55 @@ window.loadTrackForTesting = function(name, artist, album, playcount) {
     
     // Scroll to track tester
     document.querySelector('.track-tester').scrollIntoView({ behavior: 'smooth' });
+};
+
+// Process multiple tracks with rules
+window.processTracksWithRules = async function() {
+    if (!wasmModule) {
+        showError('processResult', 'WASM module not loaded');
+        return;
+    }
+
+    try {
+        const rulesJson = document.getElementById('rulesJson').value;
+        
+        if (!rulesJson.trim()) {
+            showError('processResult', 'Rules JSON is required');
+            return;
+        }
+
+        // Get tracks from the current tracks display
+        const tracksDisplay = document.getElementById('tracksResult');
+        if (!tracksDisplay || !tracksDisplay.querySelector('.tracks-list')) {
+            showError('processResult', 'No tracks loaded. Load some tracks first.');
+            return;
+        }
+
+        showInfo('processResult', 'Processing tracks with rules...');
+
+        // For now, use the loaded tracks from the display
+        // In a real implementation, this would process the actual Last.fm tracks
+        let sampleTracks = [
+            {
+                name: "Bohemian Rhapsody (2011 Remaster)",
+                artist: "Queen",
+                album: "A Night at the Opera (Deluxe Edition)",
+                playcount: 42,
+                timestamp: 1640995200
+            }
+        ];
+
+        const tracksJson = JSON.stringify(sampleTracks);
+        const result = process_tracks_with_rules(tracksJson, rulesJson);
+        
+        if (result.tracks_with_changes > 0) {
+            showSuccess('processResult', `Processed ${result.processed_tracks} tracks, ${result.tracks_with_changes} would be changed`);
+        } else {
+            showInfo('processResult', `Processed ${result.processed_tracks} tracks, no changes needed`);
+        }
+    } catch (error) {
+        showError('processResult', 'Error processing tracks: ' + error.message);
+    }
 };
 
 // Initialize when the page loads

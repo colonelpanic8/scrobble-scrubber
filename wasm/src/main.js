@@ -1,7 +1,7 @@
-import init, { 
-    create_track, 
-    create_simple_rule, 
-    test_rule_applies, 
+import init, {
+    create_track,
+    create_simple_rule,
+    test_rule_applies,
     apply_rule_to_track,
     validate_regex,
     test_regex
@@ -40,7 +40,7 @@ window.createRule = async function() {
 
         const ruleJson = create_simple_rule(field, find, replace, isLiteral);
         const rule = JSON.parse(ruleJson);
-        
+
         document.getElementById('ruleJson').value = JSON.stringify(rule, null, 2);
         showSuccess('ruleResult', 'Rule created successfully!\\n' + JSON.stringify(rule, null, 2));
     } catch (error) {
@@ -100,7 +100,7 @@ window.testRule = async function() {
         };
 
         const ruleJson = document.getElementById('ruleJson').value;
-        
+
         if (!ruleJson.trim()) {
             showError('testResult', 'Rule JSON is required');
             return;
@@ -109,7 +109,7 @@ window.testRule = async function() {
         // Test if rule applies
         const trackJson = JSON.stringify(track);
         const applies = test_rule_applies(ruleJson, trackJson);
-        
+
         if (!applies) {
             showInfo('testResult', 'Rule does not apply to this track');
             return;
@@ -117,11 +117,11 @@ window.testRule = async function() {
 
         // Apply the rule
         const result = apply_rule_to_track(ruleJson, trackJson);
-        
+
         if (result.changed) {
             let changes = [];
             const edit = result.edit;
-            
+
             if (edit.track_name !== edit.track_name_original) {
                 changes.push(`Track: "${edit.track_name_original}" → "${edit.track_name}"`);
             }
@@ -134,7 +134,7 @@ window.testRule = async function() {
             if (edit.album_artist_name !== edit.album_artist_name_original) {
                 changes.push(`Album Artist: "${edit.album_artist_name_original}" → "${edit.album_artist_name}"`);
             }
-            
+
             if (changes.length > 0) {
                 showSuccess('testResult', 'Rule applied successfully!\\n\\nChanges:\\n' + changes.join('\\n'));
             } else {
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.appendChild(loadingElement);
 
     const success = await initWasm();
-    
+
     if (success) {
         loadingElement.textContent = '✓ WASM Ready';
         loadingElement.style.background = '#28a745';

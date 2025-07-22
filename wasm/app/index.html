@@ -62,11 +62,84 @@
             border: 1px solid #c3e6cb;
             color: #155724;
         }
+        .tracks-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .track-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .track-item:hover {
+            background-color: #f8f9fa;
+        }
+        .track-item:last-child {
+            border-bottom: none;
+        }
+        .track-info {
+            font-size: 14px;
+        }
+        .batch-processor {
+            background: #f0f8ff;
+        }
     </style>
 </head>
 <body>
-    <h1>🎵 Scrobble Scrubber WASM Demo</h1>
+    <h1>🎵 Scrobble Scrubber - Last.fm Track Editor</h1>
+    <p>Clean up your Last.fm scrobbles with powerful regex-based rules. Login, load tracks, create rules, and test changes.</p>
     
+    <!-- Last.fm Login Section -->
+    <div id="loginSection" class="section">
+        <h2>🎵 Last.fm Login</h2>
+        <div>
+            <label>Username:</label>
+            <input type="text" id="lastfmUsername" placeholder="Last.fm username" />
+        </div>
+        <div>
+            <label>Password:</label>
+            <input type="password" id="lastfmPassword" placeholder="Last.fm password" />
+        </div>
+        <button onclick="loginToLastFm()">Try Login to Last.fm</button>
+        <button onclick="useMockData()">Use Mock Data (Demo)</button>
+        <div id="loginResult" class="result"></div>
+        <p><small>🔄 Note: This uses a Vite proxy to bypass browser CORS restrictions for Last.fm access. Your credentials are only sent to Last.fm (not stored anywhere else).</small></p>
+    </div>
+
+    <!-- Tracks Section (hidden until logged in) -->
+    <div id="tracksSection" class="section" style="display: none;">
+        <h2>📊 Your Last.fm Tracks</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>Recent Tracks</h3>
+                <div>
+                    <label>Number of tracks:</label>
+                    <input type="number" id="trackCount" value="10" min="1" max="50" />
+                </div>
+                <button onclick="loadRecentTracks()">Load Recent Tracks</button>
+                <div id="tracksResult" class="result"></div>
+            </div>
+            
+            <div>
+                <h3>Artist Tracks</h3>
+                <div>
+                    <label>Artist name:</label>
+                    <input type="text" id="artistName" placeholder="Enter artist name" />
+                </div>
+                <div>
+                    <label>Number of tracks:</label>
+                    <input type="number" id="artistTrackCount" value="10" min="1" max="50" />
+                </div>
+                <button onclick="loadArtistTracks()">Load Artist Tracks</button>
+                <div id="artistTracksResult" class="result"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="section rule-builder">
             <h2>Rule Builder</h2>
@@ -149,6 +222,29 @@
             
             <button onclick="testRule()">Test Rule</button>
             <div id="testResult" class="result"></div>
+        </div>
+        
+        <div class="section batch-processor">
+            <h2>Batch Processing</h2>
+            <p>Apply rules to multiple tracks at once</p>
+            
+            <h3>Rules (JSON Array)</h3>
+            <textarea id="rulesJson" placeholder="Paste rules JSON array here">[{
+  "track_name": {
+    "find": "^(.*)\\\\s*\\\\(.*Remaster.*\\\\)$",
+    "replace": "$1",
+    "is_literal": false,
+    "flags": null,
+    "max_replacements": 0
+  },
+  "artist_name": null,
+  "album_name": null,
+  "album_artist_name": null,
+  "requires_confirmation": false
+}]</textarea>
+            
+            <button onclick="processTracksWithRules()">Process Loaded Tracks</button>
+            <div id="processResult" class="result"></div>
         </div>
     </div>
 

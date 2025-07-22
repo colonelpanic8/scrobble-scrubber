@@ -58,7 +58,9 @@
       "Bash(exit)",
       "Bash(export:*)",
       "Bash(npm run dev:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(pkill:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }
