@@ -44,9 +44,10 @@ impl From<SerializableTrack> for Track {
 #[derive(Clone, Debug)]
 struct AppState {
     logged_in: bool,
-    session: Option<String>, // Serialized LastFmEditSession
-    tracks: Vec<SerializableTrack>,
+    session: Option<String>,        // Serialized LastFmEditSession
+    tracks: Vec<SerializableTrack>, // Only mutated when loading from client
     current_rule: RewriteRule,
+    show_all_tracks: bool, // Toggle to show all tracks or only matching ones
 }
 
 impl Default for AppState {
@@ -56,6 +57,7 @@ impl Default for AppState {
             session: None,
             tracks: Vec::new(),
             current_rule: RewriteRule::new(),
+            show_all_tracks: true, // Default to showing all tracks
         }
     }
 }
@@ -66,7 +68,43 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let state = use_signal(AppState::default);
+    let mut state = use_signal(AppState::default);
+
+    // Try auto-login with environment variables
+    use_effect(move || {
+        spawn(async move {
+            if !state.read().logged_in {
+                if let (Ok(username), Ok(password)) = (
+                    std::env::var("SCROBBLE_SCRUBBER_LASTFM_USERNAME"),
+                    std::env::var("SCROBBLE_SCRUBBER_LASTFM_PASSWORD"),
+                ) {
+                    if !username.trim().is_empty() && !password.trim().is_empty() {
+                        match login_to_lastfm(
+                            username.trim().to_string(),
+                            password.trim().to_string(),
+                        )
+                        .await
+                        {
+                            Ok(session_str) => {
+                                state.with_mut(|s| {
+                                    s.logged_in = true;
+                                    s.session = Some(session_str.clone());
+                                });
+
+                                // Load recent tracks using the session
+                                if let Ok(tracks) = load_recent_tracks(session_str).await {
+                                    state.with_mut(|s| s.tracks = tracks);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Auto-login failed: {e}");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
 
     rsx! {
         div {
@@ -196,7 +234,26 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview on Recent Tracks" }
-                    button {
+
+                    div { style: "display: flex; align-items: center; gap: 1rem;",
+                        // Toggle for showing all tracks vs only matching
+                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
+                            input {
+                                r#type: "checkbox",
+                                id: "show-all-tracks",
+                                checked: "{state.read().show_all_tracks}",
+                                onchange: move |e| {
+                                    state.with_mut(|s| s.show_all_tracks = e.checked());
+                                }
+                            }
+                            label {
+                                r#for: "show-all-tracks",
+                                style: "font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer;",
+                                "Show all tracks"
+                            }
+                        }
+
+                        button {
                         style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {};",
                             "#059669",
                             if *loading_tracks.read() { "0.5" } else { "1" }
@@ -216,6 +273,7 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                             "Loading..."
                         } else {
                             "Load Recent Tracks"
+                        }
                         }
                     }
                 }
@@ -410,23 +468,52 @@ fn RuleEditor(mut state: Signal<AppState>) -> Element {
 fn TracksPreview(state: Signal<AppState>) -> Element {
     let state_read = state.read();
 
+    // Compute matches and prepare tracks for display based on toggle
+    let mut tracks_to_display = Vec::new();
+    let mut matching_count = 0;
+    let total_tracks = state_read.tracks.len();
+
+    for (idx, strack) in state_read.tracks.iter().enumerate() {
+        let track: Track = strack.clone().into();
+        let mut edit = create_no_op_edit(&track);
+        let _rule_applied =
+            apply_all_rules(&[state_read.current_rule.clone()], &mut edit).unwrap_or_default();
+
+        let has_changes = edit.track_name != track.name
+            || edit.artist_name != track.artist
+            || edit.album_name != track.album.clone().unwrap_or_default();
+
+        if has_changes {
+            matching_count += 1;
+        }
+
+        // Add to display list based on toggle setting
+        if state_read.show_all_tracks || has_changes {
+            tracks_to_display.push((idx, strack, track, edit, has_changes));
+        }
+    }
+
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1rem;",
+            // Count display
+            div { style: "padding: 0.75rem 1rem; background: #f3f4f6; border-radius: 0.5rem; font-weight: 500; color: #374151;",
+                if total_tracks == 0 {
+                    "No tracks loaded"
+                } else if state_read.show_all_tracks {
+                    "Rule matches: {matching_count}/{total_tracks} tracks (showing all)"
+                } else {
+                    "Rule matches: {matching_count}/{total_tracks} tracks (showing {matching_count} matches only)"
+                }
+            }
+
             if state_read.tracks.is_empty() {
                 div { style: "color: #6b7280; text-align: center; padding: 2rem;",
                     "No tracks loaded. The preview will show here once tracks are fetched."
                 }
             } else {
                 div { style: "display: flex; flex-direction: column; gap: 0.75rem;",
-                    for (idx, strack) in state_read.tracks.iter().enumerate() {
+                    for (idx, _strack, track, edit, has_changes) in tracks_to_display {
                         {
-                            let track: Track = strack.clone().into();
-                            let mut edit = create_no_op_edit(&track);
-                            let _rule_applied = apply_all_rules(&[state_read.current_rule.clone()], &mut edit).unwrap_or_default();
-
-                            let has_changes = edit.track_name != track.name ||
-                                             edit.artist_name != track.artist ||
-                                             edit.album_name != track.album.clone().unwrap_or_default();
 
                             rsx! {
                                 div {
@@ -601,7 +688,7 @@ async fn load_recent_tracks(session_str: String) -> Result<Vec<SerializableTrack
     let mut tracks = Vec::new();
     let mut recent_iterator = client.recent_tracks();
     let mut count = 0;
-    const LIMIT: u32 = 10;
+    const LIMIT: u32 = 50;
 
     match tokio::time::timeout(std::time::Duration::from_secs(10), async {
         while let Some(track) = recent_iterator.next().await? {
