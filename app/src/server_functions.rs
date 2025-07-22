@@ -55,45 +55,56 @@ pub async fn load_artist_tracks(
 
     // Create HTTP client and LastFM client from session
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::from_session(Box::new(http_client), session);
+    let mut client = LastFmEditClient::from_session(Box::new(http_client), session);
 
-    // Try to fetch all tracks for the artist
-    let mut tracks = Vec::new();
-    const MAX_TRACKS: usize = 1000; // Limit to prevent excessive loading
+    // First, fetch all albums for the artist
+    let mut albums = Vec::new();
 
-    match tokio::time::timeout(std::time::Duration::from_secs(30), async {
-        let mut artist_iterator = client.artist_tracks(&artist_name);
-        let mut count = 0;
+    match tokio::time::timeout(std::time::Duration::from_secs(60), async {
+        let mut album_iterator = client.artist_albums(&artist_name);
 
-        while let Some(track) = artist_iterator.next().await? {
-            if count >= MAX_TRACKS {
-                break; // Safety limit
-            }
-            tracks.push(SerializableTrack::from(track));
-            count += 1;
+        while let Some(album) = album_iterator.next().await? {
+            albums.push(album);
         }
         Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
     })
     .await
     {
         Ok(Ok(_)) => {
-            // Success - tracks were loaded
+            // Success - albums were loaded
         }
         Ok(Err(e)) => {
-            eprintln!("Error fetching artist tracks: {e}");
+            eprintln!("Error fetching artist albums: {e}");
         }
         Err(_) => {
-            eprintln!("Timeout fetching artist tracks");
+            eprintln!("Timeout fetching artist albums");
         }
     }
 
-    if tracks.is_empty() {
+    // Now fetch tracks from each album to preserve album information
+    let mut all_tracks = Vec::new();
+
+    for album in albums {
+        match client.get_album_tracks(&album.name, &artist_name).await {
+            Ok(album_tracks) => {
+                for track in album_tracks {
+                    all_tracks.push(SerializableTrack::from(track));
+                }
+            }
+            Err(e) => {
+                eprintln!("Error fetching tracks for album '{}': {e}", album.name);
+                // Continue with other albums instead of failing completely
+            }
+        }
+    }
+
+    if all_tracks.is_empty() {
         return Err(ServerFnError::new(format!(
             "No tracks found for artist '{artist_name}'"
         )));
     }
 
-    Ok(tracks)
+    Ok(all_tracks)
 }
 
 #[server(LoadRecentTracksFromPage)]

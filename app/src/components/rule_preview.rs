@@ -1,4 +1,4 @@
-use crate::types::{AppState, PreviewType, SerializableTrack};
+use crate::types::{AppState, PreviewType};
 use crate::utils::get_current_tracks;
 use dioxus::prelude::*;
 use lastfm_edit::Track;

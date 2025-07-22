@@ -13,7 +13,7 @@ pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
     }
 
     // Add artist tracks if enabled
-    for (_artist, track_state) in &state.artist_tracks {
+    for track_state in state.artist_tracks.values() {
         if track_state.enabled {
             all_tracks.extend(track_state.tracks.clone());
         }
