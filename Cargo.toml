@@ -1,4 +1,16 @@
 [workspace]
-members = ["lib", "cli", "wasm", "napi", "app", "app/src-tauri"]
+members = ["lib", "cli", "wasm", "napi", "app", "app/src-tauri", "rule-editor"]
 resolver = "2"
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
 
