@@ -46,6 +46,7 @@ pub struct OpenAIScrubActionProvider {
     model: String,
     system_prompt: String,
     rewrite_rules: Vec<RewriteRule>,
+    rule_focus_mode: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +156,25 @@ impl OpenAIScrubActionProvider {
             model,
             system_prompt,
             rewrite_rules,
+            rule_focus_mode: false,
         })
+    }
+
+    /// Enable rule focus mode for pattern analysis
+    pub fn enable_rule_focus_mode(&mut self) {
+        self.rule_focus_mode = true;
+    }
+
+    /// Get the effective system prompt based on current mode
+    fn get_effective_system_prompt(&self) -> String {
+        if self.rule_focus_mode {
+            format!(
+                "{}\n\nIMPORTANT: You are in PATTERN ANALYSIS MODE. Your primary goal is to identify patterns across many tracks and suggest rewrite rules that can systematically clean similar issues. Focus heavily on proposing rewrite rules rather than individual track edits. Look for common patterns like:\n- Remastered/version information that should be removed\n- Featuring/collaboration notation that should be standardized\n- Brackets, parentheses, or other formatting inconsistencies\n- Common misspellings or variations in artist/album names\n\nWhen you see the same type of issue across multiple tracks, always prefer suggesting a rewrite rule over individual edits.",
+                self.system_prompt
+            )
+        } else {
+            self.system_prompt.clone()
+        }
     }
 
     fn create_edit_function_properties() -> HashMap<String, Box<JSONSchemaDefine>> {
@@ -730,7 +749,7 @@ impl OpenAIScrubActionProvider {
             vec![
                 chat_completion::ChatCompletionMessage {
                     role: chat_completion::MessageRole::system,
-                    content: chat_completion::Content::Text(self.system_prompt.clone()),
+                    content: chat_completion::Content::Text(self.get_effective_system_prompt()),
                     name: None,
                     tool_calls: None,
                     tool_call_id: None,

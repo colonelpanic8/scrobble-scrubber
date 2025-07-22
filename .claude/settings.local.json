@@ -47,6 +47,7 @@
       "Bash(echo:*)",
       "Bash(just readme)",
       "Bash(just clippy:*)",
+      "Bash(just checks)",
       "Bash(wasm-pack:*)",
       "Bash(rustup target:*)",
       "Bash(rustup which:*)",

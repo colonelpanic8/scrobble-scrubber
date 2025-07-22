@@ -109,6 +109,18 @@ enum Commands {
         #[arg(short, long)]
         tracks: u32,
 
+        /// Focus on pattern analysis and rewrite rule suggestions
+        #[arg(long)]
+        rule_focus: bool,
+
+        /// Skip applying existing rewrite rules (useful with --rule-focus)
+        #[arg(long)]
+        no_existing_rules: bool,
+
+        /// Override batch size for processing
+        #[arg(long)]
+        batch_size: Option<u32>,
+
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
         dry_run: bool,
@@ -235,12 +247,18 @@ fn merge_args_into_config(
         }
         Commands::LastN {
             tracks: _,
+            rule_focus: _,
+            no_existing_rules: _,
+            batch_size,
             dry_run,
             require_confirmation,
             require_proposed_rule_confirmation,
             enable_web_interface,
             web_port,
         } => {
+            if let Some(batch_size) = batch_size {
+                config.scrubber.processing_batch_size = *batch_size;
+            }
             if *dry_run {
                 config.scrubber.dry_run = true;
             }
@@ -256,7 +274,7 @@ fn merge_args_into_config(
             if let Some(web_port) = web_port {
                 config.scrubber.web_port = *web_port;
             }
-            // Note: tracks count is handled in main.rs, not stored in config
+            // Note: tracks count, rule_focus, and no_existing_rules are handled in main.rs, not stored in config
         }
         Commands::Artist {
             name: _,
@@ -352,7 +370,16 @@ async fn main() -> Result<()> {
         })?,
     ));
 
-    // Create action provider (for now, just rewrite rules)
+    // Check if we should skip existing rewrite rules (for pattern analysis)
+    let skip_existing_rules = matches!(
+        &args.command,
+        Commands::LastN {
+            no_existing_rules: true,
+            ..
+        }
+    );
+
+    // Create action provider
     let rules_state = storage
         .lock()
         .await
@@ -366,9 +393,12 @@ async fn main() -> Result<()> {
 
     let mut action_provider = OrScrubActionProvider::new();
 
-    if config.providers.enable_rewrite_rules {
+    if config.providers.enable_rewrite_rules && !skip_existing_rules {
         let rewrite_provider = RewriteRulesScrubActionProvider::new(&rules_state);
         action_provider = action_provider.add_provider(rewrite_provider);
+        info!("Enabled rewrite rules provider");
+    } else if skip_existing_rules {
+        info!("Skipping existing rewrite rules for pattern analysis");
     }
 
     // Add OpenAI provider if enabled and configured
@@ -398,11 +428,23 @@ async fn main() -> Result<()> {
                 openai_config.system_prompt.clone(),
                 rules_state.rewrite_rules.clone(),
             ) {
-                Ok(openai_provider) => {
-                    info!(
-                        "Enabled OpenAI provider with model: {}",
-                        openai_config.model.as_deref().unwrap_or("default")
-                    );
+                Ok(mut openai_provider) => {
+                    // Enable rule focus mode if requested
+                    if matches!(
+                        &args.command,
+                        Commands::LastN {
+                            rule_focus: true,
+                            ..
+                        }
+                    ) {
+                        openai_provider.enable_rule_focus_mode();
+                        info!("Enabled OpenAI provider with RULE FOCUS mode for pattern analysis");
+                    } else {
+                        info!(
+                            "Enabled OpenAI provider with model: {}",
+                            openai_config.model.as_deref().unwrap_or("default")
+                        );
+                    }
                     action_provider = action_provider.add_provider(openai_provider);
                 }
                 Err(e) => {
@@ -448,8 +490,23 @@ async fn main() -> Result<()> {
             info!("Running single pass");
             scrubber_guard.trigger_run().await?;
         }
-        Commands::LastN { tracks, .. } => {
-            info!("Processing last {tracks} tracks");
+        Commands::LastN {
+            tracks,
+            rule_focus,
+            no_existing_rules,
+            batch_size,
+            ..
+        } => {
+            let mode_info = match (rule_focus, no_existing_rules) {
+                (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                (true, false) => " (rule focus mode)",
+                (false, true) => " (no existing rules)",
+                (false, false) => "",
+            };
+            let batch_info = batch_size
+                .map(|s| format!(" with batch size {s}"))
+                .unwrap_or_default();
+            info!("Processing last {tracks} tracks{mode_info}{batch_info}");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
         Commands::Artist { name, .. } => {
