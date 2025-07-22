@@ -1,0 +1,35 @@
+{
+  "name": "scrobble-scrubber-native",
+  "version": "0.1.0",
+  "description": "Native Node.js bindings for scrobble-scrubber",
+  "main": "index.js",
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "node test.js",
+    "artifacts": "napi artifacts"
+  },
+  "napi": {
+    "name": "scrobble-scrubber-native",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-gnu",
+        "i686-pc-windows-msvc",
+        "armv7-unknown-linux-gnueabihf",
+        "aarch64-apple-darwin",
+        "aarch64-pc-windows-msvc",
+        "aarch64-unknown-linux-musl"
+      ]
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@napi-rs/cli": "^2.16.2"
+  },
+  "engines": {
+    "node": ">= 10"
+  }
+}

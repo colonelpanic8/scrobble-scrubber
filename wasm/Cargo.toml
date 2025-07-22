@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 scrobble-scrubber = { path = "../lib", default-features = false, features = ["wasm"] }
 lastfm-edit = { version = "0.3.1", default-features = false, features = ["wasm"] }
-http-client = { version = "^6.6.3", package = "http-client-2", features = ["wasm_client"], default-features = false }
+http-client = { version = "^6.6.3", package = "http-client-2", features = ["wasm_client", "native_client"], default-features = false }
 http-types = { version = "^3.1.0", package = "http-types-2", default-features = false }
 
 wasm-bindgen = "0.2.88"

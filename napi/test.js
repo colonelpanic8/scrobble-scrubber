@@ -1,20 +1,18 @@
 #!/usr/bin/env node
 
-// Node.js example for testing WASM bindings with real Last.fm credentials
-// This bypasses CORS issues by running in Node.js instead of the browser
+// Native Node.js addon test - real HTTP requests work!
+const { LastFmEditClient } = require('./index.js');
 
-const { LastFmEditClient } = require('./pkg-node/scrobble_scrubber_js.js');
+async function testNativeAddon() {
+    console.log('🎵 Testing Native Scrobble Scrubber Node.js Addon');
 
-async function testLastFmWasm() {
-    console.log('🎵 Testing Scrobble Scrubber WASM with Last.fm');
-
-    // Get credentials from environment variables (set by direnv)
+    // Get credentials from environment variables
     const username = process.env.SCROBBLE_SCRUBBER_LASTFM_USERNAME;
     const password = process.env.SCROBBLE_SCRUBBER_LASTFM_PASSWORD;
 
     if (!username || !password) {
         console.error('❌ Missing environment variables:');
-        console.error('   SCROBBLE_SCRUBBER_LASTFM_USERNAME');
+        console.error('   SCROBBLE_SCRUBBER_LASTFM_USERNAME');  
         console.error('   SCROBBLE_SCRUBBER_LASTFM_PASSWORD');
         console.error('   Make sure you\'re in the project directory with direnv loaded.');
         process.exit(1);
@@ -22,17 +20,17 @@ async function testLastFmWasm() {
 
     console.log(`📋 Loaded credentials for user: ${username}`);
 
-    // Create WASM client
+    // Create native client
     const client = new LastFmEditClient();
 
     try {
         // Set credentials
         console.log('🔐 Setting credentials...');
-        client.set_credentials(username, password);
+        client.setCredentials(username, password);
 
-        // Test authentication
-        console.log('🔑 Testing authentication...');
-        const authResult = await client.test_auth();
+        // Test authentication with REAL HTTP requests!
+        console.log('🔑 Testing authentication (REAL API CALL)...');
+        const authResult = await client.testAuth();
 
         console.log('📊 Authentication result:', {
             success: authResult.success,
@@ -40,18 +38,18 @@ async function testLastFmWasm() {
         });
 
         if (!authResult.success) {
-            console.log('ℹ️  Note: This is expected for Node.js WASM - real HTTP requests are not supported');
-            console.log('🔄 Falling back to mock data for demonstration...');
-        } else {
-            console.log('✅ Authentication successful!');
+            console.error('❌ Authentication failed');
+            return;
         }
 
-        // Test recent tracks with mock data
-        console.log('\\n📻 Loading recent tracks (using mock data)...');
-        const recentTracks = await client.get_recent_tracks(5);
+        console.log('✅ Authentication successful!');
+
+        // Test recent tracks with REAL API calls!
+        console.log('\n📻 Loading recent tracks (REAL API CALL)...');
+        const recentTracks = await client.getRecentTracks(5);
 
         if (recentTracks && recentTracks.length > 0) {
-            console.log(`✅ Found ${recentTracks.length} recent tracks:`);
+            console.log(`✅ Found ${recentTracks.length} real recent tracks:`);
             recentTracks.forEach((track, index) => {
                 console.log(`  ${index + 1}. "${track.name}" by ${track.artist}`);
                 if (track.album) {
@@ -64,14 +62,14 @@ async function testLastFmWasm() {
             console.log('⚠️  No recent tracks found');
         }
 
-        // Test artist tracks with mock data
+        // Test artist tracks with REAL API calls!
         if (recentTracks && recentTracks.length > 0) {
             const artistName = recentTracks[0].artist;
-            console.log(`🎤 Loading tracks for artist: ${artistName} (using mock data)...`);
-            const artistTracks = await client.get_artist_tracks(artistName, 3);
+            console.log(`🎤 Loading tracks for artist: ${artistName} (REAL API CALL)...`);
+            const artistTracks = await client.getArtistTracks(artistName, 3);
 
             if (artistTracks && artistTracks.length > 0) {
-                console.log(`✅ Found ${artistTracks.length} tracks by ${artistName}:`);
+                console.log(`✅ Found ${artistTracks.length} real tracks by ${artistName}:`);
                 artistTracks.forEach((track, index) => {
                     console.log(`  ${index + 1}. "${track.name}"`);
                     if (track.album) {
@@ -85,13 +83,14 @@ async function testLastFmWasm() {
             }
         }
 
-        console.log('🎉 WASM Last.fm integration test completed successfully!');
+        console.log('🎉 Native addon Last.fm integration test completed successfully!');
+        console.log('🚀 All HTTP requests were REAL API calls to Last.fm!');
 
     } catch (error) {
-        console.error('❌ Error during WASM test:', error.message);
+        console.error('❌ Error during native addon test:', error.message);
         console.error('Full error:', error);
     }
 }
 
 // Run the test
-testLastFmWasm().catch(console.error);
+testNativeAddon().catch(console.error);

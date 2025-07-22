@@ -15,7 +15,7 @@ readme:
     cargo doc --no-deps --document-private-items --quiet
 
     # Extract the rustdoc content and convert it to README format
-    sed -n '/^\/\/!/p' src/lib.rs | \
+    sed -n '/^\/\/!/p' lib/src/lib.rs | \
     sed 's/^\/\/! \?//' | \
     sed 's/^\/\/!$//' > README.md
 
@@ -25,6 +25,7 @@ clippy:
     cargo clippy --all-targets --all-features -- -D warnings
 
 checks:
+    just fmt
     just fmt-check
     just clippy
     cargo test

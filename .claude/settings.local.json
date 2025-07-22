@@ -60,7 +60,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm install:*)",
       "Bash(pkill:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

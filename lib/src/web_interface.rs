@@ -273,8 +273,10 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
         pending_edits
             .iter()
             .take(5)
-            .map(|edit| {
-                format!(
+            .fold(String::new(), |mut acc, edit| {
+                use std::fmt::Write;
+                let _ = write!(
+                    acc,
                     r#"
                 <div class="item">
                     <strong>{} - {}</strong><br>
@@ -284,14 +286,15 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                 </div>
             "#,
                     edit.original_artist_name, edit.original_track_name, edit.id, edit.id, edit.id
-                )
-            })
-            .collect::<String>(),
+                );
+                acc
+            }),
         pending_rules.len(),
         pending_rules
             .iter()
             .take(5)
-            .map(|rule| {
+            .fold(String::new(), |mut acc, rule| {
+                use std::fmt::Write;
                 let rule_details = format_rule_details(&rule.rule);
                 let transformation_preview = match rule.apply_rule_to_example() {
                     Ok(transformed) => {
@@ -341,7 +344,8 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     ),
                 };
 
-                format!(
+                let _ = write!(
+                    acc,
                     r#"
                 <div class="item">
                     <strong>{}</strong><br>
@@ -365,16 +369,18 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     transformation_preview,
                     rule.id,
                     rule.id
-                )
-            })
-            .collect::<String>(),
+                );
+                acc
+            }),
         existing_rules.len(),
         existing_rules
             .iter()
             .take(10)
-            .map(|rule| {
+            .fold(String::new(), |mut acc, rule| {
+                use std::fmt::Write;
                 let rule_details = format_rule_details(rule);
-                format!(
+                let _ = write!(
+                    acc,
                     r#"
                 <div class="item">
                     <div class="rule-details">
@@ -382,9 +388,9 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                     </div>
                 </div>
             "#
-                )
+                );
+                acc
             })
-            .collect::<String>()
     );
 
     Ok(Html(html))

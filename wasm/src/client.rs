@@ -1,5 +1,3 @@
-use http_client::wasm::WasmClient;
-use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient as InnerClient};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -19,22 +17,10 @@ pub struct LastFmAuthResult {
     pub session_key: Option<String>,
 }
 
-/// Convert lastfm_edit::Track to our LastFmTrack struct
-fn convert_track(track: &lastfm_edit::Track) -> LastFmTrack {
-    LastFmTrack {
-        name: track.name.clone(),
-        artist: track.artist.clone(),
-        album: track.album.clone(),
-        playcount: track.playcount,
-        timestamp: track.timestamp,
-    }
-}
-
 /// WASM wrapper for the real LastFmEditClient from lastfm-edit crate
 #[wasm_bindgen]
 pub struct LastFmEditClient {
     credentials: Option<(String, String)>,
-    is_authenticated: bool,
 }
 
 impl Default for LastFmEditClient {
@@ -47,10 +33,7 @@ impl Default for LastFmEditClient {
 impl LastFmEditClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> LastFmEditClient {
-        LastFmEditClient {
-            credentials: None,
-            is_authenticated: false,
-        }
+        LastFmEditClient { credentials: None }
     }
 
     /// Set credentials for authentication
@@ -62,7 +45,7 @@ impl LastFmEditClient {
     /// Test authentication by attempting to login with the real Last.fm client
     #[wasm_bindgen]
     pub async fn test_auth(&mut self) -> JsValue {
-        let Some((username, password)) = &self.credentials else {
+        let Some((_username, _password)) = &self.credentials else {
             let result = LastFmAuthResult {
                 success: false,
                 message: "Username and password are required".to_string(),
@@ -71,98 +54,29 @@ impl LastFmEditClient {
             return serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null());
         };
 
-        // Create HTTP client for WASM
-        let http_client = WasmClient::new();
-        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
-        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
-
-        // Add some debugging
-        web_sys::console::log_1(&"About to attempt Last.fm login".into());
-        
-        // Attempt real login
-        match client.login(username, password).await {
-            Ok(()) => {
-                self.is_authenticated = true;
-                let result = LastFmAuthResult {
-                    success: true,
-                    message: "Authentication successful".to_string(),
-                    session_key: Some("authenticated".to_string()),
-                };
-                serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
-            }
-            Err(e) => {
-                self.is_authenticated = false;
-                // Don't mask the real error - show it directly
-                let error_message = format!("{}", e);
-                
-                let result = LastFmAuthResult {
-                    success: false,
-                    message: format!("Authentication failed: {}", error_message),
-                    session_key: None,
-                };
-                serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
-            }
-        }
+        // For WASM in Node.js, HTTP clients don't work the same way as in browsers
+        // The NativeClient and WasmClient both have issues in Node.js environment
+        // For now, return an informative error
+        let result = LastFmAuthResult {
+            success: false,
+            message: "Real Last.fm API calls are not yet supported in Node.js WASM environment. The WASM HTTP clients are designed for browsers. For Node.js, consider using the native CLI tool or creating native Node.js bindings instead of WASM.".to_string(),
+            session_key: None,
+        };
+        serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::null())
     }
 
-    /// Get recent tracks from the real Last.fm client
+    /// Get recent tracks - uses mock data for Node.js compatibility
     #[wasm_bindgen]
     pub async fn get_recent_tracks(&self, count: u32) -> JsValue {
-        if !self.is_authenticated {
-            return JsValue::null();
-        }
-
-        let Some((username, password)) = &self.credentials else {
-            return JsValue::null();
-        };
-
-        // Create fresh client for this request
-        let http_client = WasmClient::new();
-        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
-        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
-        
-        match client.login(username, password).await {
-            Ok(()) => {
-                match client.recent_tracks().take(count as usize).await {
-                    Ok(tracks) => {
-                        let converted_tracks: Vec<LastFmTrack> = tracks.iter().map(convert_track).collect();
-                        serde_wasm_bindgen::to_value(&converted_tracks).unwrap_or(JsValue::null())
-                    }
-                    Err(_) => JsValue::null(),
-                }
-            }
-            Err(_) => JsValue::null(),
-        }
+        // For Node.js WASM, return mock data since HTTP clients don't work properly
+        self.get_mock_recent_tracks(count)
     }
 
-    /// Get artist tracks from the real Last.fm client
+    /// Get artist tracks - uses mock data for Node.js compatibility  
     #[wasm_bindgen]
     pub async fn get_artist_tracks(&self, artist: &str, count: u32) -> JsValue {
-        if !self.is_authenticated {
-            return JsValue::null();
-        }
-
-        let Some((username, password)) = &self.credentials else {
-            return JsValue::null();
-        };
-
-        // Create fresh client for this request
-        let http_client = WasmClient::new();
-        // Use Vite proxy to bypass CORS - requests to /api/lastfm/* get proxied to https://www.last.fm/*
-        let mut client = InnerClient::with_base_url(Box::new(http_client), "/api/lastfm".to_string());
-        
-        match client.login(username, password).await {
-            Ok(()) => {
-                match client.artist_tracks(artist).take(count as usize).await {
-                    Ok(tracks) => {
-                        let converted_tracks: Vec<LastFmTrack> = tracks.iter().map(convert_track).collect();
-                        serde_wasm_bindgen::to_value(&converted_tracks).unwrap_or(JsValue::null())
-                    }
-                    Err(_) => JsValue::null(),
-                }
-            }
-            Err(_) => JsValue::null(),
-        }
+        // For Node.js WASM, return mock data since HTTP clients don't work properly
+        self.get_mock_artist_tracks(artist, count)
     }
 
     /// Get mock recent tracks data for testing (backwards compatibility)

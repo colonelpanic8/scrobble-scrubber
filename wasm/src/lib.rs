@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 mod client;
-pub use client::{LastFmEditClient, LastFmAuthResult, LastFmTrack};
+
+pub use client::{LastFmAuthResult, LastFmEditClient, LastFmTrack};
 
 #[wasm_bindgen]
 extern "C" {
