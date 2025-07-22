@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+// use uuid::Uuid;
 
 use crate::rewrite::RewriteRule;
 
@@ -31,7 +31,7 @@ pub struct RewriteRulesState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingEdit {
-    pub id: Uuid,
+    pub id: String,
     pub original_track_name: String,
     pub original_artist_name: String,
     pub original_album_name: Option<String>,
@@ -57,7 +57,10 @@ impl PendingEdit {
         timestamp: Option<u64>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: format!(
+                "id-{}",
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+            ),
             original_track_name,
             original_artist_name,
             original_album_name,
@@ -73,7 +76,7 @@ impl PendingEdit {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingRewriteRule {
-    pub id: Uuid,
+    pub id: String,
     pub rule: RewriteRule,
     pub reason: String,
     pub example_track_name: String,
@@ -90,7 +93,10 @@ impl PendingRewriteRule {
         example_artist_name: String,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: format!(
+                "id-{}",
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+            ),
             rule,
             reason,
             example_track_name,
@@ -109,7 +115,10 @@ impl PendingRewriteRule {
         example_album_artist_name: Option<String>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: format!(
+                "id-{}",
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+            ),
             rule,
             reason,
             example_track_name,

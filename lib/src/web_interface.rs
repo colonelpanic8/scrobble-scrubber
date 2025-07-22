@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
-use uuid::Uuid;
+// use uuid::Uuid;
 
 use crate::persistence::StateStorage;
 use crate::rewrite::{RewriteRule, SdRule};
@@ -394,7 +394,7 @@ async fn handle_edit_action<S: StateStorage, P: ScrubActionProvider>(
     State(state): State<WebInterfaceState<S, P>>,
     Path((id, action)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse>, StatusCode> {
-    let edit_id = Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let edit_id = id; // Now using String IDs directly
 
     if action != "approve" && action != "reject" {
         return Ok(Json(ApiResponse {
@@ -449,7 +449,7 @@ async fn handle_rule_action<S: StateStorage, P: ScrubActionProvider>(
     State(state): State<WebInterfaceState<S, P>>,
     Path((id, action)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse>, StatusCode> {
-    let rule_id = Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let rule_id = id; // Now using String IDs directly
 
     if action != "approve" && action != "reject" {
         return Ok(Json(ApiResponse {

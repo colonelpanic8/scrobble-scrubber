@@ -231,7 +231,6 @@
             <!-- Configuration Tab -->
             <div id="config-tab" class="tab-panel active">
                 <h2>Configuration</h2>
-                
                 <div class="config-section">
                     <h3>Last.fm Authentication</h3>
                     <div class="form-row">
@@ -442,10 +441,10 @@
     <div id="status-indicator" class="status-indicator loading">Loading WASM...</div>
 
     <script type="module">
-        import init, { 
-            create_track, 
-            create_simple_rule, 
-            test_rule_applies, 
+        import init, {
+            create_track,
+            create_simple_rule,
+            test_rule_applies,
             apply_rule_to_track,
             validate_regex,
             test_regex
@@ -460,12 +459,12 @@
             document.querySelectorAll('.tab-panel').forEach(panel => {
                 panel.classList.remove('active');
             });
-            
+
             // Remove active class from all tabs
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Show selected tab panel and mark tab as active
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
@@ -489,7 +488,7 @@
             const indicator = document.getElementById('status-indicator');
             indicator.className = 'status-indicator ' + type;
             indicator.textContent = message;
-            
+
             if (type === 'ready') {
                 setTimeout(() => {
                     indicator.style.opacity = '0';
@@ -539,7 +538,7 @@
                     requireRuleConfirmation: document.getElementById('require-rule-confirmation').checked
                 }
             };
-            
+
             localStorage.setItem('scrobble-scrubber-config', JSON.stringify(currentConfig));
             showResult('config-result', 'success', 'Configuration saved successfully!');
             addLog('info', 'Configuration saved to local storage');
@@ -549,7 +548,7 @@
             const saved = localStorage.getItem('scrobble-scrubber-config');
             if (saved) {
                 currentConfig = JSON.parse(saved);
-                
+
                 // Populate form fields
                 document.getElementById('lastfm-username').value = currentConfig.lastfm?.username || '';
                 document.getElementById('lastfm-password').value = currentConfig.lastfm?.password || '';
@@ -557,7 +556,7 @@
                 document.getElementById('batch-size').value = currentConfig.processing?.batchSize || 1;
                 document.getElementById('dry-run').checked = currentConfig.processing?.dryRun || false;
                 document.getElementById('require-confirmation').checked = currentConfig.processing?.requireConfirmation || false;
-                
+
                 if (currentConfig.openai) {
                     document.getElementById('enable-openai').checked = currentConfig.openai.enabled || false;
                     document.getElementById('openai-api-key').value = currentConfig.openai.apiKey || '';
@@ -565,7 +564,7 @@
                     document.getElementById('require-rule-confirmation').checked = currentConfig.openai.requireRuleConfirmation !== false;
                     toggleOpenAI();
                 }
-                
+
                 showResult('config-result', 'success', 'Configuration loaded successfully!');
                 addLog('info', 'Configuration loaded from local storage');
             } else {
@@ -586,11 +585,11 @@
                         input.value = '';
                     }
                 });
-                
+
                 document.getElementById('require-rule-confirmation').checked = true;
                 document.getElementById('openai-model').value = 'gpt-4o';
                 toggleOpenAI();
-                
+
                 showResult('config-result', 'success', 'Configuration reset to defaults');
                 addLog('info', 'Configuration reset to defaults');
             }
@@ -599,12 +598,12 @@
         window.testLastFmAuth = function() {
             const username = document.getElementById('lastfm-username').value;
             const password = document.getElementById('lastfm-password').value;
-            
+
             if (!username || !password) {
                 showResult('config-result', 'error', 'Username and password are required');
                 return;
             }
-            
+
             // TODO: Implement actual Last.fm authentication test
             showResult('config-result', 'warning', 'Authentication test not yet implemented in WASM version');
             addLog('info', 'Authentication test requested for user: ' + username);
@@ -616,7 +615,7 @@
                 showResult('action-result', 'error', 'WASM module not loaded');
                 return;
             }
-            
+
             showResult('action-result', 'warning', 'Processing new tracks... (not yet implemented in WASM version)');
             addLog('info', 'Run once action requested');
         };
@@ -627,7 +626,7 @@
                 showResult('action-result', 'error', 'Please enter a valid number of tracks');
                 return;
             }
-            
+
             showResult('action-result', 'warning', `Processing last ${n} tracks... (not yet implemented in WASM version)`);
             addLog('info', `Process last ${n} tracks requested`);
         };
@@ -638,7 +637,7 @@
                 showResult('action-result', 'error', 'Please enter an artist name');
                 return;
             }
-            
+
             showResult('action-result', 'warning', `Processing all tracks for "${artist}"... (not yet implemented in WASM version)`);
             addLog('info', `Process artist "${artist}" requested`);
         };
@@ -663,7 +662,7 @@
 
                 const ruleJson = create_simple_rule(field, find, replace, isLiteral);
                 const rule = JSON.parse(ruleJson);
-                
+
                 document.getElementById('current-rule').value = JSON.stringify(rule, null, 2);
                 showResult('rules-result', 'success', 'Rule created successfully!');
                 addLog('info', `Created rule for ${field}: "${find}" → "${replace}"`);
@@ -727,7 +726,7 @@
                 };
 
                 const ruleJson = document.getElementById('current-rule').value;
-                
+
                 if (!ruleJson.trim()) {
                     showResult('rules-result', 'error', 'No rule defined. Please create a rule first.');
                     return;
@@ -736,7 +735,7 @@
                 // Test if rule applies
                 const trackJson = JSON.stringify(track);
                 const applies = test_rule_applies(ruleJson, trackJson);
-                
+
                 if (!applies) {
                     showResult('rules-result', 'warning', 'Rule does not apply to this track');
                     addLog('info', `Rule test: does not apply to "${track.name}" by ${track.artist}`);
@@ -745,11 +744,11 @@
 
                 // Apply the rule
                 const result = apply_rule_to_track(ruleJson, trackJson);
-                
+
                 if (result.changed) {
                     let changes = [];
                     const edit = result.edit;
-                    
+
                     if (edit.track_name !== edit.track_name_original) {
                         changes.push(`Track: "${edit.track_name_original}" → "${edit.track_name}"`);
                     }
@@ -762,7 +761,7 @@
                     if (edit.album_artist_name !== edit.album_artist_name_original) {
                         changes.push(`Album Artist: "${edit.album_artist_name_original}" → "${edit.album_artist_name}"`);
                     }
-                    
+
                     if (changes.length > 0) {
                         const message = 'Rule Test Results:\\n\\n' + changes.join('\\n');
                         showResult('rules-result', 'success', message);
@@ -802,7 +801,7 @@
                 showResult('rules-result', 'error', 'No rule to export');
                 return;
             }
-            
+
             navigator.clipboard.writeText(ruleJson).then(() => {
                 showResult('rules-result', 'success', 'Rule copied to clipboard!');
                 addLog('info', 'Rule exported to clipboard');

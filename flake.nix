@@ -17,25 +17,19 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = ["rust-src" "rust-analyzer"];
-        };
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs;
             [
-              # Rust toolchain
-              rustToolchain
-
               # System dependencies for reqwest/openssl
               pkg-config
               openssl
-
-              # Additional useful tools
-              cargo-watch
-              cargo-edit
               just
+
+              # WASM development
+              wasm-pack
+              nodejs
+              nodePackages.npm
 
               # For TUI development
               libiconv

@@ -51,7 +51,14 @@
       "Bash(wasm-pack:*)",
       "Bash(rustup target:*)",
       "Bash(rustup which:*)",
-      "Bash(PATH=\"$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH\" wasm-pack build --target web --out-dir pkg)"
+      "Bash(PATH=\"$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH\" wasm-pack build --target web --out-dir pkg)",
+      "Bash(npm run build:*)",
+      "Bash(direnv reload:*)",
+      "Bash(rustup:*)",
+      "Bash(exit)",
+      "Bash(export:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }
