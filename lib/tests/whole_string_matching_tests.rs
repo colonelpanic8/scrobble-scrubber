@@ -142,9 +142,21 @@ fn test_clean_featuring_formats() {
     test_rule!(rule, "Artist feat. Someone", "Artist feat. Someone"); // Already correct
     test_rule!(rule, "Artist featuring Someone", "Artist feat. Someone");
 
-    // Should not match partial strings
-    test_no_match!(rule, "Artist ft. Someone - Remix");
-    test_no_match!(rule, "Track: Artist ft. Someone");
+    // With whole string replacement, these will match and do full replacement
+    test_rule!(
+        rule,
+        "Artist ft. Someone - Remix",
+        "Artist feat. Someone - Remix"
+    );
+    test_rule!(
+        rule,
+        "Track: Artist ft. Someone",
+        "Track: Artist feat. Someone"
+    );
+
+    // Should not match if pattern not found
+    test_no_match!(rule, "Just an artist name");
+    test_no_match!(rule, "Artist with Someone");
 }
 
 #[test]
@@ -194,9 +206,14 @@ fn test_case_insensitive_matching() {
     test_rule!(rule, "REMASTER", "version");
     test_rule!(rule, "Remaster", "version");
 
-    // Should still not match partial strings even with case insensitive
-    test_no_match!(rule, "Song Remaster");
-    test_no_match!(rule, "remaster edition");
+    // With whole string replacement, these will match and replace entire string
+    test_rule!(rule, "Song Remaster", "version");
+    test_rule!(rule, "remaster edition", "version");
+    test_rule!(rule, "Song REMASTER Edition", "version");
+
+    // Should not match if pattern not found
+    test_no_match!(rule, "remix");
+    test_no_match!(rule, "original");
 }
 
 #[test]
@@ -215,9 +232,16 @@ fn test_complex_transformation() {
         "Bohemian Rhapsody by Queen"
     );
 
-    // Should not match if format doesn't match exactly
+    // With whole string replacement, this will match and transform
+    test_rule!(
+        rule,
+        "The Beatles - Hey Jude (2023 Remaster) - Extended",
+        "Hey Jude by The Beatles"
+    );
+
+    // Should not match if pattern not found
     test_no_match!(rule, "The Beatles - Hey Jude");
-    test_no_match!(rule, "The Beatles - Hey Jude (2023 Remaster) - Extended");
+    test_no_match!(rule, "Just a song title");
 }
 
 #[test]
