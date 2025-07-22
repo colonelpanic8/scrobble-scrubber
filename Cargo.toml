@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib", "cli", "wasm", "napi", "app", "app/src-tauri", "rule-editor"]
+members = ["lib", "cli", "wasm", "napi", "app"]
 resolver = "2"
 
 [profile]
