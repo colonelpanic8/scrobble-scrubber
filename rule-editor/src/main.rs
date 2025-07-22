@@ -1,3 +1,4 @@
+use dioxus::document::eval;
 use dioxus::prelude::*;
 use lastfm_edit::Track;
 use scrobble_scrubber::rewrite::{apply_all_rules, create_no_op_edit, RewriteRule, SdRule};
@@ -444,21 +445,34 @@ fn RuleEditor(mut state: Signal<AppState>) -> Element {
                 }
             }
 
-            // Clear button
-            button {
-                style: "background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; align-self: flex-start;",
-                onclick: move |_| {
-                    track_find.set(String::new());
-                    track_replace.set(String::new());
-                    artist_find.set(String::new());
-                    artist_replace.set(String::new());
-                    album_find.set(String::new());
-                    album_replace.set(String::new());
-                    album_artist_find.set(String::new());
-                    album_artist_replace.set(String::new());
-                    state.with_mut(|s| s.current_rule = RewriteRule::new());
-                },
-                "Clear All Rules"
+            // Action buttons
+            div { style: "display: flex; gap: 1rem; align-self: flex-start;",
+                button {
+                    style: "background: #059669; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;",
+                    onclick: move |_| {
+                        let rule = state.read().current_rule.clone();
+                        if let Ok(json_str) = serde_json::to_string_pretty(&rule) {
+                            copy_to_clipboard(json_str);
+                        }
+                    },
+                    "Copy as JSON"
+                }
+
+                button {
+                    style: "background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;",
+                    onclick: move |_| {
+                        track_find.set(String::new());
+                        track_replace.set(String::new());
+                        artist_find.set(String::new());
+                        artist_replace.set(String::new());
+                        album_find.set(String::new());
+                        album_replace.set(String::new());
+                        album_artist_find.set(String::new());
+                        album_artist_replace.set(String::new());
+                        state.with_mut(|s| s.current_rule = RewriteRule::new());
+                    },
+                    "Clear All Rules"
+                }
             }
         }
     }
@@ -741,4 +755,14 @@ async fn load_recent_tracks(session_str: String) -> Result<Vec<SerializableTrack
     ];
 
     Ok(mock_tracks)
+}
+
+// Helper function to copy text to clipboard
+fn copy_to_clipboard(text: String) {
+    spawn(async move {
+        let _ = eval(&format!(
+            "navigator.clipboard.writeText(`{}`)",
+            text.replace('`', "\\`")
+        ));
+    });
 }
