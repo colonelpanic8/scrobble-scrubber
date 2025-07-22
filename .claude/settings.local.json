@@ -64,7 +64,8 @@
       "Bash(node:*)",
       "Bash(npm create:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npm run tauri:*)"
+      "Bash(npm run tauri:*)",
+      "Bash(trunk build:*)"
     ],
     "deny": []
   }
