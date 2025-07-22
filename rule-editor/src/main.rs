@@ -49,6 +49,7 @@ struct AppState {
     tracks: Vec<SerializableTrack>, // Only mutated when loading from client
     current_rule: RewriteRule,
     show_all_tracks: bool, // Toggle to show all tracks or only matching ones
+    current_page: u32,     // Current page for pagination
 }
 
 impl Default for AppState {
@@ -59,6 +60,7 @@ impl Default for AppState {
             tracks: Vec::new(),
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks
+            current_page: 1,       // Start at page 1
         }
     }
 }
@@ -93,8 +95,13 @@ fn App() -> Element {
                                 });
 
                                 // Load recent tracks using the session
-                                if let Ok(tracks) = load_recent_tracks(session_str).await {
-                                    state.with_mut(|s| s.tracks = tracks);
+                                if let Ok(tracks) =
+                                    load_recent_tracks_from_page(session_str, 1).await
+                                {
+                                    state.with_mut(|s| {
+                                        s.tracks = tracks;
+                                        s.current_page = 1;
+                                    });
                                 }
                             }
                             Err(e) => {
@@ -198,8 +205,11 @@ fn LoginPage(mut state: Signal<AppState>) -> Element {
                                 });
 
                                 // Load recent tracks using the session
-                                if let Ok(tracks) = load_recent_tracks(session_str).await {
-                                    state.with_mut(|s| s.tracks = tracks);
+                                if let Ok(tracks) = load_recent_tracks_from_page(session_str, 1).await {
+                                    state.with_mut(|s| {
+                                        s.tracks = tracks;
+                                        s.current_page = 1;
+                                    });
                                 }
                             }
                             Err(e) => {
@@ -261,11 +271,18 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                         ),
                         disabled: *loading_tracks.read(),
                         onclick: move |_| async move {
-                            let session_str = state.read().session.clone();
+                            let (session_str, current_page) = {
+                                let s = state.read();
+                                (s.session.clone(), s.current_page)
+                            };
                             if let Some(session_str) = session_str {
                                 loading_tracks.set(true);
-                                if let Ok(tracks) = load_recent_tracks(session_str).await {
-                                    state.with_mut(|s| s.tracks = tracks);
+                                let next_page = current_page + 1;
+                                if let Ok(mut new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
+                                    state.with_mut(|s| {
+                                        s.tracks.append(&mut new_tracks);
+                                        s.current_page = next_page;
+                                    });
                                 }
                                 loading_tracks.set(false);
                             }
@@ -681,6 +698,14 @@ async fn login_to_lastfm(username: String, password: String) -> Result<String, S
 
 #[server(LoadRecentTracks)]
 async fn load_recent_tracks(session_str: String) -> Result<Vec<SerializableTrack>, ServerFnError> {
+    load_recent_tracks_from_page(session_str, 1).await
+}
+
+#[server(LoadRecentTracksFromPage)]
+async fn load_recent_tracks_from_page(
+    session_str: String,
+    page: u32,
+) -> Result<Vec<SerializableTrack>, ServerFnError> {
     use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
 
     // Deserialize the session
@@ -698,9 +723,9 @@ async fn load_recent_tracks(session_str: String) -> Result<Vec<SerializableTrack
     let http_client = http_client::native::NativeClient::new();
     let mut client = LastFmEditClient::from_session(Box::new(http_client), session);
 
-    // Try to fetch real recent tracks
+    // Try to fetch real recent tracks from specific page
     let mut tracks = Vec::new();
-    let mut recent_iterator = client.recent_tracks();
+    let mut recent_iterator = client.recent_tracks_from_page(page);
     let mut count = 0;
     const LIMIT: u32 = 50;
 
