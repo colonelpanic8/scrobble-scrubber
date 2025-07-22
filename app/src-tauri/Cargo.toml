@@ -27,4 +27,5 @@ http-client = { version = "6.5", package = "http-client-2", default-features = f
 anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11"
+regex = "1.0"
 

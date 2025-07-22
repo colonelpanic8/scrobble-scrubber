@@ -83,6 +83,22 @@ GUIDELINES:
 - Consider original album/single releases when correcting compilations
 - CLEAN TRACK NAMES: The goal is clean, canonical track names without extraneous suffixes or parentheticals
 
+REWRITE RULE BEST PRACTICES:
+- GENERIC RULES: Create rules that work across all artists, not artist-specific ones
+- REPRESENTATIVE EXAMPLES: When suggesting rules, provide examples that clearly show the transformation
+- GOOD EXAMPLE: \"Bohemian Rhapsody - 2011 Remaster\" → \"Bohemian Rhapsody\" (demonstrates remaster removal)  
+- BAD EXAMPLE: \"Hey Jude\" → \"Hey Jude\" (shows no change, not helpful)
+- AVOID ARTIST-SPECIFIC: Don't create rules like \"Beatles\" → \"The Beatles\" unless specifically correcting misspellings
+- PATTERN FOCUS: Rules should target formatting patterns (remasters, editions, etc.) not content-specific changes
+- MOTIVATION CLARITY: Explain WHY the rule helps (\"Removes distracting remaster suffixes for cleaner track names\")
+
+EXAMPLE QUALITY:
+When providing examples in your motivation, choose tracks that actually demonstrate the rule's effect:
+- Show the BEFORE and AFTER transformation clearly
+- Pick common scenarios where the rule would apply
+- Use diverse examples (different genres/eras) to show broad applicability
+- Make it obvious why the change improves the metadata
+
 Help build a smarter cleaning system by identifying both immediate fixes AND patterns for future automation!";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,7 +210,10 @@ impl StorageConfig {
     pub fn get_default_state_file_path() -> String {
         if let Some(data_dir) = dirs::data_dir() {
             let scrobble_data_dir = data_dir.join("scrobble-scrubber");
-            scrobble_data_dir.join("state.db").to_string_lossy().to_string()
+            scrobble_data_dir
+                .join("state.db")
+                .to_string_lossy()
+                .to_string()
         } else {
             // Fallback to current directory if XDG data directory is not available
             "scrobble_state.db".to_string()

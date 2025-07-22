@@ -30,6 +30,41 @@ struct ProcessArtistRequest {
     artist_name: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct FetchTracksRequest {
+    artist: Option<String>,
+    limit: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TrackInfo {
+    name: String,
+    artist: String,
+    album: Option<String>,
+    playcount: u32,
+    timestamp: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TestRulesRequest {
+    rules: Vec<RewriteRule>,
+    tracks: Vec<TrackInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TestRulesResult {
+    track_results: Vec<TrackTestResult>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TrackTestResult {
+    original_track: TrackInfo,
+    would_change: bool,
+    new_track_name: Option<String>,
+    new_artist_name: Option<String>,
+    rules_applied: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct ApiResponse {
     success: bool,
@@ -145,6 +180,14 @@ pub fn create_router<
         .route("/api/rules/:id/:action", post(handle_rule_action))
         .route("/api/scrubber/status", get(scrubber_status))
         .route("/api/scrubber/process-artist", post(process_artist))
+        .route(
+            "/api/workshop/fetch-tracks",
+            post(fetch_tracks_for_workshop::<S, P>),
+        )
+        .route(
+            "/api/workshop/test-rules",
+            post(test_rules_on_tracks::<S, P>),
+        )
 }
 
 async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
@@ -177,7 +220,16 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
 <head>
     <title>Scrobble Scrubber Dashboard</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        body {{ font-family: Arial, sans-serif; margin: 0; }}
+        .header {{ background: #343a40; color: white; padding: 15px 20px; }}
+        .header h1 {{ margin: 0; }}
+        .tabs {{ background: #f8f9fa; border-bottom: 1px solid #dee2e6; }}
+        .tab-buttons {{ display: flex; margin: 0; padding: 0; list-style: none; }}
+        .tab-button {{ padding: 12px 24px; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s; }}
+        .tab-button.active {{ border-bottom-color: #007bff; background: white; }}
+        .tab-button:hover {{ background: #e9ecef; }}
+        .tab-content {{ display: none; padding: 20px; }}
+        .tab-content.active {{ display: block; }}
         .section {{ margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; }}
         .btn {{ padding: 8px 16px; margin: 4px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }}
         .btn.danger {{ background: #dc3545; }}
@@ -187,36 +239,102 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
         .rule-details strong {{ color: #2c3e50; }}
         .transformation-preview {{ margin: 10px 0; padding: 12px; background: #e8f5e8; border: 2px solid #4CAF50; border-radius: 4px; font-size: 14px; line-height: 1.4; }}
         .transformation-preview strong {{ color: #2e7d32; }}
+        .track-result {{ margin: 8px 0; padding: 12px; background: #f9f9f9; border: 2px solid #e0e0e0; border-radius: 4px; }}
+        .track-result.changed {{ background: #eafaf1; border-color: #28a745; }}
+        .track-original {{ font-weight: bold; color: #333; }}
+        .track-changed {{ margin-top: 5px; color: #28a745; }}
+        .track-arrow {{ font-weight: bold; font-size: 16px; color: #28a745; margin: 0 8px; }}
+        .track-rules {{ font-size: 12px; color: #666; margin-top: 5px; }}
+        .btn:disabled {{ background: #6c757d; cursor: not-allowed; }}
+        .workshop-controls {{ display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; }}
+        .form-group {{ display: flex; flex-direction: column; }}
+        .form-group label {{ font-weight: bold; margin-bottom: 5px; }}
+        .form-group input {{ padding: 8px; border: 1px solid #ccc; border-radius: 4px; }}
+        .tracks-info {{ padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px; }}
     </style>
 </head>
 <body>
-    <h1>🎵 Scrobble Scrubber Dashboard</h1>
-
-    <div class="section">
-        <h2>Pending Edits ({})</h2>
-        {}
+    <div class="header">
+        <h1>🎵 Scrobble Scrubber Dashboard</h1>
+    </div>
+    
+    <div class="tabs">
+        <ul class="tab-buttons">
+            <li class="tab-button active" onclick="showTab('dashboard')">Dashboard</li>
+            <li class="tab-button" onclick="showTab('workshop')">Rule Workshop</li>
+        </ul>
     </div>
 
-    <div class="section">
-        <h2>Pending Rules ({})</h2>
-        {}
+    <div id="dashboard" class="tab-content active">
+        <div class="section">
+            <h2>Pending Edits ({})</h2>
+            {}
+        </div>
+
+        <div class="section">
+            <h2>Pending Rules ({})</h2>
+            {}
+        </div>
+
+        <div class="section">
+            <h2>Active Rewrite Rules ({})</h2>
+            {}
+        </div>
+
+        <div class="section">
+            <h2>Process Artist</h2>
+            <form id="artistForm">
+                <input type="text" id="artistName" placeholder="Enter artist name..." style="width: 300px; padding: 8px;">
+                <button type="submit" class="btn" style="margin-left: 10px;">Process Artist</button>
+            </form>
+            <div id="artistStatus" style="margin-top: 10px; font-weight: bold;"></div>
+        </div>
     </div>
 
-    <div class="section">
-        <h2>Active Rewrite Rules ({})</h2>
-        {}
-    </div>
-
-    <div class="section">
-        <h2>Process Artist</h2>
-        <form id="artistForm">
-            <input type="text" id="artistName" placeholder="Enter artist name..." style="width: 300px; padding: 8px;">
-            <button type="submit" class="btn" style="margin-left: 10px;">Process Artist</button>
-        </form>
-        <div id="artistStatus" style="margin-top: 10px; font-weight: bold;"></div>
+    <div id="workshop" class="tab-content">
+        <div class="section">
+            <h2>🔧 Rule Workshop</h2>
+            <p>Test how your rewrite rules would apply to recent tracks or tracks from a specific artist.</p>
+            
+            <div class="workshop-controls">
+                <div class="form-group">
+                    <label for="workshopArtist">Artist (optional):</label>
+                    <input type="text" id="workshopArtist" placeholder="Leave empty for recent tracks" style="width: 250px;">
+                </div>
+                <div class="form-group">
+                    <label for="workshopLimit">Limit:</label>
+                    <input type="number" id="workshopLimit" value="100" min="1" max="500" style="width: 80px;">
+                </div>
+                <button id="loadTracksBtn" class="btn">Load Tracks</button>
+            </div>
+            
+            <div id="tracksInfo" class="tracks-info" style="display: none;">
+                <strong id="tracksCount"></strong>
+            </div>
+            
+            <div id="workshopResults" style="margin-top: 20px;"></div>
+        </div>
     </div>
 
     <script>
+        function showTab(tabName) {{
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {{
+                tab.classList.remove('active');
+            }});
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {{
+                button.classList.remove('active');
+            }});
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }}
+
         async function handleEdit(id, action) {{
             const response = await fetch(`/api/edits/${{id}}/${{action}}`, {{ method: 'POST' }});
             const result = await response.json();
@@ -265,6 +383,112 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
                 statusDiv.style.color = 'red';
             }}
         }});
+
+        // Workshop functionality
+        let workshopTracks = [];
+        
+        document.getElementById('loadTracksBtn').addEventListener('click', async function() {{
+            const artistName = document.getElementById('workshopArtist').value.trim();
+            const limit = parseInt(document.getElementById('workshopLimit').value) || 100;
+            const btn = this;
+            const tracksInfo = document.getElementById('tracksInfo');
+            const tracksCount = document.getElementById('tracksCount');
+            const resultsDiv = document.getElementById('workshopResults');
+            
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+            
+            try {{
+                const response = await fetch('/api/workshop/fetch-tracks', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        artist: artistName || null,
+                        limit: limit
+                    }})
+                }});
+                
+                if (response.ok) {{
+                    workshopTracks = await response.json();
+                    tracksCount.textContent = `Loaded ${{workshopTracks.length}} tracks`;
+                    tracksInfo.style.display = 'block';
+                    
+                    // Automatically test rules when tracks are loaded
+                    await testRulesOnTracks();
+                }} else {{
+                    alert('Failed to fetch tracks');
+                }}
+            }} catch (error) {{
+                alert('Error: ' + error.message);
+            }} finally {{
+                btn.textContent = 'Load Tracks';
+                btn.disabled = false;
+            }}
+        }});
+        
+        async function testRulesOnTracks() {{
+            if (workshopTracks.length === 0) return;
+            
+            const resultsDiv = document.getElementById('workshopResults');
+            resultsDiv.innerHTML = '<p>Testing rules...</p>';
+            
+            try {{
+                // Get current active rules
+                const activeRulesJson = document.querySelector('script').textContent.match(/serde_json::to_string\(&existing_rules\).*?"(.*?)"/)?.[1] || '[]';
+                const activeRules = JSON.parse(activeRulesJson.replace(/&quot;/g, '"'));
+                
+                const response = await fetch('/api/workshop/test-rules', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        rules: activeRules,
+                        tracks: workshopTracks
+                    }})
+                }});
+                
+                if (response.ok) {{
+                    const results = await response.json();
+                    displayWorkshopResults(results);
+                }} else {{
+                    resultsDiv.innerHTML = '<p>Failed to test rules</p>';
+                }}
+            }} catch (error) {{
+                resultsDiv.innerHTML = '<p>Error: ' + error.message + '</p>';
+            }}
+        }}
+        
+        function displayWorkshopResults(results) {{
+            const resultsDiv = document.getElementById('workshopResults');
+            const affectedCount = results.track_results.filter(r => r.would_change).length;
+            
+            let html = `<h3>Rule Test Results: ${{affectedCount}} of ${{results.track_results.length}} tracks would change</h3>`;
+            
+            results.track_results.forEach(result => {{
+                const trackClass = result.would_change ? 'track-result changed' : 'track-result';
+                const albumInfo = result.original_track.album ? ` from ${{result.original_track.album}}` : '';
+                
+                html += `<div class="${{trackClass}}">`;
+                html += `<div class="track-original">${{result.original_track.artist}} - ${{result.original_track.name}}${{albumInfo}}</div>`;
+                
+                if (result.would_change) {{
+                    const newTrackName = result.new_track_name || result.original_track.name;
+                    const newArtistName = result.new_artist_name || result.original_track.artist;
+                    html += `<div class="track-changed">`;
+                    html += `<span class="track-arrow">→</span>`;
+                    html += `<strong>${{newArtistName}} - ${{newTrackName}}</strong>`;
+                    html += `</div>`;
+                    if (result.rules_applied.length > 0) {{
+                        html += `<div class="track-rules">Rules: ${{result.rules_applied.join(', ')}}</div>`;
+                    }}
+                }} else {{
+                    html += `<div style="font-style: italic; color: #666; margin-top: 5px;">(no change)</div>`;
+                }}
+                
+                html += `</div>`;
+            }});
+            
+            resultsDiv.innerHTML = html;
+        }}
     </script>
 </body>
 </html>
@@ -393,7 +617,13 @@ async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
             })
     );
 
-    Ok(Html(html))
+    // Add the active rules as a JSON script for the workshop
+    let rules_script = format!(
+        "<script>window.activeRules = {};</script>",
+        serde_json::to_string(&existing_rules).unwrap_or_else(|_| "[]".to_string())
+    );
+
+    Ok(Html(format!("{html}\n{rules_script}")))
 }
 
 async fn handle_edit_action<S: StateStorage, P: ScrubActionProvider>(
@@ -662,4 +892,120 @@ pub async fn start_web_server<
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn fetch_tracks_for_workshop<S: StateStorage, P: ScrubActionProvider>(
+    State(state): State<WebInterfaceState<S, P>>,
+    Json(request): Json<FetchTracksRequest>,
+) -> Result<Json<Vec<TrackInfo>>, StatusCode> {
+    log::info!("=== FETCH TRACKS REQUEST RECEIVED ===");
+    log::info!("Artist: {:?}, Limit: {:?}", request.artist, request.limit);
+
+    let limit = request.limit.unwrap_or(100);
+
+    log::info!("Getting scrubber lock...");
+    // Get real tracks from the scrubber
+    let mut scrubber = state.scrubber.lock().await;
+    log::info!("Got scrubber lock successfully");
+
+    let lastfm_tracks = match &request.artist {
+        Some(artist_name) => {
+            log::info!("Fetching tracks for artist: {artist_name}");
+            scrubber
+                .fetch_artist_tracks(artist_name, limit)
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to fetch artist tracks: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+        }
+        None => {
+            log::info!("Fetching recent tracks");
+            scrubber.fetch_recent_tracks(limit).await.map_err(|e| {
+                log::error!("Failed to fetch recent tracks: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+        }
+    };
+
+    // Convert lastfm_edit::Track to TrackInfo
+    let tracks: Vec<TrackInfo> = lastfm_tracks
+        .into_iter()
+        .map(|track| TrackInfo {
+            name: track.name,
+            artist: track.artist,
+            album: track.album,
+            playcount: track.playcount,
+            timestamp: track.timestamp,
+        })
+        .collect();
+
+    log::info!(
+        "Fetched {} real tracks for workshop (artist: {:?})",
+        tracks.len(),
+        request.artist
+    );
+    Ok(Json(tracks))
+}
+
+async fn test_rules_on_tracks<S: StateStorage, P: ScrubActionProvider>(
+    State(_state): State<WebInterfaceState<S, P>>,
+    Json(request): Json<TestRulesRequest>,
+) -> Result<Json<TestRulesResult>, StatusCode> {
+    log::info!(
+        "Testing {} rules on {} tracks",
+        request.rules.len(),
+        request.tracks.len()
+    );
+
+    let mut track_results = Vec::new();
+
+    for track in &request.tracks {
+        let mut would_change = false;
+        let mut new_track_name = None;
+        let mut new_artist_name = None;
+        let mut rules_applied = Vec::new();
+
+        let mut current_track_name = track.name.clone();
+        let current_artist_name = track.artist.clone();
+
+        // Apply each rule to see what changes
+        for rule in &request.rules {
+            // Test track name rule if it exists
+            if let Some(track_rule) = &rule.track_name {
+                if let Ok(result) = track_rule.apply(&current_track_name) {
+                    if result != current_track_name {
+                        current_track_name = result;
+                        rules_applied.push("Track name rewrite".to_string());
+                        would_change = true;
+                        new_track_name = Some(current_track_name.clone());
+                    }
+                }
+            }
+
+            // Test artist name rule if it exists
+            if let Some(artist_rule) = &rule.artist_name {
+                if let Ok(result) = artist_rule.apply(&current_artist_name) {
+                    if result != current_artist_name {
+                        rules_applied.push("Artist name rewrite".to_string());
+                        would_change = true;
+                        new_artist_name = Some(result);
+                    }
+                }
+            }
+        }
+
+        track_results.push(TrackTestResult {
+            original_track: track.clone(),
+            would_change,
+            new_track_name,
+            new_artist_name,
+            rules_applied,
+        });
+    }
+
+    let affected_count = track_results.iter().filter(|r| r.would_change).count();
+    log::info!("Rule testing complete: {affected_count} tracks would change");
+
+    Ok(Json(TestRulesResult { track_results }))
 }

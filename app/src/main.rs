@@ -1,4 +1,5 @@
 mod app;
+mod rule_workshop;
 
 use app::App;
 

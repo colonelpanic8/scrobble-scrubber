@@ -141,6 +141,441 @@ button:disabled {
   color: #155724;
 }
 
+/* Tab system */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid #bdc3c7;
+  margin-bottom: 2rem;
+  background: #ffffff;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+}
+
+.tab {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border: none;
+  background: #ecf0f1;
+  color: #2c3e50;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin: 0;
+  border-radius: 0;
+  width: auto;
+}
+
+.tab:hover {
+  background: #d5dbdb;
+  transform: none;
+}
+
+.tab.active {
+  background: #e74c3c;
+  color: #ffffff;
+}
+
+.tab-content {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
+}
+
+/* Rules manager */
+.rules-manager {
+  width: 100%;
+}
+
+.rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.rules-header button {
+  width: auto;
+  margin: 0;
+  padding: 0.6rem 1.2rem;
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem;
+  border: 2px solid #bdc3c7;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.3s;
+}
+
+.rule-item.enabled {
+  border-color: #27ae60;
+}
+
+.rule-item.disabled {
+  border-color: #e67e22;
+  opacity: 0.7;
+}
+
+.rule-content {
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.rule-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+}
+
+.rule-pattern, .rule-replacement {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.rule-pattern code, .rule-replacement code {
+  background: #ecf0f1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.rule-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rule-actions button {
+  width: auto;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.status-btn {
+  background-color: #3498db !important;
+}
+
+/* Rule editor overlay */
+.rule-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.rule-editor {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 0;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: #e74c3c;
+  color: #ffffff;
+  margin: 0;
+}
+
+.editor-header h3 {
+  margin: 0;
+  color: #ffffff;
+}
+
+.editor-header button {
+  background: transparent;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  width: auto;
+  margin: 0;
+  padding: 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  min-width: 40px;
+}
+
+.editor-content {
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.test-section {
+  border-top: 2px solid #ecf0f1;
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.test-section h4 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+.test-result {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.test-result.success {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.test-result.error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.result-text {
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  word-break: break-all;
+}
+
+.error-text {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.editor-actions button {
+  flex: 1;
+  margin: 0;
+}
+
+/* Processing log */
+.processing-log {
+  width: 100%;
+}
+
+.empty-log {
+  text-align: center;
+  padding: 3rem;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.log-entry {
+  padding: 1rem;
+  border: 2px solid #bdc3c7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.log-entry.processing {
+  border-color: #f39c12;
+  background: #fef9e7;
+}
+
+.log-entry.completed {
+  border-color: #27ae60;
+  background: #eafaf1;
+}
+
+.track-info strong {
+  color: #2c3e50;
+}
+
+.original {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin-top: 0.25rem;
+}
+
+.rules-applied {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.no-rules {
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+/* Workshop styles */
+.rule-workshop {
+  width: 100%;
+}
+
+.workshop-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.form-group.inline {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+.form-group.inline input {
+  margin-top: 0;
+}
+
+.workshop-controls button {
+  width: auto;
+  margin: 0;
+  padding: 0.8rem 1.5rem;
+  flex-shrink: 0;
+}
+
+.tracks-info {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #e8f5e8;
+  border-radius: 8px;
+  border: 1px solid #c3e6cb;
+}
+
+.tracks-info h3 {
+  margin: 0;
+  color: #155724;
+}
+
+.test-results {
+  margin-top: 2rem;
+}
+
+.test-results h3 {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.track-result {
+  padding: 1rem;
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.track-result.changed {
+  border-color: #27ae60;
+  background: #eafaf1;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.original strong {
+  color: #2c3e50;
+}
+
+.album {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.changed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.arrow {
+  color: #27ae60;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.changed strong {
+  color: #27ae60;
+}
+
+.rules-applied {
+  font-size: 0.85rem;
+  color: #27ae60;
+  margin-top: 0.25rem;
+}
+
+.no-change {
+  color: #7f8c8d;
+  font-style: italic;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+/* Textarea styling */
+textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 2px solid #bdc3c7;
+  padding: 0.8em 1.2em;
+  font-size: 1em;
+  font-family: inherit;
+  color: #2c3e50;
+  background-color: #ffffff;
+  transition: border-color 0.25s, box-shadow 0.25s;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+}
+
+textarea:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  outline: none;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;
@@ -165,21 +600,44 @@ button:disabled {
   }
 
   .login-section,
-  .scan-section {
+  .scan-section,
+  .tab-content,
+  .rule-item,
+  .rule-editor,
+  .track-result {
     background-color: #34495e;
+  }
+
+  .tabs {
+    background: #34495e;
+    border-bottom-color: #4a6741;
+  }
+
+  .tab {
+    background: #2c3e50;
+    color: #ecf0f1;
+  }
+
+  .tab:hover {
+    background: #34495e;
+  }
+
+  .tab.active {
+    background: #e74c3c;
+    color: #ffffff;
   }
 
   .form-group label {
     color: #ecf0f1;
   }
 
-  input {
+  input, textarea {
     color: #ecf0f1;
     background-color: #2c3e50;
     border-color: #4a6741;
   }
 
-  input:focus {
+  input:focus, textarea:focus {
     border-color: #3498db;
   }
 
@@ -191,5 +649,33 @@ button:disabled {
     background-color: #2c3e50;
     border-color: #34495e;
     color: #ecf0f1;
+  }
+
+  .rule-content h3,
+  .test-section h4,
+  .tracks-info h3,
+  .test-results h3 {
+    color: #ecf0f1;
+  }
+
+  .rule-pattern code,
+  .rule-replacement code,
+  .result-text {
+    background: #2c3e50;
+    color: #ecf0f1;
+  }
+
+  .workshop-controls {
+    background: #2c3e50;
+  }
+
+  .tracks-info {
+    background: #2c3e50;
+    border-color: #34495e;
+    color: #ecf0f1;
+  }
+
+  .tracks-info h3 {
+    color: #27ae60;
   }
 }

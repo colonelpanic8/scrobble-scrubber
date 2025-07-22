@@ -538,10 +538,11 @@ async fn main() -> Result<()> {
             info!("Press Ctrl+C to stop");
 
             // The web interface is already started above if enable_web_interface is true
-            // Just wait indefinitely for the web interface to serve requests
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            // Wait for shutdown signal
+            if let Err(e) = tokio::signal::ctrl_c().await {
+                log::error!("Failed to listen for shutdown signal: {e}");
             }
+            info!("Received shutdown signal, stopping web interface...");
         }
     }
 

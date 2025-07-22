@@ -65,7 +65,8 @@
       "Bash(npm create:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm run tauri:*)",
-      "Bash(trunk build:*)"
+      "Bash(trunk build:*)",
+      "Bash(just fmt-check:*)"
     ],
     "deny": []
   }

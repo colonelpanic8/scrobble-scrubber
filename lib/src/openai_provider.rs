@@ -478,7 +478,7 @@ impl OpenAIScrubActionProvider {
                     " (no album info)".to_string()
                 };
                 let timestamp_info = if let Some(timestamp) = track.timestamp {
-                    format!(" [scrobbled: {}]", timestamp)
+                    format!(" [scrobbled: {timestamp}]")
                 } else {
                     String::new()
                 };
@@ -667,7 +667,7 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
                     " (no album info)".to_string()
                 };
                 let timestamp_info = if let Some(timestamp) = track.timestamp {
-                    format!(" [scrobbled: {}]", timestamp)
+                    format!(" [scrobbled: {timestamp}]")
                 } else {
                     String::new()
                 };
