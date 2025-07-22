@@ -1,6 +1,6 @@
+use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
+use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use dioxus::prelude::*;
-use scrobble_scrubber::config::ScrobbleScrubberConfig;
-use scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -136,6 +136,7 @@ fn MainContent(state: Signal<AppState>) -> Element {
         match active_page {
             Page::RuleWorkshop => rsx! { RuleWorkshop { state } },
             Page::RewriteRules => rsx! { RewriteRulesPage { state } },
+            Page::ScrobbleScrubber => rsx! { ScrobbleScrubberPage { state } },
         }
     }
 }

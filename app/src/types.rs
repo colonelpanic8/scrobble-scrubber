@@ -1,10 +1,11 @@
+use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
+use ::scrobble_scrubber::persistence::FileStorage;
+use ::scrobble_scrubber::rewrite::RewriteRule;
+use chrono::{DateTime, Utc};
 use lastfm_edit::Track;
-use scrobble_scrubber::config::ScrobbleScrubberConfig;
-use scrobble_scrubber::persistence::FileStorage;
-use scrobble_scrubber::rewrite::RewriteRule;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SerializableTrack {
@@ -43,6 +44,7 @@ impl From<SerializableTrack> for Track {
 pub enum Page {
     RuleWorkshop,
     RewriteRules,
+    ScrobbleScrubber,
 }
 
 #[derive(Clone, Debug)]
@@ -55,6 +57,43 @@ pub struct TrackSourceState {
 pub enum PreviewType {
     CurrentRule,   // Only apply the rule being edited
     AllSavedRules, // Apply all saved rules collectively
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ScrubberStatus {
+    Stopped,
+    Starting,
+    Running,
+    Stopping,
+    Error(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScrubberEvent {
+    pub timestamp: DateTime<Utc>,
+    pub event_type: ScrubberEventType,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ScrubberEventType {
+    Started,
+    Stopped,
+    #[allow(dead_code)]
+    TrackProcessed,
+    #[allow(dead_code)]
+    RuleApplied,
+    Error,
+    Info,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScrubberState {
+    pub status: ScrubberStatus,
+    pub events: Vec<ScrubberEvent>,
+    pub processed_count: usize,
+    pub rules_applied_count: usize,
+    pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
 }
 
 #[derive(Clone)]
@@ -70,6 +109,7 @@ pub struct AppState {
     pub config: Option<ScrobbleScrubberConfig>, // Loaded configuration
     pub storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
+    pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
 }
 
 impl Default for AppState {
@@ -89,6 +129,13 @@ impl Default for AppState {
             config: None,
             storage: None,
             saved_rules: Vec::new(),
+            scrubber_state: ScrubberState {
+                status: ScrubberStatus::Stopped,
+                events: Vec::new(),
+                processed_count: 0,
+                rules_applied_count: 0,
+                event_sender: None,
+            },
         }
     }
 }

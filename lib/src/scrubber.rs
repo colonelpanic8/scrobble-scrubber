@@ -3,10 +3,11 @@ use lastfm_edit::{iterator::AsyncPaginatedIterator, LastFmEditClient, Result, Sc
 use log::{info, warn};
 
 use crate::config::ScrobbleScrubberConfig;
+use crate::events::ScrubberEvent;
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{broadcast, Mutex, RwLock};
 
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     client: LastFmEditClient,
@@ -15,6 +16,8 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     config: ScrobbleScrubberConfig,
     is_running: Arc<RwLock<bool>>,
     should_stop: Arc<RwLock<bool>>,
+    event_sender: broadcast::Sender<ScrubberEvent>,
+    trigger_immediate: Arc<RwLock<bool>>,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
@@ -24,6 +27,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         action_provider: P,
         config: ScrobbleScrubberConfig,
     ) -> Self {
+        let (event_sender, _) = broadcast::channel(1000);
         Self {
             client,
             storage,
@@ -31,7 +35,25 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             config,
             is_running: Arc::new(RwLock::new(false)),
             should_stop: Arc::new(RwLock::new(false)),
+            event_sender,
+            trigger_immediate: Arc::new(RwLock::new(false)),
         }
+    }
+
+    /// Trigger immediate processing, bypassing the normal wait interval
+    pub async fn trigger_immediate_processing(&self) {
+        *self.trigger_immediate.write().await = true;
+    }
+
+    /// Subscribe to scrubber events
+    pub fn subscribe_events(&self) -> broadcast::Receiver<ScrubberEvent> {
+        self.event_sender.subscribe()
+    }
+
+    /// Emit an event to all subscribers
+    fn emit_event(&self, event: ScrubberEvent) {
+        // Log the event but don't fail if no receivers
+        let _ = self.event_sender.send(event);
     }
 
     /// Get a reference to the storage for external access (e.g., web interface)
@@ -117,6 +139,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        self.emit_event(ScrubberEvent::started("Scrubber started".to_string()));
+
         loop {
             // Check if we should stop
             if *self.should_stop.read().await {
@@ -126,9 +150,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             *self.is_running.write().await = true;
             info!("Starting track monitoring cycle...");
+            self.emit_event(ScrubberEvent::cycle_started(
+                "Starting track monitoring cycle".to_string(),
+            ));
 
             if let Err(e) = self.check_and_process_tracks().await {
                 warn!("Error during track processing: {e}");
+                self.emit_event(ScrubberEvent::error(format!(
+                    "Error during track processing: {e}"
+                )));
             }
 
             *self.is_running.write().await = false;
@@ -146,12 +176,24 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     return Ok(());
                 }
 
+                // Check if immediate processing was triggered
+                if *self.trigger_immediate.read().await {
+                    *self.trigger_immediate.write().await = false; // Reset flag
+                    info!("Immediate processing triggered, skipping remaining sleep");
+                    self.emit_event(ScrubberEvent::info(
+                        "Immediate processing triggered".to_string(),
+                    ));
+                    break;
+                }
+
                 let remaining = sleep_duration - elapsed;
                 let sleep_time = std::cmp::min(check_interval, remaining);
                 tokio::time::sleep(sleep_time).await;
                 elapsed += sleep_time;
             }
         }
+
+        self.emit_event(ScrubberEvent::stopped("Scrubber stopped".to_string()));
         Ok(())
     }
 
@@ -244,6 +286,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             examined,
             tracks_to_process.len()
         );
+
+        self.emit_event(ScrubberEvent::cycle_completed(
+            tracks_to_process.len(),
+            0, // We'll update this when we track rule applications
+        ));
         Ok(())
     }
 
@@ -358,8 +405,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 suggestions.len()
             );
 
+            // Emit track processed event
+            self.emit_event(ScrubberEvent::track_processed(&track.name, &track.artist));
+
             for suggestion in suggestions {
                 self.apply_suggestion(track, &suggestion).await?;
+                // Emit rule applied event based on suggestion type
+                let description = match &suggestion {
+                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(_) => {
+                        "Applied edit".to_string()
+                    }
+                    crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
+                        rule: _,
+                        motivation,
+                    } => format!("Proposed rule: {motivation}"),
+                    crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
+                        "No action taken".to_string()
+                    }
+                };
+                self.emit_event(ScrubberEvent::rule_applied(
+                    &track.name,
+                    &track.artist,
+                    &description,
+                ));
             }
         }
 
@@ -458,6 +526,62 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         Ok(tracks)
+    }
+
+    /// Set the processing timestamp anchor to a specific track's timestamp
+    /// This allows manual control of where the scrubber starts processing from
+    pub async fn set_timestamp_to_track(&mut self, track: &lastfm_edit::Track) -> Result<()> {
+        if let Some(ts) = track.timestamp {
+            let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
+            let updated_state = TimestampState {
+                last_processed_timestamp: Some(track_time),
+            };
+
+            self.storage
+                .lock()
+                .await
+                .save_timestamp_state(&updated_state)
+                .await
+                .map_err(|e| {
+                    lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                        "Failed to save timestamp state: {e}"
+                    )))
+                })?;
+
+            info!(
+                "Manually set timestamp anchor to {} for track '{}' by '{}'",
+                track_time, track.name, track.artist
+            );
+
+            self.emit_event(ScrubberEvent::info(format!(
+                "Set processing anchor to '{}' by '{}' at {}",
+                track.name,
+                track.artist,
+                track_time.format("%Y-%m-%d %H:%M:%S")
+            )));
+        } else {
+            return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                "Track has no timestamp",
+            )));
+        }
+        Ok(())
+    }
+
+    /// Get the current timestamp state
+    pub async fn get_current_timestamp(&self) -> Result<Option<DateTime<Utc>>> {
+        let timestamp_state = self
+            .storage
+            .lock()
+            .await
+            .load_timestamp_state()
+            .await
+            .map_err(|e| {
+                lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                    "Failed to load timestamp state: {e}"
+                )))
+            })?;
+
+        Ok(timestamp_state.last_processed_timestamp)
     }
 
     async fn analyze_tracks(

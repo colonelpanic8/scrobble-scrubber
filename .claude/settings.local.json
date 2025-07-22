@@ -71,7 +71,8 @@
       "Bash(timeout:*)",
       "Bash(dx build:*)",
       "Bash(nix develop:*)",
-      "Bash(./verify_fix)"
+      "Bash(./verify_fix)",
+      "Bash(git rebase:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

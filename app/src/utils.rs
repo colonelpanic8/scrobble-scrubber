@@ -1,8 +1,8 @@
 use crate::types::{AppState, SerializableTrack};
+use ::scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
+use ::scrobble_scrubber::rewrite::RewriteRule;
 use dioxus::document::eval;
 use dioxus::prelude::*;
-use scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
-use scrobble_scrubber::rewrite::RewriteRule;
 
 pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
     let mut all_tracks = Vec::new();
