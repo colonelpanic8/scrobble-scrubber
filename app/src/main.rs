@@ -1,13 +1,12 @@
 use dioxus::document::eval;
 use dioxus::prelude::*;
 use lastfm_edit::Track;
+use scrobble_scrubber::config::ScrobbleScrubberConfig;
+use scrobble_scrubber::persistence::{FileStorage, RewriteRulesState, StateStorage};
 use scrobble_scrubber::rewrite::{apply_all_rules, create_no_op_edit, RewriteRule, SdRule};
 use serde::{Deserialize, Serialize};
-
-// Temporarily comment out assets to debug blank page
-// const FAVICON: Asset = asset!("/assets/favicon.ico");
-// const MAIN_CSS: Asset = asset!("/assets/main.css");
-// const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SerializableTrack {
@@ -42,14 +41,38 @@ impl From<SerializableTrack> for Track {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+enum Page {
+    RuleWorkshop,
+    RewriteRules,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum TrackSource {
+    Recent,
+    Artist(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum PreviewType {
+    CurrentRule,   // Only apply the rule being edited
+    AllSavedRules, // Apply all saved rules collectively
+}
+
+#[derive(Clone)]
 struct AppState {
     logged_in: bool,
-    session: Option<String>,        // Serialized LastFmEditSession
-    tracks: Vec<SerializableTrack>, // Only mutated when loading from client
+    session: Option<String>,               // Serialized LastFmEditSession
+    recent_tracks: Vec<SerializableTrack>, // Recent tracks from pagination
+    artist_tracks: Vec<SerializableTrack>, // All tracks for specific artist
     current_rule: RewriteRule,
     show_all_tracks: bool, // Toggle to show all tracks or only matching ones
-    current_page: u32,     // Current page for pagination
+    current_page: u32,     // Current page for pagination (for recent tracks)
+    active_page: Page,     // Current active page
+    track_source: TrackSource, // What tracks are currently being viewed
+    config: Option<ScrobbleScrubberConfig>, // Loaded configuration
+    storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
+    saved_rules: Vec<RewriteRule>, // Rules loaded from storage
 }
 
 impl Default for AppState {
@@ -57,10 +80,16 @@ impl Default for AppState {
         Self {
             logged_in: false,
             session: None,
-            tracks: Vec::new(),
+            recent_tracks: Vec::new(),
+            artist_tracks: Vec::new(),
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks
             current_page: 1,       // Start at page 1
+            active_page: Page::RuleWorkshop,
+            track_source: TrackSource::Recent,
+            config: None,
+            storage: None,
+            saved_rules: Vec::new(),
         }
     }
 }
@@ -73,40 +102,83 @@ fn main() {
 fn App() -> Element {
     let mut state = use_signal(AppState::default);
 
-    // Try auto-login with environment variables
+    // Initialize config and storage
+    use_effect(move || {
+        spawn(async move {
+            // Try to load config
+            match ScrobbleScrubberConfig::load() {
+                Ok(config) => {
+                    let state_file = config.storage.state_file.clone();
+
+                    // Try to initialize storage
+                    match FileStorage::new(&state_file) {
+                        Ok(storage) => {
+                            // Try to load existing rewrite rules
+                            let saved_rules = match storage.load_rewrite_rules_state().await {
+                                Ok(rules_state) => rules_state.rewrite_rules,
+                                Err(_) => Vec::new(),
+                            };
+
+                            state.with_mut(|s| {
+                                s.config = Some(config);
+                                s.storage = Some(Arc::new(Mutex::new(storage)));
+                                s.saved_rules = saved_rules;
+                            });
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to initialize storage: {e}");
+                            // Still set config without storage
+                            state.with_mut(|s| s.config = Some(config));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to load config: {e}");
+                }
+            }
+        });
+    });
+
+    // Try auto-login with environment variables or config
     use_effect(move || {
         spawn(async move {
             if !state.read().logged_in {
-                if let (Ok(username), Ok(password)) = (
-                    std::env::var("SCROBBLE_SCRUBBER_LASTFM_USERNAME"),
-                    std::env::var("SCROBBLE_SCRUBBER_LASTFM_PASSWORD"),
-                ) {
-                    if !username.trim().is_empty() && !password.trim().is_empty() {
-                        match login_to_lastfm(
-                            username.trim().to_string(),
-                            password.trim().to_string(),
+                let (username, password) = {
+                    let s = state.read();
+                    if let Some(config) = &s.config {
+                        (
+                            config.lastfm.username.clone(),
+                            config.lastfm.password.clone(),
                         )
-                        .await
-                        {
-                            Ok(session_str) => {
-                                state.with_mut(|s| {
-                                    s.logged_in = true;
-                                    s.session = Some(session_str.clone());
-                                });
+                    } else {
+                        // Fallback to environment variables
+                        (
+                            std::env::var("SCROBBLE_SCRUBBER_LASTFM_USERNAME").unwrap_or_default(),
+                            std::env::var("SCROBBLE_SCRUBBER_LASTFM_PASSWORD").unwrap_or_default(),
+                        )
+                    }
+                };
 
-                                // Load recent tracks using the session
-                                if let Ok(tracks) =
-                                    load_recent_tracks_from_page(session_str, 1).await
-                                {
-                                    state.with_mut(|s| {
-                                        s.tracks = tracks;
-                                        s.current_page = 1;
-                                    });
-                                }
+                if !username.trim().is_empty() && !password.trim().is_empty() {
+                    match login_to_lastfm(username.trim().to_string(), password.trim().to_string())
+                        .await
+                    {
+                        Ok(session_str) => {
+                            state.with_mut(|s| {
+                                s.logged_in = true;
+                                s.session = Some(session_str.clone());
+                            });
+
+                            // Load recent tracks using the session
+                            if let Ok(tracks) = load_recent_tracks_from_page(session_str, 1).await {
+                                state.with_mut(|s| {
+                                    s.recent_tracks = tracks;
+                                    s.current_page = 1;
+                                });
                             }
-                            Err(e) => {
-                                eprintln!("Auto-login failed: {e}");
-                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Auto-login failed: {e}");
                         }
                     }
                 }
@@ -121,15 +193,76 @@ fn App() -> Element {
                 style: "max-width: 1200px; margin: 0 auto;",
                 h1 {
                     style: "font-size: 2.5rem; font-weight: bold; text-align: center; margin-bottom: 2rem; color: #333;",
-                    "Scrobble Rule Editor"
+                    "Scrobble Scrubber"
                 }
 
                 if !state.read().logged_in {
                     LoginPage { state }
                 } else {
-                    RuleWorkshop { state }
+                    div {
+                        Navigation { state }
+                        MainContent { state }
+                    }
                 }
             }
+        }
+    }
+}
+
+#[component]
+fn Navigation(mut state: Signal<AppState>) -> Element {
+    let active_page = state.read().active_page.clone();
+
+    rsx! {
+        nav {
+            style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1rem; margin-bottom: 1.5rem;",
+            ul {
+                style: "display: flex; list-style: none; margin: 0; padding: 0; gap: 1rem;",
+                li {
+                    button {
+                        style: format!(
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
+                            if active_page == Page::RuleWorkshop {
+                                "background: #2563eb; color: white;"
+                            } else {
+                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                            }
+                        ),
+                        onclick: move |_| {
+                            state.with_mut(|s| s.active_page = Page::RuleWorkshop);
+                        },
+                        "Rule Workshop"
+                    }
+                }
+                li {
+                    button {
+                        style: format!(
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
+                            if active_page == Page::RewriteRules {
+                                "background: #2563eb; color: white;"
+                            } else {
+                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                            }
+                        ),
+                        onclick: move |_| {
+                            state.with_mut(|s| s.active_page = Page::RewriteRules);
+                        },
+                        "Rewrite Rules"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn MainContent(state: Signal<AppState>) -> Element {
+    let active_page = state.read().active_page.clone();
+
+    rsx! {
+        match active_page {
+            Page::RuleWorkshop => rsx! { RuleWorkshop { state } },
+            Page::RewriteRules => rsx! { RewriteRulesPage { state } },
         }
     }
 }
@@ -207,7 +340,7 @@ fn LoginPage(mut state: Signal<AppState>) -> Element {
                                 // Load recent tracks using the session
                                 if let Ok(tracks) = load_recent_tracks_from_page(session_str, 1).await {
                                     state.with_mut(|s| {
-                                        s.tracks = tracks;
+                                        s.recent_tracks = tracks;
                                         s.current_page = 1;
                                     });
                                 }
@@ -230,8 +363,135 @@ fn LoginPage(mut state: Signal<AppState>) -> Element {
 }
 
 #[component]
+fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
+    let state_read = state.read();
+    let saved_rules = state_read.saved_rules.clone();
+    let tracks = get_current_tracks(&state_read);
+
+    rsx! {
+        div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
+            // Header and stats
+            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
+                    h2 { style: "font-size: 1.5rem; font-weight: bold; margin: 0;", "Rewrite Rules Management" }
+                    div { style: "display: flex; align-items: center; gap: 1rem;",
+                        div { style: "text-sm: color: #6b7280;",
+                            "{saved_rules.len()} rules saved"
+                        }
+                        button {
+                            style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                            onclick: move |_| {
+                                spawn(async move {
+                                    if let Err(e) = clear_all_rules(state).await {
+                                        eprintln!("Failed to clear rules: {e}");
+                                    }
+                                });
+                            },
+                            "Clear All Rules"
+                        }
+                    }
+                }
+
+                p { style: "color: #6b7280; margin: 0;",
+                    "Manage your saved rewrite rules and see how they would apply to your recent tracks."
+                }
+            }
+
+            // Rules list
+            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Saved Rewrite Rules" }
+
+                if saved_rules.is_empty() {
+                    div { style: "text-center; color: #6b7280; padding: 2rem;",
+                        p { "No rewrite rules saved yet." }
+                        p { style: "font-size: 0.875rem;", "Create and save rules in the Rule Workshop to see them here." }
+                    }
+                } else {
+                    div { style: "display: flex; flex-direction: column; gap: 1rem;",
+                        for (idx, rule) in saved_rules.iter().enumerate() {
+                            {rule_card(rule.clone(), state, idx)}
+                        }
+                    }
+                }
+            }
+
+            // Rules preview on tracks
+            if !saved_rules.is_empty() && !tracks.is_empty() {
+                div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                    h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Rules Preview on Recent Tracks" }
+                    RulePreview { state, rules_type: PreviewType::AllSavedRules }
+                }
+            }
+        }
+    }
+}
+
+fn rule_card(rule: RewriteRule, state: Signal<AppState>, index: usize) -> Element {
+    rsx! {
+        div {
+            style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
+            div { style: "display: flex; justify-content: between; align-items: start; margin-bottom: 0.75rem;",
+                div { style: "flex: 1;",
+                    h4 { style: "font-weight: 600; margin-bottom: 0.5rem; color: #374151;", "Rule #{index + 1}" }
+
+                    if let Some(track_rule) = rule.track_name.as_ref() {
+                        div { style: "margin-bottom: 0.5rem;",
+                            strong { "Track: " }
+                            code { style: "background: #f3f4f6; padding: 0.25rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                                "\"{track_rule.find}\" → \"{track_rule.replace}\""
+                            }
+                        }
+                    }
+
+                    if let Some(artist_rule) = rule.artist_name.as_ref() {
+                        div { style: "margin-bottom: 0.5rem;",
+                            strong { "Artist: " }
+                            code { style: "background: #f3f4f6; padding: 0.25rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                                "\"{artist_rule.find}\" → \"{artist_rule.replace}\""
+                            }
+                        }
+                    }
+
+                    if let Some(album_rule) = rule.album_name.as_ref() {
+                        div { style: "margin-bottom: 0.5rem;",
+                            strong { "Album: " }
+                            code { style: "background: #f3f4f6; padding: 0.25rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                                "\"{album_rule.find}\" → \"{album_rule.replace}\""
+                            }
+                        }
+                    }
+
+                    if let Some(album_artist_rule) = rule.album_artist_name.as_ref() {
+                        div { style: "margin-bottom: 0.5rem;",
+                            strong { "Album Artist: " }
+                            code { style: "background: #f3f4f6; padding: 0.25rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                                "\"{album_artist_rule.find}\" → \"{album_artist_rule.replace}\""
+                            }
+                        }
+                    }
+                }
+
+                button {
+                    style: "background: #dc2626; color: white; padding: 0.375rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.875rem;",
+                    onclick: move |_| {
+                        spawn(async move {
+                            if let Err(e) = remove_rule_at_index(state, index).await {
+                                eprintln!("Failed to remove rule: {e}");
+                            }
+                        });
+                    },
+                    "Remove"
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks = use_signal(|| false);
+    let mut loading_artist_tracks = use_signal(|| false);
+    let mut artist_name = use_signal(String::new);
 
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
@@ -244,7 +504,7 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
             // Load tracks section and Live preview
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview on Recent Tracks" }
+                    h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
 
                     div { style: "display: flex; align-items: center; gap: 1rem;",
                         // Toggle for showing all tracks vs only matching
@@ -280,8 +540,9 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                                 let next_page = current_page + 1;
                                 if let Ok(mut new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
                                     state.with_mut(|s| {
-                                        s.tracks.append(&mut new_tracks);
+                                        s.recent_tracks.append(&mut new_tracks);
                                         s.current_page = next_page;
+                                        s.track_source = TrackSource::Recent;
                                     });
                                 }
                                 loading_tracks.set(false);
@@ -290,12 +551,80 @@ fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                         if *loading_tracks.read() {
                             "Loading..."
                         } else {
-                            "Load Recent Tracks"
+                            "Load More Recent Tracks"
                         }
                         }
                     }
                 }
-                TracksPreview { state }
+
+                // Artist loading section
+                div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;",
+                    h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Load All Tracks for Artist" }
+                    div { style: "display: flex; gap: 1rem; align-items: end;",
+                        div { style: "flex: 1;",
+                            label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Artist Name" }
+                            input {
+                                style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
+                                placeholder: "Enter artist name",
+                                value: "{artist_name}",
+                                oninput: move |e| artist_name.set(e.value())
+                            }
+                        }
+                        button {
+                            style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {};",
+                                "#2563eb",
+                                if *loading_artist_tracks.read() { "0.5" } else { "1" }
+                            ),
+                            disabled: *loading_artist_tracks.read() || artist_name.read().trim().is_empty(),
+                            onclick: move |_| async move {
+                                let session_str = state.read().session.clone();
+                                let artist = artist_name.read().trim().to_string();
+
+                                if let Some(session_str) = session_str {
+                                    if !artist.is_empty() {
+                                        loading_artist_tracks.set(true);
+
+                                        match load_artist_tracks(session_str, artist.clone()).await {
+                                            Ok(tracks) => {
+                                                state.with_mut(|s| {
+                                                    s.artist_tracks = tracks;
+                                                    s.track_source = TrackSource::Artist(artist);
+                                                });
+                                            }
+                                            Err(e) => {
+                                                eprintln!("Failed to load artist tracks: {e}");
+                                            }
+                                        }
+
+                                        loading_artist_tracks.set(false);
+                                    }
+                                }
+                            },
+                            if *loading_artist_tracks.read() {
+                                "Loading..."
+                            } else {
+                                "Load Artist Tracks"
+                            }
+                        }
+                    }
+
+                    // Current track source indicator
+                    {
+                        let state_read = state.read();
+                        let track_source = &state_read.track_source;
+                        let tracks = get_current_tracks(&state_read);
+                        rsx! {
+                            div { style: "margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;",
+                                match track_source {
+                                    TrackSource::Recent => format!("Currently showing {} recent tracks", tracks.len()),
+                                    TrackSource::Artist(name) => format!("Currently showing {} tracks by {}", tracks.len(), name),
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RulePreview { state, rules_type: PreviewType::CurrentRule }
             }
         }
     }
@@ -476,6 +805,19 @@ fn RuleEditor(mut state: Signal<AppState>) -> Element {
                 }
 
                 button {
+                    style: "background: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;",
+                    onclick: move |_| {
+                        spawn(async move {
+                            let rule = state.read().current_rule.clone();
+                            if let Err(e) = save_current_rule(state, rule).await {
+                                eprintln!("Failed to save rule: {e}");
+                            }
+                        });
+                    },
+                    "Save Rule"
+                }
+
+                button {
                     style: "background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;",
                     onclick: move |_| {
                         track_find.set(String::new());
@@ -496,19 +838,25 @@ fn RuleEditor(mut state: Signal<AppState>) -> Element {
 }
 
 #[component]
-fn TracksPreview(state: Signal<AppState>) -> Element {
+fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element {
     let state_read = state.read();
+    let tracks = get_current_tracks(&state_read);
+
+    // Get the rules to apply based on the preview type
+    let rules_to_apply = match rules_type {
+        PreviewType::CurrentRule => vec![state_read.current_rule.clone()],
+        PreviewType::AllSavedRules => state_read.saved_rules.clone(),
+    };
 
     // Compute matches and prepare tracks for display based on toggle
     let mut tracks_to_display = Vec::new();
     let mut matching_count = 0;
-    let total_tracks = state_read.tracks.len();
+    let total_tracks = tracks.len();
 
-    for (idx, strack) in state_read.tracks.iter().enumerate() {
+    for (idx, strack) in tracks.iter().enumerate() {
         let track: Track = strack.clone().into();
         let mut edit = create_no_op_edit(&track);
-        let _rule_applied =
-            apply_all_rules(&[state_read.current_rule.clone()], &mut edit).unwrap_or_default();
+        let _rule_applied = apply_all_rules(&rules_to_apply, &mut edit).unwrap_or_default();
 
         let has_changes = edit.track_name != track.name
             || edit.artist_name != track.artist
@@ -524,6 +872,11 @@ fn TracksPreview(state: Signal<AppState>) -> Element {
         }
     }
 
+    let preview_text = match rules_type {
+        PreviewType::CurrentRule => "Current rule",
+        PreviewType::AllSavedRules => "All saved rules",
+    };
+
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1rem;",
             // Count display
@@ -531,13 +884,13 @@ fn TracksPreview(state: Signal<AppState>) -> Element {
                 if total_tracks == 0 {
                     "No tracks loaded"
                 } else if state_read.show_all_tracks {
-                    "Rule matches: {matching_count}/{total_tracks} tracks (showing all)"
+                    "{preview_text} matches: {matching_count}/{total_tracks} tracks (showing all)"
                 } else {
-                    "Rule matches: {matching_count}/{total_tracks} tracks (showing {matching_count} matches only)"
+                    "{preview_text} matches: {matching_count}/{total_tracks} tracks (showing {matching_count} matches only)"
                 }
             }
 
-            if state_read.tracks.is_empty() {
+            if tracks.is_empty() {
                 div { style: "color: #6b7280; text-align: center; padding: 2rem;",
                     "No tracks loaded. The preview will show here once tracks are fetched."
                 }
@@ -545,7 +898,6 @@ fn TracksPreview(state: Signal<AppState>) -> Element {
                 div { style: "display: flex; flex-direction: column; gap: 0.75rem;",
                     for (idx, _strack, track, edit, has_changes) in tracks_to_display {
                         {
-
                             rsx! {
                                 div {
                                     key: "{idx}",
@@ -600,7 +952,22 @@ fn TracksPreview(state: Signal<AppState>) -> Element {
     }
 }
 
+// Legacy component for backwards compatibility - now uses RulePreview
+#[component]
+fn TracksPreview(state: Signal<AppState>) -> Element {
+    rsx! {
+        RulePreview { state, rules_type: PreviewType::CurrentRule }
+    }
+}
+
 // Helper functions
+
+fn get_current_tracks(state: &AppState) -> &Vec<SerializableTrack> {
+    match &state.track_source {
+        TrackSource::Recent => &state.recent_tracks,
+        TrackSource::Artist(_) => &state.artist_tracks,
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 fn update_all_rules(
@@ -668,6 +1035,94 @@ fn update_all_rules(
     state.with_mut(|s| s.current_rule = rule);
 }
 
+async fn save_current_rule(
+    mut state: Signal<AppState>,
+    rule: RewriteRule,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Check if rule has any content
+    if rule.track_name.is_none()
+        && rule.artist_name.is_none()
+        && rule.album_name.is_none()
+        && rule.album_artist_name.is_none()
+    {
+        return Err("Cannot save empty rule".into());
+    }
+
+    let storage = state.read().storage.clone();
+    if let Some(storage) = storage {
+        let mut storage_lock = storage.lock().await;
+
+        // Load current rules
+        let mut rules_state = storage_lock
+            .load_rewrite_rules_state()
+            .await
+            .unwrap_or_default();
+
+        // Add new rule
+        rules_state.rewrite_rules.push(rule);
+
+        // Save updated rules
+        storage_lock.save_rewrite_rules_state(&rules_state).await?;
+
+        // Update local state
+        let saved_rules = rules_state.rewrite_rules;
+        drop(storage_lock);
+        state.with_mut(|s| s.saved_rules = saved_rules);
+    }
+
+    Ok(())
+}
+
+async fn remove_rule_at_index(
+    mut state: Signal<AppState>,
+    index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let storage = state.read().storage.clone();
+    if let Some(storage) = storage {
+        let mut storage_lock = storage.lock().await;
+
+        // Load current rules
+        let mut rules_state = storage_lock
+            .load_rewrite_rules_state()
+            .await
+            .unwrap_or_default();
+
+        // Remove rule at index
+        if index < rules_state.rewrite_rules.len() {
+            rules_state.rewrite_rules.remove(index);
+
+            // Save updated rules
+            storage_lock.save_rewrite_rules_state(&rules_state).await?;
+
+            // Update local state
+            let saved_rules = rules_state.rewrite_rules;
+            drop(storage_lock);
+            state.with_mut(|s| s.saved_rules = saved_rules);
+        }
+    }
+
+    Ok(())
+}
+
+async fn clear_all_rules(mut state: Signal<AppState>) -> Result<(), Box<dyn std::error::Error>> {
+    let storage = state.read().storage.clone();
+    if let Some(storage) = storage {
+        let mut storage_lock = storage.lock().await;
+
+        // Clear all rules
+        let empty_rules_state = RewriteRulesState::default();
+        storage_lock
+            .save_rewrite_rules_state(&empty_rules_state)
+            .await?;
+
+        // Update local state
+        drop(storage_lock);
+        state.with_mut(|s| s.saved_rules = Vec::new());
+    }
+
+    Ok(())
+}
+
 #[server(LoginToLastfm)]
 async fn login_to_lastfm(username: String, password: String) -> Result<String, ServerFnError> {
     use lastfm_edit::LastFmEditClient;
@@ -699,6 +1154,66 @@ async fn login_to_lastfm(username: String, password: String) -> Result<String, S
 #[server(LoadRecentTracks)]
 async fn load_recent_tracks(session_str: String) -> Result<Vec<SerializableTrack>, ServerFnError> {
     load_recent_tracks_from_page(session_str, 1).await
+}
+
+#[server(LoadArtistTracks)]
+async fn load_artist_tracks(
+    session_str: String,
+    artist_name: String,
+) -> Result<Vec<SerializableTrack>, ServerFnError> {
+    use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
+
+    // Deserialize the session
+    let session: LastFmEditSession = match serde_json::from_str(&session_str) {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(ServerFnError::new(format!(
+                "Failed to deserialize session: {e}"
+            )))
+        }
+    };
+
+    // Create HTTP client and LastFM client from session
+    let http_client = http_client::native::NativeClient::new();
+    let client = LastFmEditClient::from_session(Box::new(http_client), session);
+
+    // Try to fetch all tracks for the artist
+    let mut tracks = Vec::new();
+    const MAX_TRACKS: usize = 1000; // Limit to prevent excessive loading
+
+    match tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        let mut artist_iterator = client.artist_tracks(&artist_name);
+        let mut count = 0;
+
+        while let Some(track) = artist_iterator.next().await? {
+            if count >= MAX_TRACKS {
+                break; // Safety limit
+            }
+            tracks.push(SerializableTrack::from(track));
+            count += 1;
+        }
+        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+    })
+    .await
+    {
+        Ok(Ok(_)) => {
+            // Success - tracks were loaded
+        }
+        Ok(Err(e)) => {
+            eprintln!("Error fetching artist tracks: {e}");
+        }
+        Err(_) => {
+            eprintln!("Timeout fetching artist tracks");
+        }
+    }
+
+    if tracks.is_empty() {
+        return Err(ServerFnError::new(format!(
+            "No tracks found for artist '{artist_name}'"
+        )));
+    }
+
+    Ok(tracks)
 }
 
 #[server(LoadRecentTracksFromPage)]

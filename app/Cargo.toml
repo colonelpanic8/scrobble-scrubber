@@ -8,13 +8,15 @@ edition = "2021"
 
 [dependencies]
 dioxus = { version = "0.6.0", features = ["fullstack"] }
-scrobble-scrubber = { path = "../lib" }
+scrobble-scrubber = { path = "../lib", features = ["pickledb"] }
 lastfm-edit = "0.6.0"
 http-client = { version = "^6.6.3", package = "http-client-2", features = ["curl_client"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
+config = "0.14"
+dirs = "5.0"
 
 [features]
 default = ["desktop"]
