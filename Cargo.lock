@@ -3351,6 +3351,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "lastfm-edit"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d72a9d4999aa8b6bf7b9549ef8f4823e6ac78b9364d38c19e434dc61563c0fa"
+dependencies = [
+ "chrono",
+ "crossterm",
+ "env_logger",
+ "futures",
+ "http-client-2",
+ "http-types-2",
+ "log",
+ "ratatui",
+ "regex",
+ "scraper",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "urlencoding",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5192,7 +5216,7 @@ dependencies = [
  "config 0.14.1",
  "dirs",
  "http-client-2",
- "lastfm-edit",
+ "lastfm-edit 0.4.1",
  "log",
  "openai-api-rs",
  "pickledb",
@@ -5213,7 +5237,7 @@ dependencies = [
  "anyhow",
  "env_logger",
  "http-client-2",
- "lastfm-edit",
+ "lastfm-edit 0.4.1",
  "log",
  "reqwest 0.11.27",
  "scrobble-scrubber",
@@ -5235,7 +5259,7 @@ dependencies = [
  "env_logger",
  "http-client-2",
  "http-types-2",
- "lastfm-edit",
+ "lastfm-edit 0.3.1",
  "log",
  "scrobble-scrubber",
  "tokio",
@@ -5252,7 +5276,7 @@ dependencies = [
  "http-client-2",
  "http-types-2",
  "js-sys",
- "lastfm-edit",
+ "lastfm-edit 0.3.1",
  "regex",
  "scrobble-scrubber",
  "serde",
@@ -5268,7 +5292,7 @@ name = "scrobble-scrubber-node"
 version = "0.1.0"
 dependencies = [
  "http-client-2",
- "lastfm-edit",
+ "lastfm-edit 0.3.1",
  "napi",
  "napi-build",
  "napi-derive",
