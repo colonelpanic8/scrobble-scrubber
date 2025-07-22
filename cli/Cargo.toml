@@ -1,0 +1,27 @@
+[package]
+name = "scrobble-scrubber-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line interface for scrobble-scrubber"
+license = "MIT"
+repository = "https://github.com/imalison/lastfm-edit"
+
+[[bin]]
+name = "scrobble-scrubber"
+path = "src/main.rs"
+
+[dependencies]
+# Core library
+scrobble-scrubber = { path = "../lib", features = ["full"] }
+
+# External dependencies
+lastfm-edit = "0.2.0"
+http-client = { version = "6.5", features = ["curl_client"] }
+tokio = { version = "1.0", features = ["full"] }
+
+# CLI-specific dependencies
+clap = { version = "4.0", features = ["derive"] }
+env_logger = "0.11"
+config = "0.14"
+dirs = "6.0.0"
+log = "0.4"

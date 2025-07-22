@@ -704,6 +704,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,8 +1407,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "335ff9f135e4384c8150d6f27c6daed433577f86b4750418338c01a1a2528592"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1633,7 +1645,11 @@ dependencies = [
  "futures",
  "http-types",
  "isahc",
+ "js-sys",
  "log",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -2080,6 +2096,8 @@ dependencies = [
 [[package]]
 name = "lastfm-edit"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20c0827692adf47f2ebcb771a824bbde263c4f19cf75570748c8ffdd5913036e"
 dependencies = [
  "chrono",
  "crossterm",
@@ -3174,10 +3192,8 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
- "clap",
  "config 0.14.1",
  "dirs",
- "env_logger",
  "http-client",
  "lastfm-edit",
  "log",
@@ -3192,6 +3208,43 @@ dependencies = [
  "tower 0.4.13",
  "tower-http",
  "uuid",
+]
+
+[[package]]
+name = "scrobble-scrubber-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "config 0.14.1",
+ "dirs",
+ "env_logger",
+ "http-client",
+ "lastfm-edit",
+ "log",
+ "scrobble-scrubber",
+ "tokio",
+]
+
+[[package]]
+name = "scrobble-scrubber-js"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "chrono",
+ "console_error_panic_hook",
+ "futures",
+ "getrandom 0.2.16",
+ "http-client",
+ "js-sys",
+ "lastfm-edit",
+ "regex",
+ "scrobble-scrubber",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -3258,6 +3311,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

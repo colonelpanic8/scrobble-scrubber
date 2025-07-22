@@ -1,7 +1,5 @@
-use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{Request, RequestInit, RequestMode, Response};
+use wasm_bindgen::prelude::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LastFmTrack {
@@ -24,7 +22,14 @@ pub struct LastFmAuthResult {
 pub struct LastFmClient {
     username: Option<String>,
     password: Option<String>,
+    #[allow(dead_code)]
     session_key: Option<String>,
+}
+
+impl Default for LastFmClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[wasm_bindgen]
@@ -62,7 +67,9 @@ impl LastFmClient {
         // Last.fm's authentication flow which requires server-side handling
         let result = LastFmAuthResult {
             success: true,
-            message: "Mock authentication successful (real auth requires server-side implementation)".to_string(),
+            message:
+                "Mock authentication successful (real auth requires server-side implementation)"
+                    .to_string(),
             session_key: Some("mock_session_key".to_string()),
         };
 
@@ -123,7 +130,10 @@ impl LastFmClient {
             ("Track One (2009 Remaster)", "Album One (Deluxe Edition)"),
             ("Track Two - Remastered", "Album Two (Special Edition)"),
             ("Track Three (feat. Other Artist)", "Album Three"),
-            ("Track Four - Live Version", "Live Album (Collector's Edition)"),
+            (
+                "Track Four - Live Version",
+                "Live Album (Collector's Edition)",
+            ),
             ("Track Five (Radio Edit)", "Greatest Hits"),
         ];
 

@@ -1,0 +1,54 @@
+[package]
+name = "scrobble-scrubber"
+version = "0.1.0"
+edition = "2021"
+description = "Automated Last.fm scrobble monitoring and correction tool"
+license = "MIT"
+repository = "https://github.com/imalison/lastfm-edit"
+keywords = ["lastfm", "scrobbling", "music", "metadata"]
+categories = ["multimedia::audio", "web-programming"]
+
+[lib]
+name = "scrobble_scrubber"
+path = "src/lib.rs"
+
+[dependencies]
+# Core dependencies always included
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.0"
+log = "0.4"
+async-trait = "0.1"
+thiserror = "2.0.12"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# External dependencies
+lastfm-edit = "0.2.0"
+
+# Optional dependencies for different feature sets
+http-client = { version = "6.5", features = ["curl_client"], optional = true }
+tokio = { version = "1.0", features = ["full"], optional = true }
+pickledb = { version = "0.5", optional = true }
+
+# Config support (used by CLI feature)
+config = { version = "0.14", optional = true }
+dirs = { version = "6.0.0", optional = true }
+
+# Web interface dependencies
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs", "cors"], optional = true }
+
+# OpenAI dependencies
+reqwest = { version = "0.11", features = ["json"], optional = true }
+openai-api-rs = { version = "6.0.7", optional = true }
+
+[features]
+default = ["tokio", "http-client", "cli"]
+full = ["tokio", "web", "openai", "cli", "pickledb", "http-client"]
+cli = ["config", "dirs"]
+pickledb = ["dep:pickledb"]
+wasm = ["http-client"]  # WASM-compatible feature set
+web = ["axum", "tower", "tower-http"]
+openai = ["reqwest", "openai-api-rs"]
