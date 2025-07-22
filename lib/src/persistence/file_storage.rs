@@ -25,14 +25,21 @@ pub enum FileStorageError {
 
 impl FileStorage {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, FileStorageError> {
+        let path_ref = path.as_ref();
+
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = path_ref.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
         let db = match PickleDb::load(
-            path.as_ref(),
+            path_ref,
             PickleDbDumpPolicy::AutoDump,
             SerializationMethod::Json,
         ) {
             Ok(db) => db,
             Err(_) => PickleDb::new(
-                path.as_ref(),
+                path_ref,
                 PickleDbDumpPolicy::AutoDump,
                 SerializationMethod::Json,
             ),

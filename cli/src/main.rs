@@ -167,6 +167,12 @@ enum Commands {
         #[arg(long)]
         web_port: Option<u16>,
     },
+    /// Start only the web interface for managing pending rules and edits
+    Web {
+        /// Port for web interface (default: 8080)
+        #[arg(short, long)]
+        port: Option<u16>,
+    },
 }
 
 /// Load configuration from args with optional config file override
@@ -300,6 +306,13 @@ fn merge_args_into_config(
                 config.scrubber.web_port = *web_port;
             }
             // Note: artist name is handled in main.rs, not stored in config
+        }
+        Commands::Web { port } => {
+            // Enable web interface for web-only mode
+            config.scrubber.enable_web_interface = true;
+            if let Some(web_port) = port {
+                config.scrubber.web_port = *web_port;
+            }
         }
     }
 
@@ -512,6 +525,23 @@ async fn main() -> Result<()> {
         Commands::Artist { name, .. } => {
             info!("Processing all tracks for artist '{name}'");
             scrubber_guard.process_artist(name).await?;
+        }
+        Commands::Web { .. } => {
+            info!(
+                "Starting web interface only mode on port {}",
+                config.scrubber.web_port
+            );
+            info!(
+                "Web interface available at: http://localhost:{}",
+                config.scrubber.web_port
+            );
+            info!("Press Ctrl+C to stop");
+
+            // The web interface is already started above if enable_web_interface is true
+            // Just wait indefinitely for the web interface to serve requests
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            }
         }
     }
 

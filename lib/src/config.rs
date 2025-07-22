@@ -188,10 +188,24 @@ impl Default for ProvidersConfig {
     }
 }
 
+impl StorageConfig {
+    /// Get the default state file path using XDG Base Directory specification
+    /// Falls back to current directory if XDG data directory is not available
+    pub fn get_default_state_file_path() -> String {
+        if let Some(data_dir) = dirs::data_dir() {
+            let scrobble_data_dir = data_dir.join("scrobble-scrubber");
+            scrobble_data_dir.join("state.db").to_string_lossy().to_string()
+        } else {
+            // Fallback to current directory if XDG data directory is not available
+            "scrobble_state.db".to_string()
+        }
+    }
+}
+
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            state_file: "scrobble_state.db".to_string(),
+            state_file: Self::get_default_state_file_path(),
         }
     }
 }
