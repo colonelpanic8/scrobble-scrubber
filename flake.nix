@@ -39,6 +39,8 @@
               webkitgtk_4_1
               librsvg
               libsoup_3
+              libayatana-appindicator
+              xdotool
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies
@@ -54,6 +56,7 @@
           OPENSSL_DIR = "${pkgs.openssl.dev}";
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
           OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+          WEBKIT_DISABLE_DMABUF_RENDERER = 1;
 
           shellHook = ''
           '';

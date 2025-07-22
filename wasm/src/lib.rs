@@ -70,7 +70,6 @@ pub struct JSSdRule {
     pub replace: String,
     pub is_literal: bool,
     pub flags: Option<String>,
-    pub max_replacements: u32,
 }
 
 impl From<&SdRule> for JSSdRule {
@@ -80,7 +79,6 @@ impl From<&SdRule> for JSSdRule {
             replace: sd_rule.replace.clone(),
             is_literal: sd_rule.is_literal,
             flags: sd_rule.flags.clone(),
-            max_replacements: sd_rule.max_replacements as u32,
         }
     }
 }
@@ -92,7 +90,6 @@ impl From<JSSdRule> for SdRule {
             replace: js_rule.replace,
             is_literal: js_rule.is_literal,
             flags: js_rule.flags,
-            max_replacements: js_rule.max_replacements as usize,
         }
     }
 }
@@ -231,7 +228,6 @@ pub fn create_simple_rule(
         replace: replace.to_string(),
         is_literal,
         flags: None,
-        max_replacements: 0,
     };
 
     let mut rewrite_rule = RewriteRule {

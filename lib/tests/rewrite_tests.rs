@@ -5,19 +5,21 @@ use scrobble_scrubber::rewrite::{
 
 #[test]
 fn test_sd_rule_regex() {
+    // With new behavior: if pattern matches, entire string is replaced
     let rule = SdRule::new_regex(r"(\d{4}) Remaster", "$1 Version");
     assert_eq!(
         rule.apply("Song - 2023 Remaster").unwrap(),
-        "Song - 2023 Version"
+        "2023 Version" // Entire string replaced with capture group expansion
     );
 }
 
 #[test]
 fn test_sd_rule_literal() {
+    // With new behavior: if literal pattern is found, entire string is replaced
     let rule = SdRule::new_literal("feat.", "featuring");
     assert_eq!(
         rule.apply("Artist feat. Someone").unwrap(),
-        "Artist featuring Someone"
+        "featuring" // Entire string replaced with literal replacement
     );
 }
 
@@ -31,25 +33,27 @@ fn test_rewrite_rule_application() {
         playcount: 0,
     };
 
+    // Updated rules for whole-string replacement behavior
     let rule = RewriteRule::new()
-        .with_track_name(SdRule::new_regex(r" - \d{4} Remaster", ""))
-        .with_artist_name(SdRule::new_regex(r" ft\. ", " feat. "));
+        .with_track_name(SdRule::new_regex(r".*- \d{4} Remaster", "Clean Song"))
+        .with_artist_name(SdRule::new_regex(r".* ft\. .*", "Clean Artist"));
 
     let mut edit = create_no_op_edit(&track);
     let changed = rule.apply(&mut edit).unwrap();
 
     assert!(changed);
-    assert_eq!(edit.track_name, "Song");
-    assert_eq!(edit.artist_name, "Artist feat. Someone");
+    assert_eq!(edit.track_name, "Clean Song"); // Entire string replaced
+    assert_eq!(edit.artist_name, "Clean Artist"); // Entire string replaced
     assert_eq!(edit.timestamp, 1234567890);
 }
 
 #[test]
 fn test_capture_groups() {
+    // This test still works the same way with whole-string replacement
     let rule = SdRule::new_regex(r"(.+) ft\. (.+)", "$1 feat. $2");
     assert_eq!(
         rule.apply("Artist ft. Someone").unwrap(),
-        "Artist feat. Someone"
+        "Artist feat. Someone" // Entire string replaced with capture group expansion
     );
 }
 
@@ -83,10 +87,11 @@ fn test_multiple_rules_application() {
         playcount: 0,
     };
 
+    // Updated rules for whole-string replacement behavior
     let rules = vec![
-        RewriteRule::new().with_track_name(SdRule::new_regex(r" - \d{4} Remaster", "")),
-        RewriteRule::new().with_artist_name(SdRule::new_regex(r" ft\. ", " feat. ")),
-        RewriteRule::new().with_track_name(SdRule::new_regex(r"\s+$", "")), // Remove trailing spaces
+        RewriteRule::new().with_track_name(SdRule::new_regex(r".*- \d{4} Remaster.*", "Song")),
+        RewriteRule::new()
+            .with_artist_name(SdRule::new_regex(r".* ft\. .*", "Artist feat. Someone")),
     ];
 
     // Check that rules apply
@@ -97,8 +102,8 @@ fn test_multiple_rules_application() {
     let changed = apply_all_rules(&rules, &mut edit).unwrap();
 
     assert!(changed);
-    assert_eq!(edit.track_name, "Song"); // Remaster removed and spaces trimmed
-    assert_eq!(edit.artist_name, "Artist feat. Someone"); // ft. -> feat.
+    assert_eq!(edit.track_name, "Song"); // Entire string replaced
+    assert_eq!(edit.artist_name, "Artist feat. Someone"); // Entire string replaced
 }
 
 #[test]
@@ -112,7 +117,7 @@ fn test_applies_to_check() {
     };
 
     let rule_that_applies =
-        RewriteRule::new().with_track_name(SdRule::new_regex(r" - \d{4} Remaster", ""));
+        RewriteRule::new().with_track_name(SdRule::new_regex(r".*- \d{4} Remaster", "Clean"));
 
     let rule_that_doesnt_apply =
         RewriteRule::new().with_track_name(SdRule::new_regex(r"Nonexistent", ""));

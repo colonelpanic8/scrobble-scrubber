@@ -75,9 +75,6 @@ struct SdRuleData {
     is_literal: bool,
     /// Regex flags (e.g., "i" for case insensitive)
     flags: Option<String>,
-    /// Maximum number of replacements (0 = unlimited, defaults to 0 for wholesale replacement)
-    #[serde(default)]
-    max_replacements: usize,
 }
 
 impl From<SdRuleData> for crate::rewrite::SdRule {
@@ -92,9 +89,7 @@ impl From<SdRuleData> for crate::rewrite::SdRule {
             sd_rule = sd_rule.with_flags(flags);
         }
 
-        if data.max_replacements > 0 {
-            sd_rule = sd_rule.with_max_replacements(data.max_replacements);
-        }
+        // Note: max_replacements is no longer supported in the simplified API
 
         sd_rule
     }

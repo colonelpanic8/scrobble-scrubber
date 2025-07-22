@@ -68,7 +68,9 @@
       "Bash(trunk build:*)",
       "Bash(just fmt-check:*)",
       "Bash(./target/debug/scrobble-scrubber:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(dx build:*)",
+      "Bash(dx serve:*)"
     ],
     "deny": []
   }

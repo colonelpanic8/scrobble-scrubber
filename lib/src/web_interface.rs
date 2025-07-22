@@ -95,14 +95,8 @@ fn format_sd_rule(rule: &SdRule, field_name: &str) -> String {
         .map(|f| format!(" <span style='color: #6c757d;'>(flags: {f})</span>"))
         .unwrap_or_default();
 
-    let max_replacements_str = if rule.max_replacements > 0 {
-        format!(
-            " <span style='color: #6c757d;'>(max: {})</span>",
-            rule.max_replacements
-        )
-    } else {
-        String::new()
-    };
+    // Note: max_replacements is no longer supported in the simplified API
+    let max_replacements_str = String::new();
 
     format!(
         "&nbsp;&nbsp;<strong style='color: #495057;'>{}:</strong> {} <code style='background: #e9ecef; padding: 2px 4px;'>\"{}\"</code> → <code style='background: #e9ecef; padding: 2px 4px;'>\"{}\"</code>{}{}",
