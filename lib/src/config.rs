@@ -131,7 +131,7 @@ pub struct ProvidersConfig {
 pub struct OpenAIProviderConfig {
     /// `OpenAI` API key
     pub api_key: String,
-    /// Model to use (defaults to gpt-4o)
+    /// Model to use (defaults to gpt-4o-mini)
     pub model: Option<String>,
     /// Custom system prompt
     pub system_prompt: Option<String>,

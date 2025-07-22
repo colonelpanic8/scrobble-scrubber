@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 scrobble-scrubber = { path = "../lib" }
-lastfm-edit = "0.3.1"
+lastfm-edit = "0.4"
 http-client = { version = "^6.6.3", package = "http-client-2", features = ["native_client"] }
 
 # napi-rs dependencies

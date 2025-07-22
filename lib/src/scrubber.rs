@@ -693,37 +693,46 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
-    async fn apply_edit(&mut self, track: &lastfm_edit::Track, edit: &ScrobbleEdit) -> Result<()> {
-        // Check if track name changed
+    async fn apply_edit(&mut self, _track: &lastfm_edit::Track, edit: &ScrobbleEdit) -> Result<()> {
+        // Check what changes are being made and log them
+        let mut changes = Vec::new();
+
         if edit.track_name != edit.track_name_original {
-            info!(
-                "Renaming track '{}' to '{}'",
+            changes.push(format!(
+                "track: '{}' -> '{}'",
                 edit.track_name_original, edit.track_name
-            );
-            // TODO: Implement track name editing in lastfm-edit library
-            warn!(
-                "Track renaming not yet implemented: '{}' -> '{}'",
-                edit.track_name_original, edit.track_name
-            );
+            ));
         }
-
-        // Check if artist name changed
         if edit.artist_name != edit.artist_name_original {
-            info!(
-                "Renaming artist '{}' to '{}' for track '{}'",
-                edit.artist_name_original, edit.artist_name, track.name
-            );
-            self.client
-                .edit_artist_for_track(&track.name, &track.artist, &edit.artist_name)
-                .await?;
+            changes.push(format!(
+                "artist: '{}' -> '{}'",
+                edit.artist_name_original, edit.artist_name
+            ));
         }
-
-        // TODO: Handle album and album_artist changes when implemented
         if edit.album_name != edit.album_name_original {
-            info!("Album name change detected but not yet implemented");
+            changes.push(format!(
+                "album: '{}' -> '{}'",
+                edit.album_name_original, edit.album_name
+            ));
         }
         if edit.album_artist_name != edit.album_artist_name_original {
-            info!("Album artist name change detected but not yet implemented");
+            changes.push(format!(
+                "album artist: '{}' -> '{}'",
+                edit.album_artist_name_original, edit.album_artist_name
+            ));
+        }
+
+        if !changes.is_empty() {
+            info!(
+                "Applying edit to track '{}' by '{}': {}",
+                edit.track_name_original,
+                edit.artist_name_original,
+                changes.join(", ")
+            );
+
+            // Use the comprehensive edit_scrobble method which handles all field changes
+            let response = self.client.edit_scrobble(edit).await?;
+            info!("Edit applied successfully: {:?}", response);
         }
 
         Ok(())

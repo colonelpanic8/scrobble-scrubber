@@ -145,7 +145,7 @@ impl OpenAIScrubActionProvider {
             Some("gpt-4o") => GPT4_O.to_string(),
             Some("gpt-4o-mini") => "gpt-4o-mini".to_string(),
             Some("gpt-3.5-turbo") => "gpt-3.5-turbo".to_string(),
-            _ => GPT4_O.to_string(), // default to GPT-4o
+            _ => "gpt-4o-mini".to_string(), // default to GPT-4o mini
         };
 
         let system_prompt =
@@ -475,11 +475,16 @@ impl OpenAIScrubActionProvider {
                 let album_info = if let Some(album) = &track.album {
                     format!(" from album \"{album}\"")
                 } else {
+                    " (no album info)".to_string()
+                };
+                let timestamp_info = if let Some(timestamp) = track.timestamp {
+                    format!(" [scrobbled: {}]", timestamp)
+                } else {
                     String::new()
                 };
                 format!(
-                    "Track {}: \"{}\" by \"{}\"{} (play count: {})",
-                    idx, track.name, track.artist, album_info, track.playcount
+                    "Track {}: \"{}\" by \"{}\"{}{} (play count: {})",
+                    idx, track.name, track.artist, album_info, timestamp_info, track.playcount
                 )
             })
             .collect::<Vec<_>>()
@@ -659,11 +664,16 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
                 let album_info = if let Some(album) = &track.album {
                     format!(" from album \"{album}\"")
                 } else {
+                    " (no album info)".to_string()
+                };
+                let timestamp_info = if let Some(timestamp) = track.timestamp {
+                    format!(" [scrobbled: {}]", timestamp)
+                } else {
                     String::new()
                 };
                 format!(
-                    "Track {}: \"{}\" by \"{}\"{} (play count: {})",
-                    idx, track.name, track.artist, album_info, track.playcount
+                    "Track {}: \"{}\" by \"{}\"{}{} (play count: {})",
+                    idx, track.name, track.artist, album_info, timestamp_info, track.playcount
                 )
             })
             .collect::<Vec<_>>()
