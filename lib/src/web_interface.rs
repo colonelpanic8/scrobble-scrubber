@@ -903,14 +903,10 @@ async fn fetch_tracks_for_workshop<S: StateStorage, P: ScrubActionProvider>(
 
     let limit = request.limit.unwrap_or(100);
 
-    log::info!("Getting scrubber lock...");
-    // Get real tracks from the scrubber
-    let mut scrubber = state.scrubber.lock().await;
-    log::info!("Got scrubber lock successfully");
-
     let lastfm_tracks = match &request.artist {
         Some(artist_name) => {
             log::info!("Fetching tracks for artist: {artist_name}");
+            let mut scrubber = state.scrubber.lock().await;
             scrubber
                 .fetch_artist_tracks(artist_name, limit)
                 .await
@@ -921,6 +917,7 @@ async fn fetch_tracks_for_workshop<S: StateStorage, P: ScrubActionProvider>(
         }
         None => {
             log::info!("Fetching recent tracks");
+            let mut scrubber = state.scrubber.lock().await;
             scrubber.fetch_recent_tracks(limit).await.map_err(|e| {
                 log::error!("Failed to fetch recent tracks: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
