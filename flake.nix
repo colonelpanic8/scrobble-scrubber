@@ -41,6 +41,9 @@
               libsoup_3
               libayatana-appindicator
               xdotool
+
+              # Dioxus development tools
+              dioxus-cli
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies
