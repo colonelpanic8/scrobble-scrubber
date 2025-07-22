@@ -1,7 +1,7 @@
 use crate::types::AppState;
 use crate::utils::{copy_to_clipboard, save_current_rule};
+use ::scrobble_scrubber::rewrite::{RewriteRule, SdRule};
 use dioxus::prelude::*;
-use scrobble_scrubber::rewrite::{RewriteRule, SdRule};
 
 #[component]
 pub fn RuleEditor(mut state: Signal<AppState>) -> Element {

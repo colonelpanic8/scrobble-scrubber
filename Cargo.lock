@@ -5441,6 +5441,7 @@ dependencies = [
 name = "scrobble-scrubber-app"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "config 0.14.1",
  "dioxus",
  "dirs 5.0.1",

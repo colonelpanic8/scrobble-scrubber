@@ -1,8 +1,8 @@
 use crate::types::{AppState, SerializableTrack};
+use ::scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
+use ::scrobble_scrubber::rewrite::RewriteRule;
 use dioxus::document::eval;
 use dioxus::prelude::*;
-use scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
-use scrobble_scrubber::rewrite::RewriteRule;
 
 pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
     let mut all_tracks = Vec::new();
@@ -13,7 +13,7 @@ pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
     }
 
     // Add artist tracks if enabled
-    for (_artist, track_state) in &state.artist_tracks {
+    for track_state in state.artist_tracks.values() {
         if track_state.enabled {
             all_tracks.extend(track_state.tracks.clone());
         }

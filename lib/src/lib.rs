@@ -1,3 +1,4 @@
+pub mod events;
 pub mod rewrite;
 pub mod rewrite_processor;
 pub mod scrub_action_provider;

@@ -1,8 +1,8 @@
-use crate::types::{AppState, PreviewType, SerializableTrack};
+use crate::types::{AppState, PreviewType};
 use crate::utils::get_current_tracks;
+use ::scrobble_scrubber::rewrite::{apply_all_rules, create_no_op_edit};
 use dioxus::prelude::*;
 use lastfm_edit::Track;
-use scrobble_scrubber::rewrite::{apply_all_rules, create_no_op_edit};
 
 #[component]
 pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element {
