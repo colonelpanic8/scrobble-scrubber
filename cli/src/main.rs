@@ -372,7 +372,7 @@ async fn main() -> Result<()> {
 
     // Create and login to LastFM client
     let http_client = http_client::native::NativeClient::new();
-    let mut client = LastFmEditClient::new(Box::new(http_client));
+    let client = LastFmEditClient::new(Box::new(http_client));
 
     info!("Logging in to Last.fm...");
     client

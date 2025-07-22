@@ -161,7 +161,7 @@ fn lastfm_worker_blocking(receiver: std::sync::mpsc::Receiver<LastFmCommand>) {
 
                 let result = rt.block_on(async {
                     let http_client = http_client::native::NativeClient::new();
-                    let mut lastfm_client = lastfm_edit::LastFmEditClient::new(Box::new(http_client));
+                    let lastfm_client = lastfm_edit::LastFmEditClient::new(Box::new(http_client));
 
                     log::info!("LastFm worker: Attempting to login to Last.fm...");
                     match lastfm_client.login(&username, &password).await {

@@ -3346,18 +3346,16 @@ dependencies = [
 
 [[package]]
 name = "lastfm-edit"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d72a9d4999aa8b6bf7b9549ef8f4823e6ac78b9364d38c19e434dc61563c0fa"
+checksum = "7f487c20fcf04e17a38faf6a8ee77102a8cb1aa027ff9db1743db25ec8bbaacc"
 dependencies = [
  "chrono",
- "crossterm 0.28.1",
  "env_logger",
  "futures",
  "http-client-2",
  "http-types-2",
  "log",
- "ratatui",
  "regex",
  "scraper",
  "serde",
