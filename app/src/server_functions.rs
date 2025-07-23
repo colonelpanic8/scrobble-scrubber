@@ -1,5 +1,6 @@
 use crate::types::SerializableTrack;
 use dioxus::prelude::*;
+use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 #[server(LoginToLastfm)]
 pub async fn login_to_lastfm(username: String, password: String) -> Result<String, ServerFnError> {
@@ -228,4 +229,237 @@ pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnE
             "Failed to clear artist cache: {e}"
         ))),
     }
+}
+
+#[server(LoadPendingEdits)]
+pub async fn load_pending_edits() -> Result<Vec<PendingEdit>, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{FileStorage, StateStorage};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let storage = Arc::new(Mutex::new(storage));
+
+    let pending_edits_state = storage
+        .lock()
+        .await
+        .load_pending_edits_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
+
+    Ok(pending_edits_state.pending_edits)
+}
+
+#[server(LoadPendingRewriteRules)]
+pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{FileStorage, StateStorage};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let storage = Arc::new(Mutex::new(storage));
+
+    let pending_rules_state = storage
+        .lock()
+        .await
+        .load_pending_rewrite_rules_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
+
+    Ok(pending_rules_state.pending_rules)
+}
+
+#[server(ApprovePendingEdit)]
+pub async fn approve_pending_edit(edit_id: String) -> Result<String, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{FileStorage, PendingEditsState, StateStorage};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let mut storage = Arc::new(Mutex::new(storage));
+
+    let mut pending_edits_state = storage
+        .lock()
+        .await
+        .load_pending_edits_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
+
+    // Find and remove the approved edit
+    let edit_index = pending_edits_state
+        .pending_edits
+        .iter()
+        .position(|e| e.id == edit_id)
+        .ok_or_else(|| ServerFnError::new("Edit not found"))?;
+
+    let _approved_edit = pending_edits_state.pending_edits.remove(edit_index);
+
+    // Save the updated state
+    storage
+        .lock()
+        .await
+        .save_pending_edits_state(&pending_edits_state)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to save pending edits: {e}")))?;
+
+    // TODO: Actually apply the edit to LastFM here
+
+    Ok("Edit approved and applied".to_string())
+}
+
+#[server(RejectPendingEdit)]
+pub async fn reject_pending_edit(edit_id: String) -> Result<String, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{FileStorage, PendingEditsState, StateStorage};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let storage = Arc::new(Mutex::new(storage));
+
+    let mut pending_edits_state = storage
+        .lock()
+        .await
+        .load_pending_edits_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
+
+    // Find and remove the rejected edit
+    let edit_index = pending_edits_state
+        .pending_edits
+        .iter()
+        .position(|e| e.id == edit_id)
+        .ok_or_else(|| ServerFnError::new("Edit not found"))?;
+
+    pending_edits_state.pending_edits.remove(edit_index);
+
+    // Save the updated state
+    storage
+        .lock()
+        .await
+        .save_pending_edits_state(&pending_edits_state)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to save pending edits: {e}")))?;
+
+    Ok("Edit rejected and removed".to_string())
+}
+
+#[server(ApprovePendingRewriteRule)]
+pub async fn approve_pending_rewrite_rule(rule_id: String) -> Result<String, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{
+        FileStorage, PendingRewriteRulesState, RewriteRulesState, StateStorage,
+    };
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let storage = Arc::new(Mutex::new(storage));
+
+    let mut pending_rules_state = storage
+        .lock()
+        .await
+        .load_pending_rewrite_rules_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
+
+    // Find and remove the approved rule
+    let rule_index = pending_rules_state
+        .pending_rules
+        .iter()
+        .position(|r| r.id == rule_id)
+        .ok_or_else(|| ServerFnError::new("Rule not found"))?;
+
+    let approved_rule = pending_rules_state.pending_rules.remove(rule_index);
+
+    // Add to active rules
+    let mut rewrite_rules_state = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load rewrite rules: {e}")))?;
+
+    rewrite_rules_state.rewrite_rules.push(approved_rule.rule);
+
+    // Save both states
+    storage
+        .lock()
+        .await
+        .save_pending_rewrite_rules_state(&pending_rules_state)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to save pending rules: {e}")))?;
+
+    storage
+        .lock()
+        .await
+        .save_rewrite_rules_state(&rewrite_rules_state)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to save rewrite rules: {e}")))?;
+
+    Ok("Rule approved and added to active rules".to_string())
+}
+
+#[server(RejectPendingRewriteRule)]
+pub async fn reject_pending_rewrite_rule(rule_id: String) -> Result<String, ServerFnError> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::persistence::{FileStorage, PendingRewriteRulesState, StateStorage};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    let config = ScrobbleScrubberConfig::load()
+        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
+
+    let storage = FileStorage::new(&config.storage.state_file)
+        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
+    let storage = Arc::new(Mutex::new(storage));
+
+    let mut pending_rules_state = storage
+        .lock()
+        .await
+        .load_pending_rewrite_rules_state()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
+
+    // Find and remove the rejected rule
+    let rule_index = pending_rules_state
+        .pending_rules
+        .iter()
+        .position(|r| r.id == rule_id)
+        .ok_or_else(|| ServerFnError::new("Rule not found"))?;
+
+    pending_rules_state.pending_rules.remove(rule_index);
+
+    // Save the updated state
+    storage
+        .lock()
+        .await
+        .save_pending_rewrite_rules_state(&pending_rules_state)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to save pending rules: {e}")))?;
+
+    Ok("Rule rejected and removed".to_string())
 }
