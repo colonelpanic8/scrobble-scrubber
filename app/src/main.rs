@@ -43,6 +43,17 @@ fn App() -> Element {
                                 s.config = Some(config);
                                 s.storage = Some(Arc::new(Mutex::new(storage)));
                                 s.saved_rules = saved_rules;
+
+                                // Load cached artist tracks into UI state
+                                for (artist_name, cached_tracks) in &s.track_cache.artist_tracks {
+                                    s.artist_tracks.insert(
+                                        artist_name.clone(),
+                                        TrackSourceState {
+                                            enabled: true,
+                                            tracks: cached_tracks.clone(),
+                                        },
+                                    );
+                                }
                             });
                         }
                         Err(e) => {

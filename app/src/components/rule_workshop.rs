@@ -80,6 +80,18 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                 // Artist loading section
                 div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;",
                     h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Load All Tracks for Artist" }
+                    {
+                        let cached_artists_count = state.read().track_cache.artist_tracks.len();
+                        if cached_artists_count > 0 {
+                            rsx! {
+                                p { style: "font-size: 0.875rem; color: #6b7280; margin-bottom: 1rem;",
+                                    "📂 {cached_artists_count} artists loaded from cache (see Track Source Controls below)"
+                                }
+                            }
+                        } else {
+                            rsx! { div {} }
+                        }
+                    }
                     div { style: "display: flex; gap: 1rem; align-items: end;",
                         div { style: "flex: 1;",
                             label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Artist Name" }
@@ -191,6 +203,19 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                                             div { style: "display: flex; align-items: center; gap: 0.5rem;",
                                                 span { style: "font-size: 0.75rem; color: #6b7280;",
                                                     "{track_state.tracks.len()} tracks"
+                                                }
+                                                // Show cache indicator if this artist is in the cache
+                                                {
+                                                    let state_read = state.read();
+                                                    if state_read.track_cache.artist_tracks.contains_key(artist_name) {
+                                                        rsx! {
+                                                            span { style: "font-size: 0.625rem; color: #059669; background: #d1fae5; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
+                                                                "📂 cached"
+                                                            }
+                                                        }
+                                                    } else {
+                                                        rsx! { span {} }
+                                                    }
                                                 }
                                                 button {
                                                     style: "background: #dc2626; color: white; padding: 0.25rem 0.5rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
