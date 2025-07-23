@@ -43,13 +43,22 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                         match scrubber_state.status {
                             ScrubberStatus::Stopped | ScrubberStatus::Error(_) => rsx! {
                                 button {
-                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-right: 0.5rem;",
                                     onclick: move |_| {
                                         spawn(async move {
                                             start_scrubber(state).await;
                                         });
                                     },
                                     "Start Scrubber"
+                                }
+                                button {
+                                    style: "background: #2563eb; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                    onclick: move |_| {
+                                        spawn(async move {
+                                            trigger_manual_processing(state).await;
+                                        });
+                                    },
+                                    "Process Now"
                                 }
                             },
                             ScrubberStatus::Running => rsx! {
@@ -61,15 +70,6 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                         });
                                     },
                                     "Stop Scrubber"
-                                }
-                                button {
-                                    style: "background: #2563eb; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-right: 0.5rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            trigger_manual_processing(state).await;
-                                        });
-                                    },
-                                    "Process Now"
                                 }
                                 button {
                                     style: "background: #7c3aed; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
@@ -136,7 +136,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                         }
                     } else {
                         div { style: "display: flex; flex-direction: column-reverse; gap: 0.25rem;",
-                            for event in scrubber_state.events.iter().take(100) {
+                            for (index, event) in scrubber_state.events.iter().rev().take(100).enumerate() {
                                 {
                                     let event = event.clone();
                                     let (icon, color) = match event.event_type {
@@ -155,7 +155,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
 
                                     rsx! {
                                         div {
-                                            key: "{event.timestamp}",
+                                            key: "{index}",
                                             style: "display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; hover:background: #f9fafb;",
                                             span { style: "font-size: 1rem;", "{icon}" }
                                             span { style: "color: {color}; font-weight: 500; min-width: 16ch;", "{formatted_time}" }
