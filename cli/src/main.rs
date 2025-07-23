@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
-use log::info;
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
@@ -679,7 +678,7 @@ async fn main() -> Result<()> {
         )))
     })?;
 
-    info!(
+    log::info!(
         "Starting scrobble-scrubber with interval {}s",
         config.scrubber.interval
     );
@@ -688,14 +687,14 @@ async fn main() -> Result<()> {
     let http_client = http_client::native::NativeClient::new();
     let client = LastFmEditClientImpl::new(Box::new(http_client));
 
-    info!("Logging in to Last.fm...");
+    log::info!("Logging in to Last.fm...");
     client
         .login(&config.lastfm.username, &config.lastfm.password)
         .await?;
-    info!("Successfully logged in to Last.fm");
+    log::info!("Successfully logged in to Last.fm");
 
     // Create storage wrapped in Arc<Mutex<>>
-    info!("Using state file: {}", config.storage.state_file);
+    log::info!("Using state file: {}", config.storage.state_file);
     let storage = Arc::new(Mutex::new(
         FileStorage::new(&config.storage.state_file).map_err(|e| {
             LastFmError::Io(std::io::Error::other(format!(
@@ -730,9 +729,9 @@ async fn main() -> Result<()> {
     if config.providers.enable_rewrite_rules && !skip_existing_rules {
         let rewrite_provider = RewriteRulesScrubActionProvider::new(&rules_state);
         action_provider = action_provider.add_provider(rewrite_provider);
-        info!("Enabled rewrite rules provider");
+        log::info!("Enabled rewrite rules provider");
     } else if skip_existing_rules {
-        info!("Skipping existing rewrite rules for pattern analysis");
+        log::info!("Skipping existing rewrite rules for pattern analysis");
     }
 
     // Add OpenAI provider if enabled and configured
@@ -743,7 +742,7 @@ async fn main() -> Result<()> {
         } else {
             // Check if API key is available from environment variables
             if let Ok(api_key) = std::env::var("SCROBBLE_SCRUBBER_OPENAI_API_KEY") {
-                info!("Creating default OpenAI configuration from environment variable");
+                log::info!("Creating default OpenAI configuration from environment variable");
                 Some(OpenAIProviderConfig {
                     api_key,
                     model: std::env::var("SCROBBLE_SCRUBBER_OPENAI_MODEL").ok(),
@@ -772,9 +771,11 @@ async fn main() -> Result<()> {
                         }
                     ) {
                         openai_provider.enable_rule_focus_mode();
-                        info!("Enabled OpenAI provider with RULE FOCUS mode for pattern analysis");
+                        log::info!(
+                            "Enabled OpenAI provider with RULE FOCUS mode for pattern analysis"
+                        );
                     } else {
-                        info!(
+                        log::info!(
                             "Enabled OpenAI provider with model: {}",
                             openai_config.model.as_deref().unwrap_or("default")
                         );
@@ -801,7 +802,7 @@ async fn main() -> Result<()> {
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);
-        info!("Enabled MusicBrainz provider for metadata corrections");
+        log::info!("Enabled MusicBrainz provider for metadata corrections");
     }
 
     // Handle commands that don't need a scrubber instance first
@@ -853,7 +854,7 @@ async fn main() -> Result<()> {
             }
         });
 
-        info!("Web interface started on port {}", config.scrubber.web_port);
+        log::info!("Web interface started on port {}", config.scrubber.web_port);
     }
 
     // Run based on the command
@@ -886,7 +887,7 @@ async fn main() -> Result<()> {
     let mut scrubber_guard = scrubber.lock().await;
     match &args.command {
         Commands::Run { .. } => {
-            info!("Starting continuous monitoring mode");
+            log::info!("Starting continuous monitoring mode");
             scrubber_guard.run().await?;
         }
         Commands::Once {
@@ -894,12 +895,12 @@ async fn main() -> Result<()> {
             ..
         } => {
             if let Some(timestamp_str) = set_anchor_timestamp {
-                info!("Setting timestamp anchor before processing");
+                log::info!("Setting timestamp anchor before processing");
                 drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
                 set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
                 scrubber_guard = scrubber.lock().await; // Re-acquire lock
             }
-            info!("Running single pass");
+            log::info!("Running single pass");
             scrubber_guard.trigger_run().await?;
         }
         Commands::LastN {
@@ -918,30 +919,30 @@ async fn main() -> Result<()> {
             let batch_info = batch_size
                 .map(|s| format!(" with batch size {s}"))
                 .unwrap_or_default();
-            info!("Processing last {tracks} tracks{mode_info}{batch_info}");
+            log::info!("Processing last {tracks} tracks{mode_info}{batch_info}");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
         Commands::Artist { name, .. } => {
-            info!("Processing all tracks for artist '{name}'");
+            log::info!("Processing all tracks for artist '{name}'");
             scrubber_guard.process_artist(name).await?;
         }
         Commands::Web { .. } => {
-            info!(
+            log::info!(
                 "Starting web interface only mode on port {}",
                 config.scrubber.web_port
             );
-            info!(
+            log::info!(
                 "Web interface available at: http://localhost:{}",
                 config.scrubber.web_port
             );
-            info!("Press Ctrl+C to stop");
+            log::info!("Press Ctrl+C to stop");
 
             // The web interface is already started above if enable_web_interface is true
             // Wait for shutdown signal
             if let Err(e) = tokio::signal::ctrl_c().await {
                 log::error!("Failed to listen for shutdown signal: {e}");
             }
-            info!("Received shutdown signal, stopping web interface...");
+            log::info!("Received shutdown signal, stopping web interface...");
         }
         Commands::ShowCache { .. } => {
             // This case is handled above

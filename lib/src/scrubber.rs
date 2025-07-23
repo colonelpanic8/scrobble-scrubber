@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
-use log::{debug, info, trace, warn};
+use log::{trace, warn};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
@@ -169,15 +169,17 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             return Ok(timestamp_state);
         }
 
-        info!("No timestamp anchor found, initializing with most recent track...");
+        log::info!("No timestamp anchor found, initializing with most recent track...");
 
         let mut recent_iterator = self.client.recent_tracks();
 
         // Get the first (most recent) track to use as our anchor
         if let Some(first_track) = recent_iterator.next().await? {
-            info!(
+            log::info!(
                 "Most recent track found: '{}' by '{}' (playcount: {})",
-                first_track.name, first_track.artist, first_track.playcount
+                first_track.name,
+                first_track.artist,
+                first_track.playcount
             );
 
             if let Some(ts) = first_track.timestamp {
@@ -198,19 +200,22 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         )))
                     })?;
 
-                info!(
+                log::info!(
                     "Initialized timestamp anchor at: {} for track '{}' by '{}'",
-                    track_time, first_track.name, first_track.artist
+                    track_time,
+                    first_track.name,
+                    first_track.artist
                 );
                 return Ok(new_state);
             } else {
-                info!(
+                log::info!(
                     "Most recent track '{}' by '{}' has no timestamp, using original state",
-                    first_track.name, first_track.artist
+                    first_track.name,
+                    first_track.artist
                 );
             }
         } else {
-            info!("No recent tracks found, using original state");
+            log::info!("No recent tracks found, using original state");
         }
 
         Ok(timestamp_state)
@@ -228,13 +233,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tokio::select! {
                 // Regular interval tick
                 _ = interval.tick() => {
-                    info!("Starting scheduled track monitoring cycle...");
+                    log::info!("Starting scheduled track monitoring cycle...");
                     self.run_processing_cycle().await;
                 }
 
                 // Immediate processing triggered
                 _ = self.trigger_immediate.notified() => {
-                    info!("Immediate processing triggered");
+                    log::info!("Immediate processing triggered");
                     self.emit_event(ScrubberEvent::info(
                         "Immediate processing triggered".to_string(),
                     ));
@@ -243,7 +248,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 // Stop signal received
                 _ = self.should_stop.notified() => {
-                    info!("Scrubber stop requested, exiting main loop");
+                    log::info!("Scrubber stop requested, exiting main loop");
                     break;
                 }
             }
@@ -261,7 +266,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
-        info!("Starting track monitoring cycle...");
+        log::info!("Starting track monitoring cycle...");
         self.emit_event(ScrubberEvent::cycle_started(
             "Starting track monitoring cycle".to_string(),
         ));
@@ -296,7 +301,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
 
         // Step 3: Update cache with latest tracks from API, using anchor to limit fetch
-        debug!("Updating track cache from Last.fm API...");
+        log::debug!("Updating track cache from Last.fm API...");
 
         // The anchor timestamp must be set at this point due to ensure_timestamp_initialized
         let anchor_timestamp = timestamp_state
@@ -312,14 +317,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .find_tracks_to_process_from_cache(&timestamp_state)
             .await?;
 
-        info!(
+        log::info!(
             "Found {} tracks to process from cache",
             tracks_to_process.len()
         );
 
         // Step 4: Process all collected tracks (oldest first) and update anchor after processing
         if !tracks_to_process.is_empty() {
-            info!(
+            log::info!(
                 "Processing {} tracks in batches of {} (oldest first)...",
                 tracks_to_process.len(),
                 self.config.scrubber.processing_batch_size
@@ -329,7 +334,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 .await?;
         }
 
-        info!(
+        log::info!(
             "Processing complete: processed {} tracks from cache",
             tracks_to_process.len()
         );
@@ -370,9 +375,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         )))
                     })?;
 
-                info!(
+                log::info!(
                     "Updated anchor to newest processed track: {} (track: '{}' by '{}')",
-                    track_time, newest_processed_track.name, newest_processed_track.artist
+                    track_time,
+                    newest_processed_track.name,
+                    newest_processed_track.artist
                 );
 
                 // Emit anchor update event
@@ -421,7 +428,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         );
 
                         if track_time <= last_processed {
-                            info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
+                            log::info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
                                   cached_track.name, cached_track.artist, track_time, tracks_to_process.len());
                             break; // Stop here - we've caught up to where we left off
                         }
@@ -434,9 +441,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
             } else {
                 // First run - no anchor timestamp, collect tracks up to limit
-                info!(
+                log::info!(
                     "First run - found cached track: '{}' by '{}'",
-                    cached_track.name, cached_track.artist
+                    cached_track.name,
+                    cached_track.artist
                 );
             }
 
@@ -462,7 +470,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Process the last N tracks without updating timestamp state
     pub async fn process_last_n_tracks(&mut self, n: u32) -> Result<()> {
-        info!("Processing last {n} tracks (no timestamp updates)");
+        log::info!("Processing last {n} tracks (no timestamp updates)");
 
         let mut recent_iterator = self.client.recent_tracks();
         let mut tracks_to_process = Vec::new();
@@ -474,17 +482,17 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tracks_to_process.push(track);
 
             if tracks_to_process.len() >= n as usize {
-                info!("Collected {n} tracks for processing");
+                log::info!("Collected {n} tracks for processing");
                 break;
             }
         }
 
         if tracks_to_process.is_empty() {
-            info!("No tracks found to process");
+            log::info!("No tracks found to process");
             return Ok(());
         }
 
-        info!(
+        log::info!(
             "Processing {} tracks in batches of {} (no timestamp updates)...",
             tracks_to_process.len(),
             self.config.scrubber.processing_batch_size
@@ -494,7 +502,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process)
             .await?;
 
-        info!(
+        log::info!(
             "Processing complete: examined {} tracks, processed {} tracks",
             examined,
             tracks_to_process.len()
@@ -510,7 +518,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let batch_size = self.config.scrubber.processing_batch_size as usize;
 
         for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
-            info!(
+            log::info!(
                 "Processing batch {} of {} (batch size: {}) - no timestamp updates",
                 batch_num + 1,
                 tracks.len().div_ceil(batch_size),
@@ -533,9 +541,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Process each track individually and emit detailed events
         for (track_index, track) in tracks.iter().enumerate() {
-            info!(
+            log::info!(
                 "Processing track: {} - {} (index {})",
-                track.artist, track.name, track_index
+                track.artist,
+                track.name,
+                track_index
             );
 
             // Find suggestions for this track
@@ -578,14 +588,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             let track = &tracks[track_index];
 
             if suggestions.is_empty() {
-                info!(
+                log::info!(
                     "No suggestions for track: {} - {}",
-                    track.artist, track.name
+                    track.artist,
+                    track.name
                 );
                 continue;
             }
 
-            info!(
+            log::info!(
                 "Applying {} suggestions to track: {} - {}",
                 suggestions.len(),
                 track.artist,
@@ -642,7 +653,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Process all tracks for a specific artist
     pub async fn process_artist(&mut self, artist: &str) -> Result<()> {
-        info!("Starting artist track processing for: {artist}");
+        log::info!("Starting artist track processing for: {artist}");
 
         let mut artist_iterator = self.client.artist_tracks(artist);
         let mut processed = 0;
@@ -654,7 +665,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             processed += 1;
         }
 
-        info!(
+        log::info!(
             "Found {} tracks for artist '{}'",
             tracks_to_process.len(),
             artist
@@ -665,7 +676,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             self.process_track_batch(&tracks_to_process).await?;
         }
 
-        info!("Processed {processed} tracks for artist '{artist}'");
+        log::info!("Processed {processed} tracks for artist '{artist}'");
         Ok(())
     }
 
@@ -689,9 +700,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )))
                 })?;
 
-            info!(
+            log::info!(
                 "Manually set timestamp anchor to {} for track '{}' by '{}'",
-                track_time, track.name, track.artist
+                track_time,
+                track.name,
+                track.artist
             );
 
             // Emit anchor update event
@@ -762,7 +775,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                info!(
+                                log::info!(
                                     "Action provider '{}' (with context) suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
@@ -784,7 +797,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                             Ok(suggestions) => {
                                 for (track_idx, track_suggestions) in &suggestions {
                                     if let Some(track) = tracks.get(*track_idx) {
-                                        info!(
+                                        log::info!(
                                             "Action provider '{}' suggested {} actions for track '{} - {}'",
                                             self.action_provider.provider_name(),
                                             track_suggestions.len(),
@@ -815,7 +828,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                info!(
+                                log::info!(
                                     "Action provider '{}' suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
@@ -842,7 +855,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                info!(
+                                log::info!(
                                     "Action provider '{}' suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
@@ -954,16 +967,18 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     ));
 
                     if self.config.scrubber.dry_run {
-                        info!(
+                        log::info!(
                             "DRY RUN: Created pending edit for track '{}' by '{}'",
-                            track.name, track.artist
+                            track.name,
+                            track.artist
                         );
                     }
                 } else if self.config.scrubber.dry_run {
                     trace!("Dry run mode, would apply edit directly");
-                    info!(
+                    log::info!(
                         "DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}",
-                        track.name, track.artist
+                        track.name,
+                        track.artist
                     );
 
                     // Emit event for dry run skip
@@ -987,21 +1002,24 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
             }
             ScrubActionSuggestion::ProposeRule { rule, motivation } => {
-                info!(
+                log::info!(
                     "Provider proposed new rule for track '{}' by '{}': {}",
-                    track.name, track.artist, motivation
+                    track.name,
+                    track.artist,
+                    motivation
                 );
                 self.handle_proposed_rule(track, rule, motivation).await?;
                 if self.config.scrubber.dry_run {
-                    info!(
+                    log::info!(
                         "DRY RUN: Processed proposed rule for track '{}' by '{}'",
-                        track.name, track.artist
+                        track.name,
+                        track.artist
                     );
                 }
             }
             ScrubActionSuggestion::NoAction => {
                 // This shouldn't happen since we filter NoAction in analyze_track
-                info!("Provider suggested no action needed");
+                log::info!("Provider suggested no action needed");
             }
         }
         Ok(())
@@ -1075,7 +1093,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        info!(
+        log::info!(
             "Created pending edit requiring confirmation (ID: {})",
             pending_edit.id
         );
@@ -1128,7 +1146,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         if !changes.is_empty() {
-            info!(
+            log::info!(
                 "Applying edit to track '{}' by '{}': {}",
                 edit.track_name_original.as_deref().unwrap_or("unknown"),
                 edit.artist_name_original.as_deref().unwrap_or("unknown"),
@@ -1146,7 +1164,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             match self.client.edit_scrobble(edit).await {
                 Ok(response) => {
-                    info!("Edit applied successfully: {response:?}");
+                    log::info!("Edit applied successfully: {response:?}");
 
                     // Emit event for successful edit
                     let track_info = LogTrackInfo::from(track);
@@ -1241,7 +1259,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )))
                 })?;
 
-            info!(
+            log::info!(
                 "Created pending rewrite rule requiring approval (ID: {})",
                 pending_rule.id
             );
@@ -1272,7 +1290,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )))
                 })?;
 
-            info!("Auto-approved and added new rewrite rule: {motivation}");
+            log::info!("Auto-approved and added new rewrite rule: {motivation}");
         }
         Ok(())
     }

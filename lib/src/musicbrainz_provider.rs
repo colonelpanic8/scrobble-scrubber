@@ -2,7 +2,7 @@ use crate::persistence::{PendingEdit, PendingRewriteRule};
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
-use log::{debug, info, trace, warn};
+use log::{trace, warn};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -146,14 +146,19 @@ impl MusicBrainzScrubActionProvider {
         }
 
         if let Some(ref m) = best_match {
-            info!(
+            log::info!(
                 "Found MusicBrainz match for '{}' by '{}': '{}' by '{}' (confidence: {:.2})",
-                track.name, track.artist, m.title, m.artist, m.confidence
+                track.name,
+                track.artist,
+                m.title,
+                m.artist,
+                m.confidence
             );
         } else {
-            debug!(
+            log::debug!(
                 "No confident MusicBrainz match found for '{}' by '{}'",
-                track.name, track.artist
+                track.name,
+                track.artist
             );
         }
 
@@ -264,7 +269,7 @@ impl MusicBrainzScrubActionProvider {
             ));
         }
 
-        info!(
+        log::info!(
             "MusicBrainz suggests corrections for '{}' by '{}': {} (confidence: {:.2}, mbid: {})",
             track.name,
             track.artist,

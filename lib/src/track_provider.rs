@@ -18,7 +18,10 @@ impl TrackProvider {
     ) -> Result<()> {
         match self {
             TrackProvider::Cached(provider) => {
-                provider.cache.update_cache_from_api(client, fetch_bound).await
+                provider
+                    .cache
+                    .update_cache_from_api(client, fetch_bound)
+                    .await
             }
             TrackProvider::Direct(provider) => {
                 provider.update_cache_from_api(client, fetch_bound).await

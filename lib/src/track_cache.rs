@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Track};
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -298,7 +297,7 @@ impl TrackCache {
                                 (None, Some(_)) => "fetch bound",
                                 _ => "unknown bound", // shouldn't happen
                             };
-                            info!(
+                            log::info!(
                                 "Reached {} at track '{}' by '{}' at {}, stopping fetch after {} tracks",
                                 bound_type, track.name, track.artist, track_time, fetched
                             );
@@ -311,7 +310,7 @@ impl TrackCache {
             api_tracks.push(track);
         }
 
-        info!(
+        log::info!(
             "Fetched {} tracks from API, merging with cache...",
             api_tracks.len()
         );
@@ -323,7 +322,7 @@ impl TrackCache {
         if let Err(e) = self.save() {
             log::warn!("Failed to save updated cache: {e}");
         } else {
-            info!("Cache updated and saved successfully");
+            log::info!("Cache updated and saved successfully");
         }
 
         Ok(())
