@@ -9,15 +9,13 @@ use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 #[server(LoginToLastfm)]
 pub async fn login_to_lastfm(username: String, password: String) -> Result<String, ServerFnError> {
-    use lastfm_edit::LastFmEditClient;
-
     if username.is_empty() || password.is_empty() {
         return Err(ServerFnError::new("Username and password are required"));
     }
 
     // Create HTTP client and LastFM client
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::new(Box::new(http_client));
+    let client = lastfm_edit::LastFmEditClientImpl::new(Box::new(http_client));
 
     client
         .login(&username, &password)
@@ -36,13 +34,41 @@ pub async fn load_recent_tracks(
     load_recent_tracks_from_page(session_str, 1).await
 }
 
+// Helper function to fetch artist albums (not a server function to avoid Send issues)
+#[allow(dead_code)]
+async fn fetch_artist_albums(
+    client: lastfm_edit::LastFmEditClientImpl,
+    artist_name: &str,
+) -> Result<Vec<lastfm_edit::Album>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut albums = Vec::new();
+    let mut page = 1;
+    const MAX_PAGES: u32 = 10; // Reasonable limit
+
+    loop {
+        let album_page = client.get_artist_albums_page(artist_name, page).await?;
+
+        if album_page.albums.is_empty() {
+            break;
+        }
+
+        albums.extend(album_page.albums);
+
+        if !album_page.has_next_page || page >= MAX_PAGES {
+            break;
+        }
+
+        page += 1;
+    }
+
+    Ok(albums)
+}
+
 #[server(LoadArtistTracks)]
 pub async fn load_artist_tracks(
     session_str: String,
     artist_name: String,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
-    use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient};
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -51,22 +77,14 @@ pub async fn load_artist_tracks(
         return Ok(cached_tracks.clone());
     }
 
-    // Deserialize session and create client
-    let session = deserialize_session(&session_str)?;
-    let mut client = create_client_from_session(session);
+    // Deserialize session and create client for albums
+    let session_for_albums = deserialize_session(&session_str)?;
+    let client_for_albums = create_client_from_session(session_for_albums);
 
     // Fetch all albums for the artist with timeout
     let albums = with_timeout(
         std::time::Duration::from_secs(60),
-        async {
-            let mut albums = Vec::new();
-            let mut album_iterator = client.artist_albums(&artist_name);
-
-            while let Some(album) = album_iterator.next().await? {
-                albums.push(album);
-            }
-            Ok(albums)
-        },
+        fetch_artist_albums(client_for_albums, &artist_name),
         "fetching artist albums",
     )
     .await
@@ -75,10 +93,14 @@ pub async fn load_artist_tracks(
         Vec::new()
     });
 
+    // Create separate client for track fetching
+    let session_for_tracks = deserialize_session(&session_str)?;
+    let client_for_tracks = create_client_from_session(session_for_tracks);
+
     // Fetch tracks from each album
     let mut all_tracks = Vec::new();
     for album in albums {
-        let album_tracks = client
+        let album_tracks = client_for_tracks
             .get_album_tracks(&album.name, &artist_name)
             .await
             .unwrap_or_else(|e| {
@@ -107,13 +129,29 @@ pub async fn load_artist_tracks(
     Ok(all_tracks)
 }
 
+// Helper function to fetch recent tracks (not a server function to avoid Send issues)
+#[allow(dead_code)]
+async fn fetch_recent_tracks_from_page(
+    client: lastfm_edit::LastFmEditClientImpl,
+    page: u32,
+    limit: u32,
+) -> Result<Vec<SerializableTrack>, Box<dyn std::error::Error + Send + Sync>> {
+    let tracks = client.get_recent_scrobbles(page).await?;
+
+    // Take only the requested limit
+    let limited_tracks = tracks.into_iter().take(limit as usize);
+
+    let serializable_tracks = limited_tracks.map(SerializableTrack::from).collect();
+
+    Ok(serializable_tracks)
+}
+
 #[server(LoadRecentTracksFromPage)]
 pub async fn load_recent_tracks_from_page(
     session_str: String,
     page: u32,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
-    use lastfm_edit::AsyncPaginatedIterator;
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -124,26 +162,13 @@ pub async fn load_recent_tracks_from_page(
 
     // Deserialize session and create client
     let session = deserialize_session(&session_str)?;
-    let mut client = create_client_from_session(session);
+    let client = create_client_from_session(session);
 
     // Fetch recent tracks with timeout
     const LIMIT: u32 = 50;
     let tracks = with_timeout(
         std::time::Duration::from_secs(10),
-        async {
-            let mut tracks = Vec::new();
-            let mut recent_iterator = client.recent_tracks_from_page(page);
-            let mut count = 0;
-
-            while let Some(track) = recent_iterator.next().await? {
-                if count >= LIMIT {
-                    break;
-                }
-                tracks.push(SerializableTrack::from(track));
-                count += 1;
-            }
-            Ok(tracks)
-        },
+        fetch_recent_tracks_from_page(client, page, LIMIT),
         "fetching recent tracks",
     )
     .await

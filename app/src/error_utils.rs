@@ -86,9 +86,9 @@ pub fn deserialize_session(
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub fn create_client_from_session(
     session: lastfm_edit::LastFmEditSession,
-) -> lastfm_edit::LastFmEditClient {
+) -> lastfm_edit::LastFmEditClientImpl {
     let http_client = http_client::native::NativeClient::new();
-    lastfm_edit::LastFmEditClient::from_session(Box::new(http_client), session)
+    lastfm_edit::LastFmEditClientImpl::from_session(Box::new(http_client), session)
 }
 
 /// Helper to find and remove an edit by ID

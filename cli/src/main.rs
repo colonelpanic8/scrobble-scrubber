@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::ConfigError;
-use lastfm_edit::{LastFmEditClient, LastFmError, Result};
+use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
 use log::info;
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
@@ -634,7 +634,7 @@ async fn set_timestamp_anchor_to_timestamp(
 }
 
 /// Show recent tracks directly from Last.fm API
-async fn show_recent_tracks_from_api(client: &LastFmEditClient, limit: usize) -> Result<()> {
+async fn show_recent_tracks_from_api(client: &LastFmEditClientImpl, limit: usize) -> Result<()> {
     use chrono::DateTime;
     use lastfm_edit::AsyncPaginatedIterator;
 
@@ -694,7 +694,7 @@ async fn main() -> Result<()> {
 
     // Create and login to LastFM client
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::new(Box::new(http_client));
+    let client = LastFmEditClientImpl::new(Box::new(http_client));
 
     info!("Logging in to Last.fm...");
     client

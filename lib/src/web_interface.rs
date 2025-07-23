@@ -170,14 +170,15 @@ pub fn create_router<
         .route("/api/rules/:id/:action", post(handle_rule_action))
         .route("/api/scrubber/status", get(scrubber_status))
         .route("/api/scrubber/process-artist", post(process_artist))
-        .route(
-            "/api/workshop/fetch-tracks",
-            post(fetch_tracks_for_workshop::<S, P>),
-        )
-        .route(
-            "/api/workshop/test-rules",
-            post(test_rules_on_tracks::<S, P>),
-        )
+    // TODO: Re-enable these once the trait-based client issues are resolved
+    // .route(
+    //     "/api/workshop/fetch-tracks",
+    //     post(fetch_tracks_for_workshop),
+    // )
+    // .route(
+    //     "/api/workshop/test-rules",
+    //     post(test_rules_on_tracks),
+    // )
 }
 
 async fn dashboard<S: StateStorage, P: ScrubActionProvider>(
@@ -884,6 +885,7 @@ pub async fn start_web_server<
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn fetch_tracks_for_workshop<S: StateStorage, P: ScrubActionProvider>(
     State(state): State<WebInterfaceState<S, P>>,
     Json(request): Json<FetchTracksRequest>,
@@ -935,6 +937,7 @@ async fn fetch_tracks_for_workshop<S: StateStorage, P: ScrubActionProvider>(
     Ok(Json(tracks))
 }
 
+#[allow(dead_code)]
 async fn test_rules_on_tracks<S: StateStorage, P: ScrubActionProvider>(
     State(_state): State<WebInterfaceState<S, P>>,
     Json(request): Json<TestRulesRequest>,

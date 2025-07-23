@@ -492,14 +492,14 @@ async fn process_scrobbles(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
     use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClient, LastFmEditSession};
+    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
 
     // Deserialize the session
     let session: LastFmEditSession = serde_json::from_str(&session_json)?;
 
     // Create a client with the restored session
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::from_session(Box::new(http_client), session);
+    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
 
     // Get the config from state
     let config = {
@@ -769,14 +769,14 @@ async fn create_scrubber_and_trigger_immediate(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
     use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClient, LastFmEditSession};
+    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
 
     // Deserialize the session
     let session: LastFmEditSession = serde_json::from_str(&session_json)?;
 
     // Create a client with the restored session
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::from_session(Box::new(http_client), session);
+    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
 
     // Get the config from state
     let config = {

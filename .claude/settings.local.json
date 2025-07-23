@@ -96,7 +96,10 @@
       "Bash(git -C /home/imalison/Projects/lastfm-edit commit -m \"Add album_artist support and smart metadata lookup for edits\n\n- Add album_artist field to Track structure\n- Change ScrobbleEdit to use Option<String> for original metadata fields  \n- Implement automatic metadata lookup for missing original values\n- Add with_minimal_info constructor for easy edit creation\n- Extract album_artist information from recent scrobbles HTML forms\n- Version bump to 0.7.0\")",
       "Bash(git -C /home/imalison/Projects/lastfm-edit commit -m \"Add comprehensive test for album artist functionality\n\n- Add test_album_artist.rs binary to verify metadata extraction\n- Make find_scrobble_by_timestamp public for testing  \n- Update Cargo.toml with test binary configuration\n- Fix clippy warnings in client.rs\")",
       "Bash(git pull:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(RUST_LOG=debug dx build 2 >& 1)",
+      "Bash(RUST_BACKTRACE=1 cargo build --features=desktop 2 >& 1)",
+      "Bash(RUST_BACKTRACE=1 RUST_LOG=debug dx build --verbose 2 >& 1)"
     ],
     "deny": [
       "Bash(dx serve:*)"

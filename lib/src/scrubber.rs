@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::{iterator::AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
+use lastfm_edit::{iterator::AsyncPaginatedIterator, LastFmEditClientImpl, Result, ScrobbleEdit};
 use log::{info, trace, warn};
 use uuid::Uuid;
 
@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
-    client: LastFmEditClient,
+    client: LastFmEditClientImpl,
     storage: Arc<Mutex<S>>,
     action_provider: P,
     config: ScrobbleScrubberConfig,
@@ -28,7 +28,7 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub fn new(
         storage: Arc<Mutex<S>>,
-        client: LastFmEditClient,
+        client: LastFmEditClientImpl,
         action_provider: P,
         config: ScrobbleScrubberConfig,
     ) -> Self {
