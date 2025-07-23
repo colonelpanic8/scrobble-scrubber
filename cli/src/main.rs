@@ -194,6 +194,12 @@ enum Commands {
         #[arg(short, long)]
         tracks: u32,
     },
+    /// Set timestamp anchor to a specific timestamp
+    SetAnchorTimestamp {
+        /// Timestamp in ISO 8601 format (e.g., "2025-07-22T07:08:00Z")
+        #[arg(short, long)]
+        timestamp: String,
+    },
 }
 
 /// Load configuration from args with optional config file override
@@ -346,6 +352,9 @@ fn merge_args_into_config(
         }
         Commands::SetAnchor { .. } => {
             // No specific configuration needed for setting anchor
+        }
+        Commands::SetAnchorTimestamp { .. } => {
+            // No specific configuration needed for setting anchor by timestamp
         }
     }
 
@@ -576,6 +585,50 @@ async fn set_timestamp_anchor(
     Ok(())
 }
 
+/// Set timestamp anchor to a specific timestamp
+async fn set_timestamp_anchor_to_timestamp(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    timestamp_str: &str,
+) -> Result<()> {
+    use chrono::DateTime;
+    use scrobble_scrubber::persistence::{StateStorage, TimestampState};
+
+    println!("⏰ Setting Timestamp Anchor to Specific Time");
+    println!("==========================================");
+
+    // Parse the timestamp string
+    let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to parse timestamp '{}': {}. Use ISO 8601 format like '2025-07-22T07:08:00Z'",
+                timestamp_str, e
+            )))
+        })?
+        .with_timezone(&chrono::Utc);
+
+    println!("Setting anchor to timestamp: {}", timestamp);
+
+    let timestamp_state = TimestampState {
+        last_processed_timestamp: Some(timestamp),
+    };
+
+    storage
+        .lock()
+        .await
+        .save_timestamp_state(&timestamp_state)
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to save timestamp state: {e}"
+            )))
+        })?;
+
+    println!("✅ Timestamp anchor set successfully");
+    println!("Next scrubber run will process tracks after {}", timestamp);
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize env_logger from environment variables (RUST_LOG), fallback to Info level
@@ -751,6 +804,10 @@ async fn main() -> Result<()> {
             set_timestamp_anchor(&storage, *tracks).await?;
             return Ok(());
         }
+        Commands::SetAnchorTimestamp { timestamp } => {
+            set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
+            return Ok(());
+        }
         _ => {
             // For other commands, we need to acquire the lock
         }
@@ -822,6 +879,10 @@ async fn main() -> Result<()> {
         Commands::SetAnchor { .. } => {
             // This case is handled above
             unreachable!("SetAnchor command should have been handled earlier");
+        }
+        Commands::SetAnchorTimestamp { .. } => {
+            // This case is handled above
+            unreachable!("SetAnchorTimestamp command should have been handled earlier");
         }
     }
 
