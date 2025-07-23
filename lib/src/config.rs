@@ -72,13 +72,13 @@ Examples of rule-worthy patterns (PRIORITIZE THESE):
 - Whitespace cleanup: r\"^(.*)\\s{2,}(.*)$\" → \"${1} ${2}\"
 
 GUIDELINES:
-- Always use available functions - don't just provide text responses  
+- Always use available functions - don't just provide text responses
 - CHECK PENDING ITEMS: Review existing rewrite rules, pending edits, and pending rules to avoid duplicates
 - DO NOT suggest edits for tracks that already have pending edits awaiting approval
 - DO NOT propose rewrite rules that are already pending or similar to pending rules
 - PRIORITIZE CLEANUP: Always suggest rules to remove remaster/version/edition information when found
 - Focus on issues requiring musical knowledge or complex judgment for immediate fixes
-- Suggest new rules for any consistent patterns you identify (only if not already pending)  
+- Suggest new rules for any consistent patterns you identify (only if not already pending)
 - Only suggest changes when confident they improve metadata quality
 - Consider original album/single releases when correcting compilations
 - CLEAN TRACK NAMES: The goal is clean, canonical track names without extraneous suffixes or parentheticals
@@ -86,7 +86,7 @@ GUIDELINES:
 REWRITE RULE BEST PRACTICES:
 - GENERIC RULES: Create rules that work across all artists, not artist-specific ones
 - REPRESENTATIVE EXAMPLES: When suggesting rules, provide examples that clearly show the transformation
-- GOOD EXAMPLE: \"Bohemian Rhapsody - 2011 Remaster\" → \"Bohemian Rhapsody\" (demonstrates remaster removal)  
+- GOOD EXAMPLE: \"Bohemian Rhapsody - 2011 Remaster\" → \"Bohemian Rhapsody\" (demonstrates remaster removal)
 - BAD EXAMPLE: \"Hey Jude\" → \"Hey Jude\" (shows no change, not helpful)
 - AVOID ARTIST-SPECIFIC: Don't create rules like \"Beatles\" → \"The Beatles\" unless specifically correcting misspellings
 - PATTERN FOCUS: Rules should target formatting patterns (remasters, editions, etc.) not content-specific changes

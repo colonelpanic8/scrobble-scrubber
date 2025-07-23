@@ -1,4 +1,6 @@
-use lastfm_edit::Track;
+use chrono::{DateTime, Utc};
+use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Track};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -84,7 +86,7 @@ impl Default for TrackCache {
 
 impl TrackCache {
     /// Get the cache file path using the config
-    fn cache_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    fn cache_file_path() -> std::result::Result<PathBuf, Box<dyn std::error::Error>> {
         #[cfg(feature = "cli")]
         use crate::config::ScrobbleScrubberConfig;
 
@@ -96,7 +98,9 @@ impl TrackCache {
                     let state_file_path = std::path::Path::new(&config.storage.state_file);
                     let cache_dir = state_file_path
                         .parent()
-                        .ok_or("Could not determine parent directory of state file")?;
+                        .ok_or_else(|| {
+                            std::io::Error::other("Could not determine parent directory of state file")
+                        })?;
 
                     fs::create_dir_all(cache_dir)?;
                     Ok(cache_dir.join("track_cache.json"))
@@ -105,7 +109,9 @@ impl TrackCache {
                     // Fallback to XDG cache dir if config can't be loaded
                     let cache_dir = dirs::cache_dir()
                         .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))
-                        .ok_or("Could not determine cache directory")?;
+                        .ok_or_else(|| {
+                            std::io::Error::other("Could not determine cache directory")
+                        })?;
 
                     let app_cache_dir = cache_dir.join("scrobble-scrubber");
                     fs::create_dir_all(&app_cache_dir)?;
@@ -151,7 +157,7 @@ impl TrackCache {
     }
 
     /// Save cache to disk
-    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let path = Self::cache_file_path()?;
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&path, content)?;
@@ -337,6 +343,59 @@ impl TrackCache {
             let page_number = (page_index + 1) as u32;
             self.recent_tracks.insert(page_number, chunk.to_vec());
         }
+    }
+
+    /// Update cache with latest tracks from Last.fm API
+    /// Fetches tracks until we hit a timestamp earlier than or equal to the anchor timestamp
+    /// The anchor_timestamp must be provided (non-None) to determine when to stop fetching
+    pub async fn update_cache_from_api(
+        &mut self,
+        client: &(dyn LastFmEditClient + Send + Sync),
+        anchor_timestamp: DateTime<Utc>,
+    ) -> lastfm_edit::Result<()> {
+        let mut recent_iterator = client.recent_tracks();
+        let mut api_tracks = Vec::new();
+        let mut fetched = 0;
+
+        info!("Fetching recent tracks from Last.fm API...");
+        info!("Fetching until we reach anchor timestamp: {anchor_timestamp}");
+
+        while let Some(track) = recent_iterator.next().await? {
+            fetched += 1;
+
+            // Check if we've reached our anchor point
+            if let Some(track_ts) = track.timestamp {
+                let track_time = DateTime::from_timestamp(track_ts as i64, 0);
+                if let Some(track_time) = track_time {
+                    if track_time <= anchor_timestamp {
+                        info!(
+                            "Reached anchor timestamp at track '{}' by '{}' at {}, stopping fetch after {} tracks",
+                            track.name, track.artist, track_time, fetched
+                        );
+                        break;
+                    }
+                }
+            }
+
+            api_tracks.push(track);
+        }
+
+        info!(
+            "Fetched {} tracks from API, merging with cache...",
+            api_tracks.len()
+        );
+
+        // Merge with existing cache
+        self.merge_recent_tracks(api_tracks);
+
+        // Save updated cache
+        if let Err(e) = self.save() {
+            log::warn!("Failed to save updated cache: {e}");
+        } else {
+            info!("Cache updated and saved successfully");
+        }
+
+        Ok(())
     }
 }
 

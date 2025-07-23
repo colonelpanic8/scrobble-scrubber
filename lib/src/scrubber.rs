@@ -101,7 +101,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Ensure timestamp state is initialized with the most recent track if not set
-    #[allow(dead_code)]
     async fn ensure_timestamp_initialized(
         &mut self,
         timestamp_state: TimestampState,
@@ -217,11 +216,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
-        // Step 1: Update cache with latest tracks from API
-        info!("Updating track cache from Last.fm API...");
-        self.update_cache_from_api().await?;
-
-        // Step 2: Load current timestamp state to know where to start reading
+        // Step 1: Load current timestamp state to know where we left off
         let timestamp_state = self
             .storage
             .lock()
@@ -234,7 +229,22 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        // Step 3: Find tracks to process from cache
+        // Step 2: Ensure we have an anchor timestamp before updating cache
+        let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
+
+        // Step 3: Update cache with latest tracks from API, using anchor to limit fetch
+        info!("Updating track cache from Last.fm API...");
+
+        // The anchor timestamp must be set at this point due to ensure_timestamp_initialized
+        let anchor_timestamp = timestamp_state
+            .last_processed_timestamp
+            .expect("Anchor timestamp should be set after ensure_timestamp_initialized");
+
+        self.track_cache
+            .update_cache_from_api(self.client.as_ref(), anchor_timestamp)
+            .await?;
+
+        // Step 3: Find tracks to process from cache using current anchor
         let tracks_to_process = self
             .find_tracks_to_process_from_cache(&timestamp_state)
             .await?;
@@ -244,7 +254,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tracks_to_process.len()
         );
 
-        // Step 4: Process all collected tracks (oldest first) with incremental timestamp updates
+        // Step 4: Process all collected tracks (oldest first) and update anchor after processing
         if !tracks_to_process.is_empty() {
             info!(
                 "Processing {} tracks in batches of {} (oldest first)...",
@@ -252,7 +262,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 self.config.scrubber.processing_batch_size
             );
 
-            self.process_tracks_in_batches(&tracks_to_process).await?;
+            self.process_tracks_and_update_anchor(&tracks_to_process)
+                .await?;
         }
 
         info!(
@@ -267,44 +278,54 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
-    /// Update cache with latest tracks from Last.fm API
-    async fn update_cache_from_api(&mut self) -> Result<()> {
-        let mut recent_iterator = self.client.recent_tracks();
-        let mut api_tracks = Vec::new();
-        let mut fetched = 0;
+    /// Process tracks and update anchor to the newest processed track
+    async fn process_tracks_and_update_anchor(
+        &mut self,
+        tracks: &[lastfm_edit::Track],
+    ) -> Result<()> {
+        // Process tracks first
+        self.process_tracks_in_batches_no_timestamp_update(tracks)
+            .await?;
 
-        // Fetch first few pages of recent tracks to update cache
-        const MAX_TRACKS_TO_FETCH: usize = 200; // Fetch about 4 pages worth
+        // After processing, update anchor to the newest (last in chronological order) processed track
+        // Since tracks are processed oldest first, the newest processed track is the last one
+        if let Some(newest_processed_track) = tracks.last() {
+            if let Some(ts) = newest_processed_track.timestamp {
+                let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
+                let updated_state = TimestampState {
+                    last_processed_timestamp: Some(track_time),
+                };
 
-        info!("Fetching recent tracks from Last.fm API...");
-        while let Some(track) = recent_iterator.next().await? {
-            api_tracks.push(track);
-            fetched += 1;
+                self.storage
+                    .lock()
+                    .await
+                    .save_timestamp_state(&updated_state)
+                    .await
+                    .map_err(|e| {
+                        lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                            "Failed to save timestamp state: {e}"
+                        )))
+                    })?;
 
-            if fetched >= MAX_TRACKS_TO_FETCH {
-                break;
+                info!(
+                    "Updated anchor to newest processed track: {} (track: '{}' by '{}')",
+                    track_time, newest_processed_track.name, newest_processed_track.artist
+                );
+
+                // Emit anchor update event
+                self.emit_event(ScrubberEvent::anchor_updated(
+                    ts,
+                    &newest_processed_track.name,
+                    &newest_processed_track.artist,
+                ));
             }
-        }
-
-        info!(
-            "Fetched {} tracks from API, merging with cache...",
-            api_tracks.len()
-        );
-
-        // Merge with existing cache
-        self.track_cache.merge_recent_tracks(api_tracks);
-
-        // Save updated cache
-        if let Err(e) = self.track_cache.save() {
-            warn!("Failed to save updated cache: {e}");
-        } else {
-            info!("Cache updated and saved successfully");
         }
 
         Ok(())
     }
 
     /// Find tracks to process from cache based on timestamp state
+    /// The anchor points to the last track we processed, so we process all tracks newer than the anchor
     async fn find_tracks_to_process_from_cache(
         &self,
         timestamp_state: &TimestampState,
@@ -415,31 +436,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             examined,
             tracks_to_process.len()
         );
-        Ok(())
-    }
-
-    /// Process tracks in configurable batches with incremental timestamp updates
-    async fn process_tracks_in_batches(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
-        let batch_size = self.config.scrubber.processing_batch_size as usize;
-
-        for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
-            info!(
-                "Processing batch {} of {} (batch size: {})",
-                batch_num + 1,
-                tracks.len().div_ceil(batch_size),
-                batch.len()
-            );
-
-            // Process this batch
-            self.process_track_batch(batch).await?;
-
-            // Update timestamp incrementally after each batch (using the newest track in batch)
-            if let Some(newest_track_in_batch) = batch.last() {
-                self.update_timestamp_to_track(newest_track_in_batch)
-                    .await?;
-            }
-        }
-
         Ok(())
     }
 
@@ -615,40 +611,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
         }
 
-        Ok(())
-    }
-
-    /// Update timestamp state to a specific track
-    async fn update_timestamp_to_track(&mut self, track: &lastfm_edit::Track) -> Result<()> {
-        if let Some(ts) = track.timestamp {
-            let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
-            let updated_state = TimestampState {
-                last_processed_timestamp: Some(track_time),
-            };
-
-            self.storage
-                .lock()
-                .await
-                .save_timestamp_state(&updated_state)
-                .await
-                .map_err(|e| {
-                    lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                        "Failed to save timestamp state: {e}"
-                    )))
-                })?;
-
-            info!(
-                "Updated timestamp anchor to: {} (track: '{}' by '{}')",
-                track_time, track.name, track.artist
-            );
-
-            // Emit anchor update event
-            self.emit_event(ScrubberEvent::anchor_updated(
-                ts,
-                &track.name,
-                &track.artist,
-            ));
-        }
         Ok(())
     }
 
