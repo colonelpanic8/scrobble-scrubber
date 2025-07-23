@@ -72,6 +72,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         self.storage.clone()
     }
 
+    /// Get a reference to the client for direct access to Last.fm API methods
+    /// This allows external code to use client methods like iterators without
+    /// going through the scrubber's wrapper methods
+    pub fn client(&self) -> &(dyn lastfm_edit::LastFmEditClient + Send + Sync) {
+        self.client.as_ref()
+    }
+
     /// Check if the scrubber is currently running a cycle
     pub async fn is_running(&self) -> bool {
         *self.is_running.read().await
@@ -672,44 +679,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         info!("Processed {processed} tracks for artist '{artist}'");
         Ok(())
-    }
-
-    /// Fetch tracks for a specific artist (for workshop use)
-    pub async fn fetch_artist_tracks(
-        &mut self,
-        artist: &str,
-        limit: u32,
-    ) -> Result<Vec<lastfm_edit::Track>> {
-        let mut artist_iterator = self.client.artist_tracks(artist);
-        let mut tracks = Vec::new();
-        let mut count = 0;
-
-        while let Some(track) = artist_iterator.next().await? {
-            if count >= limit {
-                break;
-            }
-            tracks.push(track);
-            count += 1;
-        }
-
-        Ok(tracks)
-    }
-
-    /// Fetch recent tracks (for workshop use)
-    pub async fn fetch_recent_tracks(&mut self, limit: u32) -> Result<Vec<lastfm_edit::Track>> {
-        let mut recent_iterator = self.client.recent_tracks();
-        let mut tracks = Vec::new();
-        let mut count = 0;
-
-        while let Some(track) = recent_iterator.next().await? {
-            if count >= limit {
-                break;
-            }
-            tracks.push(track);
-            count += 1;
-        }
-
-        Ok(tracks)
     }
 
     /// Set the processing timestamp anchor to a specific track's timestamp

@@ -13,8 +13,6 @@ use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-mod tui;
-
 #[derive(Parser, Debug)]
 #[command(name = "scrobble-scrubber")]
 #[command(about = "Automated Last.fm track monitoring and scrubbing system")]
@@ -175,8 +173,6 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
-    /// Start the rule workshop TUI for evaluating rewrite rules
-    Workshop,
     /// Show recent tracks cache state (track names, artists, timestamps)
     ShowCache {
         /// Limit the number of tracks to show (default: 50)
@@ -339,9 +335,6 @@ fn merge_args_into_config(
             if let Some(web_port) = port {
                 config.scrubber.web_port = *web_port;
             }
-        }
-        Commands::Workshop => {
-            // No specific configuration needed for TUI workshop
         }
         Commands::ShowCache { .. } => {
             // No specific configuration needed for cache inspection
@@ -866,20 +859,6 @@ async fn main() -> Result<()> {
 
     // Run based on the command
     match &args.command {
-        Commands::Workshop => {
-            info!("Starting rule workshop TUI...");
-
-            let mut tui_app = tui::TuiApp::new(scrubber.clone());
-            if let Err(e) = tui_app.run().await {
-                log::error!("TUI error: {e}");
-                return Err(LastFmError::Io(std::io::Error::other(format!(
-                    "TUI failed: {e}"
-                ))));
-            }
-
-            info!("Rule workshop TUI closed");
-            return Ok(());
-        }
         Commands::ShowCache { .. } => {
             // This case is handled above
             unreachable!("ShowCache command should have been handled earlier");
@@ -964,10 +943,6 @@ async fn main() -> Result<()> {
                 log::error!("Failed to listen for shutdown signal: {e}");
             }
             info!("Received shutdown signal, stopping web interface...");
-        }
-        Commands::Workshop => {
-            // This case is handled above to avoid deadlock
-            unreachable!("Workshop command should have been handled earlier");
         }
         Commands::ShowCache { .. } => {
             // This case is handled above
