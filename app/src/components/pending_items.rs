@@ -6,6 +6,70 @@ use crate::types::AppState;
 use dioxus::prelude::*;
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
+// Helper to create async operation handlers that manage error/success state
+fn create_operation_handler<F, Fut>(
+    operation: F,
+    mut success_message: Signal<String>,
+    mut error_message: Signal<String>,
+    reload_data: impl Fn() + Copy + 'static,
+) -> impl Fn() + 'static
+where
+    F: Fn() -> Fut + Clone + 'static,
+    Fut: std::future::Future<Output = Result<String, dioxus::prelude::ServerFnError>> + 'static,
+{
+    move || {
+        let operation = operation.clone();
+        spawn(async move {
+            success_message.set(String::new());
+            error_message.set(String::new());
+
+            match operation().await {
+                Ok(msg) => {
+                    success_message.set(msg);
+                    reload_data();
+                }
+                Err(e) => error_message.set(e.to_string()),
+            }
+        });
+    }
+}
+
+// Helper for loading more items with pagination
+fn create_load_more_handler<T, F, Fut>(
+    load_function: F,
+    mut items_signal: Signal<Vec<T>>,
+    mut current_page: Signal<u32>,
+    mut loading_signal: Signal<bool>,
+    mut error_message: Signal<String>,
+) -> impl Fn() + 'static
+where
+    T: 'static,
+    F: Fn(u32) -> Fut + Clone + 'static,
+    Fut: std::future::Future<Output = Result<Vec<T>, dioxus::prelude::ServerFnError>> + 'static,
+{
+    move || {
+        let load_function = load_function.clone();
+        spawn(async move {
+            loading_signal.set(true);
+            let next_page = *current_page.read() + 1;
+
+            match load_function(next_page).await {
+                Ok(mut new_items) => {
+                    if !new_items.is_empty() {
+                        items_signal.with_mut(|items| {
+                            items.append(&mut new_items);
+                        });
+                        current_page.set(next_page);
+                    }
+                }
+                Err(e) => error_message.set(format!("Failed to load more items: {e}")),
+            }
+
+            loading_signal.set(false);
+        });
+    }
+}
+
 fn get_rule_description(rule: &scrobble_scrubber::rewrite::RewriteRule) -> String {
     let rule_name = rule.name.as_deref().unwrap_or("Unnamed Rule");
 
@@ -37,7 +101,7 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
     let mut loading_edits = use_signal(|| false);
     let mut loading_rules = use_signal(|| false);
     let mut error_message = use_signal(String::new);
-    let mut success_message = use_signal(String::new);
+    let success_message = use_signal(String::new);
     let mut current_edits_page = use_signal(|| 0u32);
     let mut current_rules_page = use_signal(|| 0u32);
 
@@ -130,23 +194,15 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
                                 if *loading_edits.read() { "0.5" } else { "1" }
                             ),
                             disabled: *loading_edits.read(),
-                            onclick: move |_| async move {
-                                loading_edits.set(true);
-                                let next_page = *current_edits_page.read() + 1;
-
-                                match load_pending_edits_from_page(next_page).await {
-                                    Ok(mut new_edits) => {
-                                        if !new_edits.is_empty() {
-                                            pending_edits.with_mut(|edits| {
-                                                edits.append(&mut new_edits);
-                                            });
-                                            current_edits_page.set(next_page);
-                                        }
-                                    }
-                                    Err(e) => error_message.set(format!("Failed to load more edits: {e}")),
-                                }
-
-                                loading_edits.set(false);
+                            onclick: move |_| {
+                                let handler = create_load_more_handler(
+                                    load_pending_edits_from_page,
+                                    pending_edits,
+                                    current_edits_page,
+                                    loading_edits,
+                                    error_message,
+                                );
+                                handler();
                             },
                             if *loading_edits.read() {
                                 "Loading..."
@@ -174,32 +230,22 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
                                 new_artist_name: edit.new_artist_name.clone(),
                                 new_album_name: edit.new_album_name.clone(),
                                 on_approve: move |edit_id: String| {
-                                    spawn(async move {
-                                        success_message.set(String::new());
-                                        error_message.set(String::new());
-
-                                        match approve_pending_edit(edit_id).await {
-                                            Ok(msg) => {
-                                                success_message.set(msg);
-                                                reload_data();
-                                            }
-                                            Err(e) => error_message.set(format!("Failed to approve edit: {e}")),
-                                        }
-                                    });
+                                    let handler = create_operation_handler(
+                                        move || approve_pending_edit(edit_id.clone()),
+                                        success_message,
+                                        error_message,
+                                        reload_data,
+                                    );
+                                    handler();
                                 },
                                 on_reject: move |edit_id: String| {
-                                    spawn(async move {
-                                        success_message.set(String::new());
-                                        error_message.set(String::new());
-
-                                        match reject_pending_edit(edit_id).await {
-                                            Ok(msg) => {
-                                                success_message.set(msg);
-                                                reload_data();
-                                            }
-                                            Err(e) => error_message.set(format!("Failed to reject edit: {e}")),
-                                        }
-                                    });
+                                    let handler = create_operation_handler(
+                                        move || reject_pending_edit(edit_id.clone()),
+                                        success_message,
+                                        error_message,
+                                        reload_data,
+                                    );
+                                    handler();
                                 }
                             }
                         }
@@ -221,23 +267,15 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
                                 if *loading_rules.read() { "0.5" } else { "1" }
                             ),
                             disabled: *loading_rules.read(),
-                            onclick: move |_| async move {
-                                loading_rules.set(true);
-                                let next_page = *current_rules_page.read() + 1;
-
-                                match load_pending_rewrite_rules_from_page(next_page).await {
-                                    Ok(mut new_rules) => {
-                                        if !new_rules.is_empty() {
-                                            pending_rules.with_mut(|rules| {
-                                                rules.append(&mut new_rules);
-                                            });
-                                            current_rules_page.set(next_page);
-                                        }
-                                    }
-                                    Err(e) => error_message.set(format!("Failed to load more rules: {e}")),
-                                }
-
-                                loading_rules.set(false);
+                            onclick: move |_| {
+                                let handler = create_load_more_handler(
+                                    load_pending_rewrite_rules_from_page,
+                                    pending_rules,
+                                    current_rules_page,
+                                    loading_rules,
+                                    error_message,
+                                );
+                                handler();
                             },
                             if *loading_rules.read() {
                                 "Loading..."
@@ -264,32 +302,22 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
                                 example_album_name: rule.example_album_name.clone(),
                                 rule_description: get_rule_description(&rule.rule),
                                 on_approve: move |rule_id: String| {
-                                    spawn(async move {
-                                        success_message.set(String::new());
-                                        error_message.set(String::new());
-
-                                        match approve_pending_rewrite_rule(rule_id).await {
-                                            Ok(msg) => {
-                                                success_message.set(msg);
-                                                reload_data();
-                                            }
-                                            Err(e) => error_message.set(format!("Failed to approve rule: {e}")),
-                                        }
-                                    });
+                                    let handler = create_operation_handler(
+                                        move || approve_pending_rewrite_rule(rule_id.clone()),
+                                        success_message,
+                                        error_message,
+                                        reload_data,
+                                    );
+                                    handler();
                                 },
                                 on_reject: move |rule_id: String| {
-                                    spawn(async move {
-                                        success_message.set(String::new());
-                                        error_message.set(String::new());
-
-                                        match reject_pending_rewrite_rule(rule_id).await {
-                                            Ok(msg) => {
-                                                success_message.set(msg);
-                                                reload_data();
-                                            }
-                                            Err(e) => error_message.set(format!("Failed to reject rule: {e}")),
-                                        }
-                                    });
+                                    let handler = create_operation_handler(
+                                        move || reject_pending_rewrite_rule(rule_id.clone()),
+                                        success_message,
+                                        error_message,
+                                        reload_data,
+                                    );
+                                    handler();
                                 }
                             }
                         }

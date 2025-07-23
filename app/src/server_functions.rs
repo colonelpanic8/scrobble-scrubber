@@ -1,3 +1,8 @@
+#[allow(unused_imports)] // Functions are used in #[server] macro-generated code
+use crate::error_utils::{
+    approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
+    remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
+};
 use ::scrobble_scrubber::track_cache::SerializableTrack;
 use dioxus::prelude::*;
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
@@ -14,20 +19,14 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
     let http_client = http_client::native::NativeClient::new();
     let client = LastFmEditClient::new(Box::new(http_client));
 
-    match client.login(&username, &password).await {
-        Ok(_) => {
-            // Get the session and serialize it
-            let session = client.get_session();
-            match serde_json::to_string(&session) {
-                Ok(session_str) => Ok(session_str),
-                Err(e) => Err(ServerFnError::new(format!(
-                    "Failed to serialize session: {}",
-                    e
-                ))),
-            }
-        }
-        Err(e) => Err(ServerFnError::new(format!("Login failed: {}", e))),
-    }
+    client
+        .login(&username, &password)
+        .await
+        .to_server_error("Login failed")?;
+
+    // Get the session and serialize it
+    let session = client.get_session();
+    serde_json::to_string(&session).to_server_error("Failed to serialize session")
 }
 
 #[server(LoadRecentTracks)]
@@ -43,6 +42,7 @@ pub async fn load_artist_tracks(
     artist_name: String,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
+    use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient};
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -50,60 +50,44 @@ pub async fn load_artist_tracks(
         println!("📂 Using cached tracks for artist '{artist_name}'");
         return Ok(cached_tracks.clone());
     }
-    use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
 
-    // Deserialize the session
-    let session: LastFmEditSession = match serde_json::from_str(&session_str) {
-        Ok(s) => s,
-        Err(e) => {
-            return Err(ServerFnError::new(format!(
-                "Failed to deserialize session: {e}"
-            )))
-        }
-    };
+    // Deserialize session and create client
+    let session = deserialize_session(&session_str)?;
+    let mut client = create_client_from_session(session);
 
-    // Create HTTP client and LastFM client from session
-    let http_client = http_client::native::NativeClient::new();
-    let mut client = LastFmEditClient::from_session(Box::new(http_client), session);
+    // Fetch all albums for the artist with timeout
+    let albums = with_timeout(
+        std::time::Duration::from_secs(60),
+        async {
+            let mut albums = Vec::new();
+            let mut album_iterator = client.artist_albums(&artist_name);
 
-    // First, fetch all albums for the artist
-    let mut albums = Vec::new();
-
-    match tokio::time::timeout(std::time::Duration::from_secs(60), async {
-        let mut album_iterator = client.artist_albums(&artist_name);
-
-        while let Some(album) = album_iterator.next().await? {
-            albums.push(album);
-        }
-        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
-    })
+            while let Some(album) = album_iterator.next().await? {
+                albums.push(album);
+            }
+            Ok(albums)
+        },
+        "fetching artist albums",
+    )
     .await
-    {
-        Ok(Ok(_)) => {
-            // Success - albums were loaded
-        }
-        Ok(Err(e)) => {
-            eprintln!("Error fetching artist albums: {e}");
-        }
-        Err(_) => {
-            eprintln!("Timeout fetching artist albums");
-        }
-    }
+    .unwrap_or_else(|e| {
+        eprintln!("Error fetching artist albums: {e}");
+        Vec::new()
+    });
 
-    // Now fetch tracks from each album to preserve album information
+    // Fetch tracks from each album
     let mut all_tracks = Vec::new();
-
     for album in albums {
-        match client.get_album_tracks(&album.name, &artist_name).await {
-            Ok(album_tracks) => {
-                for track in album_tracks {
-                    all_tracks.push(SerializableTrack::from(track));
-                }
-            }
-            Err(e) => {
+        let album_tracks = client
+            .get_album_tracks(&album.name, &artist_name)
+            .await
+            .unwrap_or_else(|e| {
                 eprintln!("Error fetching tracks for album '{}': {e}", album.name);
-                // Continue with other albums instead of failing completely
-            }
+                Vec::new()
+            });
+
+        for track in album_tracks {
+            all_tracks.push(SerializableTrack::from(track));
         }
     }
 
@@ -115,9 +99,9 @@ pub async fn load_artist_tracks(
 
     // Cache the successfully fetched artist tracks
     cache.cache_artist_tracks(artist_name.clone(), all_tracks.clone());
-    if let Err(e) = cache.save() {
-        eprintln!("⚠️ Failed to save cache: {}", e);
-    }
+    cache
+        .save()
+        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {}", e));
     println!("💾 Cached tracks for artist '{artist_name}'");
 
     Ok(all_tracks)
@@ -129,6 +113,7 @@ pub async fn load_recent_tracks_from_page(
     page: u32,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
+    use lastfm_edit::AsyncPaginatedIterator;
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -136,64 +121,51 @@ pub async fn load_recent_tracks_from_page(
         println!("📂 Using cached recent tracks for page {page}");
         return Ok(cached_tracks.clone());
     }
-    use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
 
-    // Deserialize the session
-    let session: LastFmEditSession = match serde_json::from_str(&session_str) {
-        Ok(s) => s,
-        Err(e) => {
-            return Err(ServerFnError::new(format!(
-                "Failed to deserialize session: {}",
-                e
-            )))
-        }
-    };
+    // Deserialize session and create client
+    let session = deserialize_session(&session_str)?;
+    let mut client = create_client_from_session(session);
 
-    // Create HTTP client and LastFM client from session
-    let http_client = http_client::native::NativeClient::new();
-    let mut client = LastFmEditClient::from_session(Box::new(http_client), session);
-
-    // Try to fetch real recent tracks from specific page
-    let mut tracks = Vec::new();
-    let mut recent_iterator = client.recent_tracks_from_page(page);
-    let mut count = 0;
+    // Fetch recent tracks with timeout
     const LIMIT: u32 = 50;
+    let tracks = with_timeout(
+        std::time::Duration::from_secs(10),
+        async {
+            let mut tracks = Vec::new();
+            let mut recent_iterator = client.recent_tracks_from_page(page);
+            let mut count = 0;
 
-    match tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        while let Some(track) = recent_iterator.next().await? {
-            if count >= LIMIT {
-                break;
-            }
-            tracks.push(SerializableTrack::from(track));
-            count += 1;
-        }
-        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
-    })
-    .await
-    {
-        Ok(Ok(_)) => {
-            if !tracks.is_empty() {
-                // Cache the successfully fetched tracks
-                cache.cache_recent_tracks(page, tracks.clone());
-                if let Err(e) = cache.save() {
-                    eprintln!("⚠️ Failed to save cache: {}", e);
+            while let Some(track) = recent_iterator.next().await? {
+                if count >= LIMIT {
+                    break;
                 }
-                println!("💾 Cached recent tracks for page {page}");
-                return Ok(tracks);
+                tracks.push(SerializableTrack::from(track));
+                count += 1;
             }
-        }
-        Ok(Err(e)) => {
-            eprintln!("Error fetching tracks: {}", e);
-        }
-        Err(_) => {
-            eprintln!("Timeout fetching tracks");
-        }
+            Ok(tracks)
+        },
+        "fetching recent tracks",
+    )
+    .await
+    .map_err(|e| {
+        eprintln!("Error fetching tracks: {}", e);
+        ServerFnError::new(format!("Failed to load recent tracks for page {page}"))
+    })?;
+
+    if tracks.is_empty() {
+        return Err(ServerFnError::new(format!(
+            "No tracks found for page {page}"
+        )));
     }
 
-    // Return error if no tracks could be fetched
-    Err(ServerFnError::new(format!(
-        "Failed to load recent tracks for page {page}"
-    )))
+    // Cache the successfully fetched tracks
+    cache.cache_recent_tracks(page, tracks.clone());
+    cache
+        .save()
+        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {}", e));
+    println!("💾 Cached recent tracks for page {page}");
+
+    Ok(tracks)
 }
 
 #[server(GetCacheStats)]
@@ -211,10 +183,8 @@ pub async fn clear_cache() -> Result<String, ServerFnError> {
 
     let mut cache = TrackCache::load();
     cache.clear();
-    match cache.save() {
-        Ok(_) => Ok("Cache cleared successfully".to_string()),
-        Err(e) => Err(ServerFnError::new(format!("Failed to clear cache: {e}"))),
-    }
+    cache.save().to_server_error("Failed to clear cache")?;
+    Ok("Cache cleared successfully".to_string())
 }
 
 #[server(ClearArtistCache)]
@@ -223,12 +193,10 @@ pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnE
 
     let mut cache = TrackCache::load();
     cache.clear_artist(&artist_name);
-    match cache.save() {
-        Ok(_) => Ok(format!("Cleared cache for artist '{artist_name}'")),
-        Err(e) => Err(ServerFnError::new(format!(
-            "Failed to clear artist cache: {e}"
-        ))),
-    }
+    cache
+        .save()
+        .to_server_error("Failed to clear artist cache")?;
+    Ok(format!("Cleared cache for artist '{artist_name}'"))
 }
 
 #[server(LoadPendingEdits)]
@@ -238,33 +206,22 @@ pub async fn load_pending_edits() -> Result<Vec<PendingEdit>, ServerFnError> {
 
 #[server(LoadPendingEditsFromPage)]
 pub async fn load_pending_edits_from_page(page: u32) -> Result<Vec<PendingEdit>, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{FileStorage, StateStorage};
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
+    use scrobble_scrubber::persistence::StateStorage;
 
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let storage = Arc::new(Mutex::new(storage));
+    let storage = create_storage().await?;
 
     let pending_edits_state = storage
         .lock()
         .await
         .load_pending_edits_state()
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
+        .to_server_error("Failed to load pending edits")?;
 
     const ITEMS_PER_PAGE: usize = 10;
-    let start_index = ((page - 1) as usize) * ITEMS_PER_PAGE;
-    let end_index = start_index + ITEMS_PER_PAGE;
-
     let page_items = pending_edits_state
         .pending_edits
         .into_iter()
-        .skip(start_index)
+        .skip(((page - 1) as usize) * ITEMS_PER_PAGE)
         .take(ITEMS_PER_PAGE)
         .collect();
 
@@ -280,33 +237,22 @@ pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, Ser
 pub async fn load_pending_rewrite_rules_from_page(
     page: u32,
 ) -> Result<Vec<PendingRewriteRule>, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{FileStorage, StateStorage};
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
+    use scrobble_scrubber::persistence::StateStorage;
 
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let storage = Arc::new(Mutex::new(storage));
+    let storage = create_storage().await?;
 
     let pending_rules_state = storage
         .lock()
         .await
         .load_pending_rewrite_rules_state()
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
+        .to_server_error("Failed to load pending rules")?;
 
     const ITEMS_PER_PAGE: usize = 10;
-    let start_index = ((page - 1) as usize) * ITEMS_PER_PAGE;
-    let end_index = start_index + ITEMS_PER_PAGE;
-
     let page_items = pending_rules_state
         .pending_rules
         .into_iter()
-        .skip(start_index)
+        .skip(((page - 1) as usize) * ITEMS_PER_PAGE)
         .take(ITEMS_PER_PAGE)
         .collect();
 
@@ -315,41 +261,8 @@ pub async fn load_pending_rewrite_rules_from_page(
 
 #[server(ApprovePendingEdit)]
 pub async fn approve_pending_edit(edit_id: String) -> Result<String, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{FileStorage, PendingEditsState, StateStorage};
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let mut storage = Arc::new(Mutex::new(storage));
-
-    let mut pending_edits_state = storage
-        .lock()
-        .await
-        .load_pending_edits_state()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
-
-    // Find and remove the approved edit
-    let edit_index = pending_edits_state
-        .pending_edits
-        .iter()
-        .position(|e| e.id == edit_id)
-        .ok_or_else(|| ServerFnError::new("Edit not found"))?;
-
-    let _approved_edit = pending_edits_state.pending_edits.remove(edit_index);
-
-    // Save the updated state
-    storage
-        .lock()
-        .await
-        .save_pending_edits_state(&pending_edits_state)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save pending edits: {e}")))?;
+    let storage = create_storage().await?;
+    let _approved_edit = remove_pending_edit(&storage, &edit_id).await?;
 
     // TODO: Actually apply the edit to LastFM here
 
@@ -358,142 +271,21 @@ pub async fn approve_pending_edit(edit_id: String) -> Result<String, ServerFnErr
 
 #[server(RejectPendingEdit)]
 pub async fn reject_pending_edit(edit_id: String) -> Result<String, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{FileStorage, PendingEditsState, StateStorage};
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let storage = Arc::new(Mutex::new(storage));
-
-    let mut pending_edits_state = storage
-        .lock()
-        .await
-        .load_pending_edits_state()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
-
-    // Find and remove the rejected edit
-    let edit_index = pending_edits_state
-        .pending_edits
-        .iter()
-        .position(|e| e.id == edit_id)
-        .ok_or_else(|| ServerFnError::new("Edit not found"))?;
-
-    pending_edits_state.pending_edits.remove(edit_index);
-
-    // Save the updated state
-    storage
-        .lock()
-        .await
-        .save_pending_edits_state(&pending_edits_state)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save pending edits: {e}")))?;
-
+    let storage = create_storage().await?;
+    remove_pending_edit(&storage, &edit_id).await?;
     Ok("Edit rejected and removed".to_string())
 }
 
 #[server(ApprovePendingRewriteRule)]
 pub async fn approve_pending_rewrite_rule(rule_id: String) -> Result<String, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{
-        FileStorage, PendingRewriteRulesState, RewriteRulesState, StateStorage,
-    };
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let storage = Arc::new(Mutex::new(storage));
-
-    let mut pending_rules_state = storage
-        .lock()
-        .await
-        .load_pending_rewrite_rules_state()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
-
-    // Find and remove the approved rule
-    let rule_index = pending_rules_state
-        .pending_rules
-        .iter()
-        .position(|r| r.id == rule_id)
-        .ok_or_else(|| ServerFnError::new("Rule not found"))?;
-
-    let approved_rule = pending_rules_state.pending_rules.remove(rule_index);
-
-    // Add to active rules
-    let mut rewrite_rules_state = storage
-        .lock()
-        .await
-        .load_rewrite_rules_state()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load rewrite rules: {e}")))?;
-
-    rewrite_rules_state.rewrite_rules.push(approved_rule.rule);
-
-    // Save both states
-    storage
-        .lock()
-        .await
-        .save_pending_rewrite_rules_state(&pending_rules_state)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save pending rules: {e}")))?;
-
-    storage
-        .lock()
-        .await
-        .save_rewrite_rules_state(&rewrite_rules_state)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save rewrite rules: {e}")))?;
-
+    let storage = create_storage().await?;
+    approve_rewrite_rule(&storage, &rule_id).await?;
     Ok("Rule approved and added to active rules".to_string())
 }
 
 #[server(RejectPendingRewriteRule)]
 pub async fn reject_pending_rewrite_rule(rule_id: String) -> Result<String, ServerFnError> {
-    use scrobble_scrubber::config::ScrobbleScrubberConfig;
-    use scrobble_scrubber::persistence::{FileStorage, PendingRewriteRulesState, StateStorage};
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-
-    let config = ScrobbleScrubberConfig::load()
-        .map_err(|e| ServerFnError::new(format!("Failed to load config: {e}")))?;
-
-    let storage = FileStorage::new(&config.storage.state_file)
-        .map_err(|e| ServerFnError::new(format!("Failed to initialize storage: {e}")))?;
-    let storage = Arc::new(Mutex::new(storage));
-
-    let mut pending_rules_state = storage
-        .lock()
-        .await
-        .load_pending_rewrite_rules_state()
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
-
-    // Find and remove the rejected rule
-    let rule_index = pending_rules_state
-        .pending_rules
-        .iter()
-        .position(|r| r.id == rule_id)
-        .ok_or_else(|| ServerFnError::new("Rule not found"))?;
-
-    pending_rules_state.pending_rules.remove(rule_index);
-
-    // Save the updated state
-    storage
-        .lock()
-        .await
-        .save_pending_rewrite_rules_state(&pending_rules_state)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save pending rules: {e}")))?;
-
+    let storage = create_storage().await?;
+    remove_pending_rule(&storage, &rule_id).await?;
     Ok("Rule rejected and removed".to_string())
 }

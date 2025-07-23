@@ -1,11 +1,13 @@
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
+use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 mod components;
+mod error_utils;
 mod server_functions;
 mod types;
 mod utils;
@@ -13,6 +15,55 @@ mod utils;
 use components::*;
 use server_functions::*;
 use types::*;
+
+// Helper function to initialize config and storage
+async fn initialize_app_state() -> Result<
+    (
+        ScrobbleScrubberConfig,
+        Option<Arc<Mutex<FileStorage>>>,
+        Vec<RewriteRule>,
+    ),
+    String,
+> {
+    let config =
+        ScrobbleScrubberConfig::load().map_err(|e| format!("Failed to load config: {e}"))?;
+
+    let state_file = config.storage.state_file.clone();
+
+    let storage =
+        FileStorage::new(&state_file).map_err(|e| format!("Failed to initialize storage: {e}"))?;
+
+    let saved_rules = storage
+        .load_rewrite_rules_state()
+        .await
+        .map(|rules_state| rules_state.rewrite_rules)
+        .unwrap_or_default();
+
+    Ok((config, Some(Arc::new(Mutex::new(storage))), saved_rules))
+}
+
+// Helper function to attempt auto-login
+async fn attempt_auto_login(config: Option<&ScrobbleScrubberConfig>) -> Option<String> {
+    let (username, password) = match config {
+        Some(config) => (
+            config.lastfm.username.clone(),
+            config.lastfm.password.clone(),
+        ),
+        None => (
+            std::env::var("SCROBBLE_SCRUBBER_LASTFM_USERNAME").unwrap_or_default(),
+            std::env::var("SCROBBLE_SCRUBBER_LASTFM_PASSWORD").unwrap_or_default(),
+        ),
+    };
+
+    if username.trim().is_empty() || password.trim().is_empty() {
+        return None;
+    }
+
+    login_to_lastfm(username.trim().to_string(), password.trim().to_string())
+        .await
+        .map_err(|e| eprintln!("Auto-login failed: {e}"))
+        .ok()
+}
 
 fn main() {
     dioxus::launch(App);
@@ -25,48 +76,27 @@ fn App() -> Element {
     // Initialize config and storage
     use_effect(move || {
         spawn(async move {
-            // Try to load config
-            match ScrobbleScrubberConfig::load() {
-                Ok(config) => {
-                    let state_file = config.storage.state_file.clone();
+            match initialize_app_state().await {
+                Ok((config, storage, saved_rules)) => {
+                    state.with_mut(|s| {
+                        s.config = Some(config);
+                        s.storage = storage;
+                        s.saved_rules = saved_rules;
 
-                    // Try to initialize storage
-                    match FileStorage::new(&state_file) {
-                        Ok(storage) => {
-                            // Try to load existing rewrite rules
-                            let saved_rules = match storage.load_rewrite_rules_state().await {
-                                Ok(rules_state) => rules_state.rewrite_rules,
-                                Err(_) => Vec::new(),
-                            };
-
-                            state.with_mut(|s| {
-                                s.config = Some(config);
-                                s.storage = Some(Arc::new(Mutex::new(storage)));
-                                s.saved_rules = saved_rules;
-
-                                // Initialize artist track states for cached artists (enabled by default)
-                                for artist_name in s.track_cache.artist_tracks.keys() {
-                                    s.artist_tracks.insert(
-                                        artist_name.clone(),
-                                        TrackSourceState { enabled: true },
-                                    );
-                                }
-
-                                // Set current_page to the highest cached page
-                                if let Some(max_page) = s.track_cache.recent_tracks.keys().max() {
-                                    s.current_page = *max_page;
-                                }
-                            });
+                        // Initialize artist track states for cached artists (enabled by default)
+                        for artist_name in s.track_cache.artist_tracks.keys() {
+                            s.artist_tracks
+                                .insert(artist_name.clone(), TrackSourceState { enabled: true });
                         }
-                        Err(e) => {
-                            eprintln!("Failed to initialize storage: {e}");
-                            // Still set config without storage
-                            state.with_mut(|s| s.config = Some(config));
+
+                        // Set current_page to the highest cached page
+                        if let Some(max_page) = s.track_cache.recent_tracks.keys().max() {
+                            s.current_page = *max_page;
                         }
-                    }
+                    });
                 }
                 Err(e) => {
-                    eprintln!("Failed to load config: {e}");
+                    eprintln!("Failed to initialize app: {e}");
                 }
             }
         });
@@ -76,45 +106,21 @@ fn App() -> Element {
     use_effect(move || {
         spawn(async move {
             if !state.read().logged_in {
-                let (username, password) = {
-                    let s = state.read();
-                    if let Some(config) = &s.config {
-                        (
-                            config.lastfm.username.clone(),
-                            config.lastfm.password.clone(),
-                        )
-                    } else {
-                        // Fallback to environment variables
-                        (
-                            std::env::var("SCROBBLE_SCRUBBER_LASTFM_USERNAME").unwrap_or_default(),
-                            std::env::var("SCROBBLE_SCRUBBER_LASTFM_PASSWORD").unwrap_or_default(),
-                        )
-                    }
-                };
+                let config = state.read().config.as_ref().cloned();
 
-                if !username.trim().is_empty() && !password.trim().is_empty() {
-                    match login_to_lastfm(username.trim().to_string(), password.trim().to_string())
-                        .await
-                    {
-                        Ok(session_str) => {
-                            state.with_mut(|s| {
-                                s.logged_in = true;
-                                s.session = Some(session_str.clone());
-                            });
+                if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
+                    state.with_mut(|s| {
+                        s.logged_in = true;
+                        s.session = Some(session_str.clone());
+                    });
 
-                            // Load recent tracks using the session
-                            if let Ok(_tracks) = load_recent_tracks_from_page(session_str, 1).await
-                            {
-                                state.with_mut(|s| {
-                                    s.current_page = 1;
-                                    // Reload cache to get the newly cached tracks
-                                    s.track_cache = TrackCache::load();
-                                });
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Auto-login failed: {e}");
-                        }
+                    // Load recent tracks using the session
+                    if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
+                        state.with_mut(|s| {
+                            s.current_page = 1;
+                            // Reload cache to get the newly cached tracks
+                            s.track_cache = TrackCache::load();
+                        });
                     }
                 }
             }
