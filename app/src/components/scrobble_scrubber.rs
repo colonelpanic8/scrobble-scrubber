@@ -845,6 +845,7 @@ async fn set_timestamp_anchor_direct(
         name: track.name.clone(),
         artist: track.artist.clone(),
         album: track.album.clone(),
+        album_artist: None, // SerializableTrack doesn't have album_artist
         playcount: track.playcount,
         timestamp: track.timestamp,
     };

@@ -29,6 +29,7 @@ fn test_rewrite_rule_application() {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Artist ft. Someone".to_string(),
         album: None,
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -63,6 +64,7 @@ fn test_no_changes() {
         name: "Clean Song".to_string(),
         artist: "Clean Artist".to_string(),
         album: None,
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -83,6 +85,7 @@ fn test_multiple_rules_application() {
         name: "Song - 2023 Remaster  ".to_string(), // Extra spaces
         artist: "Artist ft. Someone".to_string(),
         album: None,
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -111,6 +114,7 @@ fn test_applies_to_check() {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Clean Artist".to_string(),
         album: None,
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -131,6 +135,7 @@ fn test_applies_to_requires_all_non_empty_rules_to_match() {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Artist ft. Someone".to_string(),
         album: Some("Album Name".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -188,6 +193,7 @@ fn test_applies_to_with_album_fields() {
         name: "Song Title".to_string(),
         artist: "Artist Name".to_string(),
         album: Some("Album - 2023 Edition".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -221,6 +227,7 @@ fn test_chris_thile_multiple_conditions_must_all_match() {
         name: "Some Song".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -268,6 +275,7 @@ fn test_all_conditions_must_match_comprehensive() {
         name: "Yesterday".to_string(),
         artist: "The Beatles".to_string(),
         album: Some("Help!".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 42,
     };
@@ -368,6 +376,7 @@ fn test_partial_regex_matches_still_require_all_conditions() {
         name: "Don't Stop Me Now".to_string(),
         artist: "Queen".to_string(),
         album: Some("Jazz".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 10,
     };
@@ -421,6 +430,7 @@ fn test_edge_cases_all_conditions_must_match() {
         name: "".to_string(), // empty track name
         artist: "Unknown Artist".to_string(),
         album: None, // no album
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -474,6 +484,7 @@ fn test_complex_regex_patterns_all_must_match() {
         name: "Track 01 - Song Title (feat. Artist B)".to_string(),
         artist: "Artist A feat. Artist B".to_string(),
         album: Some("Album Name [Deluxe Edition] (2023)".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 5,
     };
@@ -533,6 +544,7 @@ fn test_chris_thile_exact_match_behavior() {
         name: "Some Song".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -591,6 +603,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         name: "Chris Thile".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -645,6 +658,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         name: "Some Song".to_string(),
         artist: "Chris Thile and Friends".to_string(),
         album: Some("Album".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -678,6 +692,7 @@ fn test_ui_preview_logic_simulation() {
         name: "Some Song".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -743,6 +758,7 @@ fn test_pattern_matching_vs_change_detection() {
         name: "Chris Thile".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -800,6 +816,7 @@ fn test_ui_matching_with_dollar_zero_replacement() {
         name: "Test Song".to_string(),
         artist: "Test Artist".to_string(),
         album: Some("Test Album".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -837,6 +854,7 @@ fn test_any_rules_match_vs_any_rules_apply() {
         name: "Sample Track".to_string(),
         artist: "Sample Artist".to_string(),
         album: Some("Sample Album".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
@@ -885,6 +903,7 @@ fn test_dollar_zero_replacement_fix() {
         name: "Chris Thile".to_string(),
         artist: "Chris Thile".to_string(),
         album: Some("Not All Who Wander Are Lost".to_string()),
+        album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };

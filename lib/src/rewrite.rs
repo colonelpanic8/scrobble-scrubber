@@ -5,15 +5,20 @@ use serde::{Deserialize, Serialize};
 #[must_use]
 pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
     let album_name = track.album.clone().unwrap_or_default();
+    let album_artist_name = track
+        .album_artist
+        .clone()
+        .unwrap_or_else(|| track.artist.clone());
+
     ScrobbleEdit {
-        track_name_original: track.name.clone(),
-        album_name_original: album_name.clone(),
-        artist_name_original: track.artist.clone(),
-        album_artist_name_original: String::new(),
+        track_name_original: Some(track.name.clone()),
+        album_name_original: track.album.clone(),
+        artist_name_original: Some(track.artist.clone()),
+        album_artist_name_original: track.album_artist.clone(),
         track_name: track.name.clone(),
         album_name,
         artist_name: track.artist.clone(),
-        album_artist_name: String::new(),
+        album_artist_name,
         timestamp: track.timestamp.unwrap_or(0),
         edit_all: false,
     }
@@ -76,8 +81,8 @@ pub fn apply_all_rules(
             log::info!(
                 "Applied rewrite rule '{}' to track '{}' by '{}'",
                 rule_name,
-                edit.track_name_original,
-                edit.artist_name_original
+                edit.track_name_original.as_deref().unwrap_or("unknown"),
+                edit.artist_name_original.as_deref().unwrap_or("unknown")
             );
         }
     }

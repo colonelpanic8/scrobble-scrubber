@@ -139,6 +139,7 @@ impl PendingRewriteRule {
             playcount: 1,                // placeholder
             timestamp: Some(1640995200), // placeholder timestamp
             album: self.example_album_name.clone(),
+            album_artist: None, // placeholder
         };
 
         let original_track_name = self.example_track_name.clone();

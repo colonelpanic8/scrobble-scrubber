@@ -865,35 +865,36 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         track: &lastfm_edit::Track,
         edit: &ScrobbleEdit,
     ) -> Result<()> {
-        let new_track_name = if edit.track_name == edit.track_name_original {
+        let new_track_name = if Some(&edit.track_name) == edit.track_name_original.as_ref() {
             None
         } else {
             Some(edit.track_name.clone())
         };
 
-        let new_artist_name = if edit.artist_name == edit.artist_name_original {
+        let new_artist_name = if Some(&edit.artist_name) == edit.artist_name_original.as_ref() {
             None
         } else {
             Some(edit.artist_name.clone())
         };
 
-        let new_album_name = if edit.album_name == edit.album_name_original {
+        let new_album_name = if Some(&edit.album_name) == edit.album_name_original.as_ref() {
             None
         } else {
             Some(edit.album_name.clone())
         };
 
-        let new_album_artist_name = if edit.album_artist_name == edit.album_artist_name_original {
-            None
-        } else {
-            Some(edit.album_artist_name.clone())
-        };
+        let new_album_artist_name =
+            if Some(&edit.album_artist_name) == edit.album_artist_name_original.as_ref() {
+                None
+            } else {
+                Some(edit.album_artist_name.clone())
+            };
 
         let pending_edit = PendingEdit::new(
             track.name.clone(),
             track.artist.clone(),
-            Some(edit.album_name_original.clone()),
-            Some(edit.album_artist_name_original.clone()),
+            edit.album_name_original.clone(),
+            edit.album_artist_name_original.clone(),
             new_track_name,
             new_artist_name,
             new_album_name,
@@ -938,36 +939,42 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Check what changes are being made and log them
         let mut changes = Vec::new();
 
-        if edit.track_name != edit.track_name_original {
+        if Some(&edit.track_name) != edit.track_name_original.as_ref() {
             changes.push(format!(
                 "track: '{}' -> '{}'",
-                edit.track_name_original, edit.track_name
+                edit.track_name_original.as_deref().unwrap_or("unknown"),
+                edit.track_name
             ));
         }
-        if edit.artist_name != edit.artist_name_original {
+        if Some(&edit.artist_name) != edit.artist_name_original.as_ref() {
             changes.push(format!(
                 "artist: '{}' -> '{}'",
-                edit.artist_name_original, edit.artist_name
+                edit.artist_name_original.as_deref().unwrap_or("unknown"),
+                edit.artist_name
             ));
         }
-        if edit.album_name != edit.album_name_original {
+        if Some(&edit.album_name) != edit.album_name_original.as_ref() {
             changes.push(format!(
                 "album: '{}' -> '{}'",
-                edit.album_name_original, edit.album_name
+                edit.album_name_original.as_deref().unwrap_or("unknown"),
+                edit.album_name
             ));
         }
-        if edit.album_artist_name != edit.album_artist_name_original {
+        if Some(&edit.album_artist_name) != edit.album_artist_name_original.as_ref() {
             changes.push(format!(
                 "album artist: '{}' -> '{}'",
-                edit.album_artist_name_original, edit.album_artist_name
+                edit.album_artist_name_original
+                    .as_deref()
+                    .unwrap_or("unknown"),
+                edit.album_artist_name
             ));
         }
 
         if !changes.is_empty() {
             info!(
                 "Applying edit to track '{}' by '{}': {}",
-                edit.track_name_original,
-                edit.artist_name_original,
+                edit.track_name_original.as_deref().unwrap_or("unknown"),
+                edit.artist_name_original.as_deref().unwrap_or("unknown"),
                 changes.join(", ")
             );
 

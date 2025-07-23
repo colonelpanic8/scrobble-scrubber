@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 dioxus = { version = "0.6.0", features = ["fullstack"] }
 scrobble-scrubber = { path = "../lib", features = ["pickledb", "cli"] }
-lastfm-edit = "0.6.1"
+lastfm-edit = "0.7.0"
 http-client = { version = "^6.6.3", package = "http-client-2", features = ["curl_client"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

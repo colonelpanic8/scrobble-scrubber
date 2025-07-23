@@ -32,6 +32,7 @@ impl From<SerializableTrack> for Track {
             name: strack.name,
             artist: strack.artist,
             album: strack.album,
+            album_artist: None, // SerializableTrack doesn't have album_artist
             timestamp: strack.timestamp,
             playcount: strack.playcount,
         }
@@ -76,23 +77,24 @@ impl Default for TrackCache {
 impl TrackCache {
     /// Get the cache file path using the config
     fn cache_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+        #[cfg(feature = "cli")]
         use crate::config::ScrobbleScrubberConfig;
 
         // Try to load config to get the proper storage directory
-        match ScrobbleScrubberConfig::load() {
-            Ok(config) => {
-                let state_file_path = std::path::Path::new(&config.storage.state_file);
-                let cache_dir = state_file_path
-                    .parent()
-                    .ok_or("Could not determine parent directory of state file")?;
+        #[cfg(feature = "cli")]
+        {
+            match ScrobbleScrubberConfig::load() {
+                Ok(config) => {
+                    let state_file_path = std::path::Path::new(&config.storage.state_file);
+                    let cache_dir = state_file_path
+                        .parent()
+                        .ok_or("Could not determine parent directory of state file")?;
 
-                fs::create_dir_all(cache_dir)?;
-                Ok(cache_dir.join("track_cache.json"))
-            }
-            Err(_) => {
-                // Fallback to XDG cache dir if config can't be loaded
-                #[cfg(feature = "cli")]
-                {
+                    fs::create_dir_all(cache_dir)?;
+                    Ok(cache_dir.join("track_cache.json"))
+                }
+                Err(_) => {
+                    // Fallback to XDG cache dir if config can't be loaded
                     let cache_dir = dirs::cache_dir()
                         .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))
                         .ok_or("Could not determine cache directory")?;
@@ -102,11 +104,13 @@ impl TrackCache {
 
                     Ok(app_cache_dir.join("track_cache.json"))
                 }
-                #[cfg(not(feature = "cli"))]
-                {
-                    Err("Cannot determine cache directory without cli feature".into())
-                }
             }
+        }
+
+        // Fallback for non-CLI builds
+        #[cfg(not(feature = "cli"))]
+        {
+            Err("Cannot determine cache directory without cli feature".into())
         }
     }
 

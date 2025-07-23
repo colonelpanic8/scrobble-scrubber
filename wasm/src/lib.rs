@@ -122,6 +122,7 @@ fn js_track_to_internal(js_track: &Track) -> lastfm_edit::Track {
         name: js_track.name.clone(),
         artist: js_track.artist.clone(),
         album: js_track.album.clone(),
+        album_artist: None, // JavaScript track doesn't have album_artist
         playcount: js_track.playcount,
         timestamp: js_track.timestamp,
     }
