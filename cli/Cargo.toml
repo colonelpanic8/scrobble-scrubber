@@ -15,7 +15,7 @@ path = "src/main.rs"
 scrobble-scrubber = { path = "../lib", features = ["full"] }
 
 # External dependencies
-lastfm-edit = { path = "../../lastfm-edit", features = ["mock"] }
+lastfm-edit = { version = "1.0.0", features = ["mock"] }
 http-client = { version = "^6.6.3", package = "http-client-2", features = ["curl_client"] }
 http-types = { version = "3.1.0", package = "http-types-2" }
 tokio = { version = "1.0", features = ["full"] }

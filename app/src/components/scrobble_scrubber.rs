@@ -512,8 +512,12 @@ async fn process_scrobbles(
         let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
 
         // Create scrubber instance
-        let mut scrubber =
-            ScrobbleScrubber::new(storage.clone(), client, action_provider, config.clone());
+        let mut scrubber = ScrobbleScrubber::new(
+            storage.clone(),
+            Box::new(client),
+            action_provider,
+            config.clone(),
+        );
 
         // Subscribe to detailed events from the scrubber library
         let mut event_receiver = scrubber.subscribe_events();
@@ -789,8 +793,12 @@ async fn create_scrubber_and_trigger_immediate(
         let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
 
         // Create scrubber instance
-        let scrubber =
-            ScrobbleScrubber::new(storage.clone(), client, action_provider, config.clone());
+        let scrubber = ScrobbleScrubber::new(
+            storage.clone(),
+            Box::new(client),
+            action_provider,
+            config.clone(),
+        );
 
         // Trigger immediate processing
         scrubber.trigger_immediate_processing().await;

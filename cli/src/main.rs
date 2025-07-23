@@ -842,7 +842,7 @@ async fn main() -> Result<()> {
     // Create scrubber wrapped in Arc<Mutex<>>
     let scrubber = Arc::new(Mutex::new(ScrobbleScrubber::new(
         storage.clone(),
-        client,
+        Box::new(client),
         action_provider,
         config.clone(),
     )));
