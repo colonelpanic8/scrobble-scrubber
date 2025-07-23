@@ -1,7 +1,7 @@
-# Scrobble Scrubber Debugging Issue
+y# Scrobble Scrubber Debugging Issue
 
 ## Problem
-The scrubber processor appears to be working correctly (evaluating rewrite rules) but we can't observe it actually applying rules because the test data (Beatles "Remastered 2009" tracks) has moved out of the recent tracks window.
+The scrubber processor is not working correctly in that  we can't observe processing a track and taking actio.
 
 ## Current State
 - Successfully implemented debugging CLI commands:
@@ -13,8 +13,8 @@ The scrubber processor appears to be working correctly (evaluating rewrite rules
 - 4 active rewrite rules for removing "Remaster" patterns from track/album names
 
 ## Issue Discovered
-Beatles tracks with "Remastered 2009" in names (at timestamps like `2025-07-22 07:08:12 UTC`) are no longer in Last.fm's recent tracks API window. When running `once` command, only tracks from current day are found, even with timestamp anchor set to yesterday.
-
+Beatles tracks with "Remastered 2009" in names (at timestamps like `2025-07-22 07:08:12 UTC`) don't appear to get processed even when we set the anchor before that time. This suggests that maybe there is some issue with the way we feed tracks through to the action proposers or the way we batch tracks up or the way we advance the timestamp.
+ 
 ## Test Data Location
 ```bash
 # These tracks should trigger rewrite rules:
@@ -27,22 +27,17 @@ Beatles tracks with "Remastered 2009" in names (at timestamps like `2025-07-22 0
 # Show rules that should match the pattern
 cargo run -p scrobble-scrubber-cli -- show-rules
 
-# Set anchor to specific timestamp  
+# Set anchor to specific timestamp
 cargo run -p scrobble-scrubber-cli -- set-anchor-timestamp --timestamp "2025-07-22T07:07:00Z"
 
 # Run with trace logging to see rule evaluation
 RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 10
 
-# Alternative: target specific artist
-RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- artist --name "The Beatles" --dry-run
-```
 
 ## Expected Behavior
 Should see trace logs showing rules applying to Beatles tracks with patterns like:
 - Track name: "Cry Baby Cry - Remastered 2009" should match pattern `(.+) -.*Remaster.*` → "Cry Baby Cry"
 
 ## Next Steps
-Need to either:
-1. Use `artist` command to process Beatles tracks specifically, or
-2. Find tracks that contain "remaster" patterns within current API window, or  
-3. Investigate why `once` command with timestamp anchor isn't reaching older tracks
+* Try to log all tracks as they come in, make sure they are all processed.
+* Try to get something to 'happen' in a dry run
