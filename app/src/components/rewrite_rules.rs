@@ -1,6 +1,8 @@
 use crate::components::RulePreview;
 use crate::types::{AppState, PreviewType};
-use crate::utils::{clear_all_rules, get_current_tracks, remove_rule_at_index};
+use crate::utils::{
+    clear_all_rules, get_current_tracks, remove_rule_at_index, update_rule_confirmation,
+};
 use dioxus::prelude::*;
 use scrobble_scrubber::rewrite::RewriteRule;
 
@@ -113,18 +115,42 @@ fn rule_card(rule: RewriteRule, state: Signal<AppState>, index: usize) -> Elemen
                             }
                         }
                     }
+
+                    // Confirmation toggle
+                    div { style: "margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;",
+                        input {
+                            r#type: "checkbox",
+                            id: "confirm-{index}",
+                            checked: rule.requires_confirmation,
+                            onchange: move |event| {
+                                let requires_confirmation = event.value() == "true";
+                                spawn(async move {
+                                    if let Err(e) = update_rule_confirmation(state, index, requires_confirmation).await {
+                                        eprintln!("Failed to update rule confirmation: {e}");
+                                    }
+                                });
+                            },
+                        }
+                        label {
+                            r#for: "confirm-{index}",
+                            style: "font-size: 0.875rem; color: #374151; cursor: pointer;",
+                            "Require confirmation"
+                        }
+                    }
                 }
 
-                button {
-                    style: "background: #dc2626; color: white; padding: 0.375rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.875rem;",
-                    onclick: move |_| {
-                        spawn(async move {
-                            if let Err(e) = remove_rule_at_index(state, index).await {
-                                eprintln!("Failed to remove rule: {e}");
-                            }
-                        });
-                    },
-                    "Remove"
+                div { style: "display: flex; flex-direction: column; gap: 0.5rem; align-items: end;",
+                    button {
+                        style: "background: #dc2626; color: white; padding: 0.375rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.875rem;",
+                        onclick: move |_| {
+                            spawn(async move {
+                                if let Err(e) = remove_rule_at_index(state, index).await {
+                                    eprintln!("Failed to remove rule: {e}");
+                                }
+                            });
+                        },
+                        "Remove"
+                    }
                 }
             }
         }

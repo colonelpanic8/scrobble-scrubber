@@ -166,6 +166,24 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                 }
             }
 
+            // Confirmation toggle
+            div { style: "margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem;",
+                input {
+                    r#type: "checkbox",
+                    id: "requires-confirmation",
+                    checked: state.read().current_rule.requires_confirmation,
+                    onchange: move |event| {
+                        let requires_confirmation = event.value() == "true";
+                        state.with_mut(|s| s.current_rule.requires_confirmation = requires_confirmation);
+                    },
+                }
+                label {
+                    r#for: "requires-confirmation",
+                    style: "font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer;",
+                    "Require confirmation for this rule"
+                }
+            }
+
             // Action buttons
             div { style: "display: flex; gap: 1rem; align-self: flex-start;",
                 button {

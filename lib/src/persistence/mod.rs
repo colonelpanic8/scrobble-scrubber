@@ -223,7 +223,12 @@ pub struct PendingRewriteRulesState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SettingsState {
+    /// Global setting to require confirmation for all edits
     pub require_confirmation: bool,
+    /// Global setting to require confirmation for edit operations specifically
+    pub require_confirmation_for_edits: bool,
+    /// Global setting to require confirmation for new rule creation
+    pub require_confirmation_for_new_rules: bool,
 }
 
 /// Main persistence trait

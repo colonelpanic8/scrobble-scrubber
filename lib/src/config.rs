@@ -119,9 +119,9 @@ pub struct ScrubberConfig {
     pub processing_batch_size: u32,
     /// Dry run mode - don't actually make any edits
     pub dry_run: bool,
-    /// Global setting to require confirmation for all edits
+    /// Global setting to require confirmation for all edits (deprecated - use persistent state)
     pub require_confirmation: bool,
-    /// Require confirmation for proposed rewrite rules (default: true)
+    /// Require confirmation for proposed rewrite rules (deprecated - use persistent state)
     pub require_proposed_rule_confirmation: bool,
     /// Enable web interface for managing pending items
     pub enable_web_interface: bool,

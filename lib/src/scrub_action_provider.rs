@@ -114,23 +114,9 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
                 let changes_made = crate::rewrite::apply_all_rules(&self.rules, &mut edit)?;
 
                 if changes_made {
-                    // Check if any of the applicable rules require confirmation
-                    let needs_confirmation = self.rules.iter().any(|rule| {
-                        rule.applies_to(track).unwrap_or(false) && rule.requires_confirmation
-                    });
-
-                    // If confirmation needed, propose a rule instead of immediate action
-                    if needs_confirmation {
-                        // For now, return a simple rule proposal
-                        // TODO: Create a more sophisticated rule from the applied changes
-                        suggestions.push(ScrubActionSuggestion::ProposeRule {
-                            rule: RewriteRule::new(), // This should be constructed based on the actual applied rules
-                            motivation: "One or more rules require confirmation".to_string(),
-                        });
-                    } else {
-                        // Return the ScrobbleEdit directly
-                        suggestions.push(ScrubActionSuggestion::Edit(edit));
-                    }
+                    // Always return the ScrobbleEdit - let the scrubber handle confirmation logic
+                    // The scrubber will check both global settings and individual rule confirmation requirements
+                    suggestions.push(ScrubActionSuggestion::Edit(edit));
                 }
             }
 

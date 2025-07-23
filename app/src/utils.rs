@@ -112,6 +112,38 @@ pub async fn clear_all_rules(
     Ok(())
 }
 
+pub async fn update_rule_confirmation(
+    mut state: Signal<AppState>,
+    index: usize,
+    requires_confirmation: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let storage = state.read().storage.clone();
+    if let Some(storage) = storage {
+        let mut storage_lock = storage.lock().await;
+
+        // Load current rules
+        let mut rules_state = storage_lock
+            .load_rewrite_rules_state()
+            .await
+            .unwrap_or_default();
+
+        // Update rule confirmation at index
+        if index < rules_state.rewrite_rules.len() {
+            rules_state.rewrite_rules[index].requires_confirmation = requires_confirmation;
+
+            // Save updated rules
+            storage_lock.save_rewrite_rules_state(&rules_state).await?;
+
+            // Update local state
+            let saved_rules = rules_state.rewrite_rules;
+            drop(storage_lock);
+            state.with_mut(|s| s.saved_rules = saved_rules);
+        }
+    }
+
+    Ok(())
+}
+
 // Helper function to copy text to clipboard
 pub fn copy_to_clipboard(text: String) {
     spawn(async move {

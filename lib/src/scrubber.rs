@@ -741,9 +741,32 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         match suggestion {
             ScrubActionSuggestion::Edit(edit) => {
-                // Check if global settings require confirmation
-                if settings_state.require_confirmation || self.config.scrubber.require_confirmation
-                {
+                // Load rewrite rules to check individual rule confirmation requirements
+                let rules_state = self
+                    .storage
+                    .lock()
+                    .await
+                    .load_rewrite_rules_state()
+                    .await
+                    .map_err(|e| {
+                        lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                            "Failed to load rewrite rules state: {e}"
+                        )))
+                    })?;
+
+                // Check if any applicable rule requires individual confirmation
+                let individual_rule_confirmation = rules_state.rewrite_rules.iter().any(|rule| {
+                    rule.applies_to(track).unwrap_or(false) && rule.requires_confirmation
+                });
+
+                // Check if global settings require confirmation (persistent state takes precedence over config)
+                let global_confirmation = settings_state.require_confirmation
+                    || settings_state.require_confirmation_for_edits
+                    || self.config.scrubber.require_confirmation;
+
+                let requires_confirmation = global_confirmation || individual_rule_confirmation;
+
+                if requires_confirmation {
                     self.create_pending_edit(track, edit).await?;
                     if self.config.scrubber.dry_run {
                         info!(
@@ -906,8 +929,25 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         rule: &crate::rewrite::RewriteRule,
         motivation: &str,
     ) -> Result<()> {
-        // Check if confirmation is required for proposed rules
-        if self.config.scrubber.require_proposed_rule_confirmation {
+        // Load settings state to check confirmation requirements
+        let settings_state = self
+            .storage
+            .lock()
+            .await
+            .load_settings_state()
+            .await
+            .map_err(|e| {
+                lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                    "Failed to load settings state: {e}"
+                )))
+            })?;
+
+        // Check if confirmation is required for proposed rules (persistent state takes precedence over config)
+        let requires_confirmation = settings_state.require_confirmation
+            || settings_state.require_confirmation_for_new_rules
+            || self.config.scrubber.require_proposed_rule_confirmation;
+
+        if requires_confirmation {
             // Create a pending rewrite rule for approval
             let pending_rule = PendingRewriteRule::new_with_album_info(
                 rule.clone(),
