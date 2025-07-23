@@ -1,4 +1,5 @@
 use crate::cache::TrackCache;
+use crate::server_functions::load_recent_tracks_from_page;
 use crate::types::{AppState, ScrubberEvent, ScrubberEventType, ScrubberStatus};
 use chrono::Utc;
 use dioxus::prelude::*;
@@ -178,24 +179,42 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                         "📂 Using cached recent tracks ({total_tracks} tracks)"
                                     }
                                     button {
-                                        style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                        onclick: move |_| {
-                                            spawn(async move {
-                                                load_recent_tracks_for_timestamp(state).await;
-                                            });
+                                        style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                        onclick: move |_| async move {
+                                            let (session_str, current_page) = {
+                                                let s = state.read();
+                                                (s.session.clone(), s.current_page)
+                                            };
+                                            if let Some(session_str) = session_str {
+                                                let next_page = current_page + 1;
+                                                if let Ok(_new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
+                                                    state.with_mut(|s| {
+                                                        s.current_page = next_page;
+                                                        // Reload cache to get the newly cached tracks
+                                                        s.track_cache = TrackCache::load();
+                                                    });
+                                                }
+                                            }
                                         },
-                                        "Refresh"
+                                        "Load More Tracks"
                                     }
                                 }
                             }
                         } else {
                             rsx! {
                                 button {
-                                    style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            load_recent_tracks_for_timestamp(state).await;
-                                        });
+                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                    onclick: move |_| async move {
+                                        let session_str = state.read().session.clone();
+                                        if let Some(session_str) = session_str {
+                                            if let Ok(_tracks) = load_recent_tracks_from_page(session_str, 1).await {
+                                                state.with_mut(|s| {
+                                                    s.current_page = 1;
+                                                    // Reload cache to get the newly cached tracks
+                                                    s.track_cache = TrackCache::load();
+                                                });
+                                            }
+                                        }
                                     },
                                     "Load Recent Tracks"
                                 }
@@ -224,7 +243,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                     } else {
                         rsx! {
                             div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                                for (index, track) in all_cached_tracks.iter().enumerate().take(50) {
+                                for (index, track) in all_cached_tracks.iter().enumerate() {
                                     {
                                         let track = track.clone();
                                         let timestamp_str = if let Some(ts) = track.timestamp {
@@ -641,80 +660,6 @@ async fn create_scrubber_and_trigger_immediate(
     }
 
     Ok(())
-}
-
-async fn load_recent_tracks_for_timestamp(mut state: Signal<AppState>) {
-    use crate::server_functions::load_recent_tracks_from_page;
-
-    let load_event = ScrubberEvent {
-        timestamp: Utc::now(),
-        event_type: ScrubberEventType::Info,
-        message: "Loading recent tracks for timestamp management...".to_string(),
-    };
-
-    if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-        let _ = sender.send(load_event.clone());
-    }
-    state.with_mut(|s| s.scrubber_state.events.push(load_event));
-
-    // Get session from state
-    let session_json = state.read().session.clone();
-
-    if let Some(session_json) = session_json {
-        // Use the same cached server function as the Rule Workshop
-        match load_recent_tracks_from_page(session_json, 1).await {
-            Ok(_tracks) => {
-                // Update state with current page and reload cache
-                state.with_mut(|s| {
-                    s.current_page = 1;
-                    s.track_cache = TrackCache::load();
-                });
-
-                let success_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ScrubberEventType::Info,
-                    message: format!("Loaded {} recent tracks (with caching)", {
-                        let state_read = state.read();
-                        let total_tracks: usize = state_read
-                            .track_cache
-                            .recent_tracks
-                            .values()
-                            .map(|v| v.len())
-                            .sum();
-                        total_tracks
-                    }),
-                };
-
-                if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-                    let _ = sender.send(success_event.clone());
-                }
-                state.with_mut(|s| s.scrubber_state.events.push(success_event));
-            }
-            Err(e) => {
-                let error_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ScrubberEventType::Error,
-                    message: format!("Failed to load recent tracks: {e}"),
-                };
-
-                if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-                    let _ = sender.send(error_event.clone());
-                }
-                state.with_mut(|s| s.scrubber_state.events.push(error_event));
-            }
-        }
-    } else {
-        let no_session_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ScrubberEventType::Info,
-            message: "No session available for loading tracks".to_string(),
-        };
-
-        if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-            let _ = sender.send(no_session_event.clone());
-        }
-        state.with_mut(|s| s.scrubber_state.events.push(no_session_event));
-    }
 }
 
 async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::SerializableTrack) {
