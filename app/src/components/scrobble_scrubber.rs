@@ -150,6 +150,9 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                         ScrubberEventType::CycleStarted => ("🔄", "#2563eb"),
                                         ScrubberEventType::AnchorUpdated => ("📍", "#f59e0b"),
                                         ScrubberEventType::TracksFound => ("🔍", "#7c3aed"),
+                                        ScrubberEventType::TrackEdited => ("✅", "#059669"),
+                                        ScrubberEventType::TrackEditFailed => ("❌", "#dc2626"),
+                                        ScrubberEventType::TrackSkipped => ("⏭️", "#f59e0b"),
                                     };
                                     let formatted_time = event.timestamp.format("%H:%M:%S").to_string();
 
@@ -628,6 +631,30 @@ async fn process_scrobbles(
                             ScrubberEvent {
                                 timestamp: lib_event.timestamp,
                                 event_type: ScrubberEventType::TracksFound,
+                                message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackEdited => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::TrackEdited,
+                                message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::TrackEditFailed,
+                                message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackSkipped => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::TrackSkipped,
                                 message: lib_event.message,
                                 anchor_timestamp: lib_event.anchor_timestamp,
                             }

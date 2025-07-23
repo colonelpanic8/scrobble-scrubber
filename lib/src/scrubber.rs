@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
-use crate::json_logger::{JsonLogger, ProcessingContext};
+use crate::events::{LogEditInfo, LogTrackInfo, ProcessingContext};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 use crate::track_cache::TrackCache;
@@ -22,7 +22,6 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<Notify>,
     track_cache: TrackCache,
-    json_logger: JsonLogger,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
@@ -33,10 +32,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         config: ScrobbleScrubberConfig,
     ) -> Self {
         let (event_sender, _) = broadcast::channel(1000);
-        let json_logger = JsonLogger::new(
-            config.scrubber.json_logging.log_file_path(),
-            config.scrubber.json_logging.enabled,
-        );
         Self {
             client,
             storage,
@@ -47,7 +42,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
             track_cache: TrackCache::load(),
-            json_logger,
         }
     }
 
@@ -504,41 +498,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             ));
 
             // Log track processing to JSON
-            let context = ProcessingContext {
-                run_id: run_id.clone(),
-                batch_id: Some(format!("batch_{}", chrono::Utc::now().timestamp())),
-                track_index: Some(track_index),
-                batch_size: Some(tracks.len()),
-            };
-
-            let applied_rules: Vec<String> = track_suggestions
-                .iter()
-                .enumerate()
-                .map(|(i, _)| format!("rule_{}", i + 1))
-                .collect();
-
-            if track_suggestions.is_empty() {
-                // Log that track was processed but no changes were made
-                if let Err(e) = self.json_logger.log_track_processed(
-                    track,
-                    0,      // rules_applied
-                    vec![], // applied_rules
-                    context,
-                ) {
-                    warn!("Failed to log track processed to JSON: {e}");
-                }
-            } else {
-                // Track will have edits applied, so we'll log that in apply_suggestion
-                // For now, just log that it was processed with suggestions
-                if let Err(e) = self.json_logger.log_track_processed(
-                    track,
-                    track_suggestions.len(),
-                    applied_rules,
-                    context,
-                ) {
-                    warn!("Failed to log track processed to JSON: {e}");
-                }
-            }
+            // Note: We no longer log all processed tracks by default
+            // Only edits, failures, and skips are logged via events
         }
 
         // Then apply suggestions
@@ -914,7 +875,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     trace!("Edit requires confirmation, creating pending edit");
                     self.create_pending_edit(track, edit).await?;
 
-                    // Log that edit was created as pending (requires confirmation)
+                    // Emit event for pending edit skip
                     let default_context = ProcessingContext {
                         run_id: "pending_edit".to_string(),
                         batch_id: None,
@@ -922,14 +883,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         batch_size: None,
                     };
                     let log_context = context.unwrap_or(default_context);
+                    let track_info = LogTrackInfo::from(track);
 
-                    if let Err(e) = self.json_logger.log_track_skipped(
-                        track,
-                        "Edit requires confirmation - created as pending".to_string(),
+                    self.emit_event(ScrubberEvent::track_skipped(
+                        &track_info,
                         log_context,
-                    ) {
-                        warn!("Failed to log pending edit to JSON: {e}");
-                    }
+                        "Edit requires confirmation - created as pending".to_string(),
+                    ));
 
                     if self.config.scrubber.dry_run {
                         info!(
@@ -944,7 +904,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         track.name, track.artist
                     );
 
-                    // Log that edit would be applied in dry run mode
+                    // Emit event for dry run skip
                     let default_context = ProcessingContext {
                         run_id: "dry_run".to_string(),
                         batch_id: None,
@@ -952,14 +912,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         batch_size: None,
                     };
                     let log_context = context.unwrap_or(default_context);
+                    let track_info = LogTrackInfo::from(track);
 
-                    if let Err(e) = self.json_logger.log_track_skipped(
-                        track,
-                        "Dry run mode - would apply edit".to_string(),
+                    self.emit_event(ScrubberEvent::track_skipped(
+                        &track_info,
                         log_context,
-                    ) {
-                        warn!("Failed to log dry run to JSON: {e}");
-                    }
+                        "Dry run mode - would apply edit".to_string(),
+                    ));
                 } else {
                     trace!("Applying edit directly to track");
                     self.apply_edit_with_context(track, edit, context).await?;
@@ -1127,31 +1086,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 Ok(response) => {
                     info!("Edit applied successfully: {response:?}");
 
-                    // Log successful edit to JSON
-                    if let Err(e) = self.json_logger.log_track_edited(
-                        track,
-                        edit,
-                        1,                                // rules_applied
-                        vec!["applied_edit".to_string()], // applied_rules
+                    // Emit event for successful edit
+                    let track_info = LogTrackInfo::from(track);
+                    let edit_info = LogEditInfo::from(edit);
+
+                    self.emit_event(ScrubberEvent::track_edited(
+                        &track_info,
+                        &edit_info,
                         log_context,
-                    ) {
-                        warn!("Failed to log track edit to JSON: {e}");
-                    }
+                    ));
                 }
                 Err(e) => {
                     warn!("Failed to apply edit: {e}");
 
-                    // Log failed edit to JSON
-                    if let Err(log_err) = self.json_logger.log_track_edit_failed(
-                        track,
-                        Some(edit),
-                        format!("{e}"),
-                        0,      // rules_applied
-                        vec![], // applied_rules
+                    // Emit event for failed edit
+                    let track_info = LogTrackInfo::from(track);
+                    let edit_info = LogEditInfo::from(edit);
+
+                    self.emit_event(ScrubberEvent::track_edit_failed(
+                        &track_info,
+                        Some(&edit_info),
                         log_context,
-                    ) {
-                        warn!("Failed to log track edit failure to JSON: {log_err}");
-                    }
+                        format!("{e}"),
+                    ));
 
                     return Err(e);
                 }

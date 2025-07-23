@@ -34,7 +34,7 @@ pub enum TrackEditEventType {
     TrackSkipped,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogTrackInfo {
     pub name: String,
     pub artist: String,
@@ -44,7 +44,7 @@ pub struct LogTrackInfo {
     pub playcount: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEditInfo {
     pub original_track_name: Option<String>,
     pub original_artist_name: Option<String>,
@@ -68,7 +68,7 @@ pub struct TrackEditResult {
     pub applied_rules: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProcessingContext {
     /// Processing run ID for grouping related events
     pub run_id: String,

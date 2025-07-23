@@ -56,6 +56,9 @@ pub enum ScrubberEventType {
     CycleStarted,
     AnchorUpdated,
     TracksFound,
+    TrackEdited,
+    TrackEditFailed,
+    TrackSkipped,
 }
 
 #[derive(Clone, Debug)]
