@@ -49,6 +49,13 @@ pub fn apply_all_rules(
         let changed = rule.apply(edit)?;
         if changed {
             any_changes = true;
+            let rule_name = rule.name.as_deref().unwrap_or("unnamed rule");
+            log::info!(
+                "Applied rewrite rule '{}' to track '{}' by '{}'",
+                rule_name,
+                edit.track_name_original,
+                edit.artist_name_original
+            );
         }
     }
     Ok(any_changes)
@@ -269,6 +276,8 @@ impl SdRule {
 /// A comprehensive rewrite rule that can transform fields of a scrobble
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RewriteRule {
+    /// Optional name for this rule
+    pub name: Option<String>,
     /// Optional transformation for track name
     pub track_name: Option<SdRule>,
     /// Optional transformation for album name
@@ -286,12 +295,20 @@ impl RewriteRule {
     #[must_use]
     pub const fn new() -> Self {
         Self {
+            name: None,
             track_name: None,
             album_name: None,
             artist_name: None,
             album_artist_name: None,
             requires_confirmation: false,
         }
+    }
+
+    /// Set name for this rule
+    #[must_use]
+    pub fn with_name<S: Into<String>>(mut self, name: S) -> Self {
+        self.name = Some(name.into());
+        self
     }
 
     /// Set transformation for track name

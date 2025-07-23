@@ -6,6 +6,7 @@ use dioxus::prelude::*;
 #[component]
 pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
     // Separate state for each field
+    let mut rule_name = use_signal(String::new);
     let mut track_find = use_signal(String::new);
     let mut track_replace = use_signal(String::new);
     let mut artist_find = use_signal(String::new);
@@ -17,6 +18,21 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
 
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
+
+            // Rule Name
+            div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
+                h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Rule Name" }
+                input {
+                    style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
+                    placeholder: "Enter a name for this rule (optional)",
+                    value: "{rule_name}",
+                    oninput: move |e| {
+                        rule_name.set(e.value());
+                        update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
+                                       &album_find, &album_replace, &album_artist_find, &album_artist_replace);
+                    }
+                }
+            }
 
             // Track Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
@@ -30,7 +46,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{track_find}",
                             oninput: move |e| {
                                 track_find.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -43,7 +59,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{track_replace}",
                             oninput: move |e| {
                                 track_replace.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -63,7 +79,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{artist_find}",
                             oninput: move |e| {
                                 artist_find.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -76,7 +92,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{artist_replace}",
                             oninput: move |e| {
                                 artist_replace.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -96,7 +112,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{album_find}",
                             oninput: move |e| {
                                 album_find.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -109,7 +125,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{album_replace}",
                             oninput: move |e| {
                                 album_replace.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -129,7 +145,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{album_artist_find}",
                             oninput: move |e| {
                                 album_artist_find.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -142,7 +158,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             value: "{album_artist_replace}",
                             oninput: move |e| {
                                 album_artist_replace.set(e.value());
-                                update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
+                                update_all_rules(state, &rule_name, &track_find, &track_replace, &artist_find, &artist_replace,
                                                &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
@@ -179,6 +195,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                 button {
                     style: "background: #dc2626; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;",
                     onclick: move |_| {
+                        rule_name.set(String::new());
                         track_find.set(String::new());
                         track_replace.set(String::new());
                         artist_find.set(String::new());
@@ -199,6 +216,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
 #[allow(clippy::too_many_arguments)]
 fn update_all_rules(
     mut state: Signal<AppState>,
+    rule_name: &Signal<String>,
     track_find: &Signal<String>,
     track_replace: &Signal<String>,
     artist_find: &Signal<String>,
@@ -209,6 +227,12 @@ fn update_all_rules(
     album_artist_replace: &Signal<String>,
 ) {
     let mut rule = RewriteRule::new();
+
+    // Add rule name if provided
+    let rule_name_str = rule_name.read();
+    if !rule_name_str.is_empty() {
+        rule = rule.with_name(rule_name_str.clone());
+    }
 
     // Add track name rule if provided
     let track_find_str = track_find.read();

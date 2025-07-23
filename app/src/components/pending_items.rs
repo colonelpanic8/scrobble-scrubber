@@ -7,7 +7,9 @@ use dioxus::prelude::*;
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 fn get_rule_description(rule: &scrobble_scrubber::rewrite::RewriteRule) -> String {
-    if let Some(track_rule) = &rule.track_name {
+    let rule_name = rule.name.as_deref().unwrap_or("Unnamed Rule");
+
+    let rule_detail = if let Some(track_rule) = &rule.track_name {
         format!("Track name: {} → {}", track_rule.find, track_rule.replace)
     } else if let Some(artist_rule) = &rule.artist_name {
         format!(
@@ -23,7 +25,9 @@ fn get_rule_description(rule: &scrobble_scrubber::rewrite::RewriteRule) -> Strin
         )
     } else {
         "No active rules".to_string()
-    }
+    };
+
+    format!("{rule_name}: {rule_detail}")
 }
 
 #[component]

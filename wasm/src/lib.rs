@@ -106,6 +106,7 @@ impl From<&RewriteRule> for JSRewriteRule {
 impl From<JSRewriteRule> for RewriteRule {
     fn from(js_rule: JSRewriteRule) -> Self {
         RewriteRule {
+            name: None, // WASM interface doesn't support rule names yet
             track_name: js_rule.track_name.map(SdRule::from),
             artist_name: js_rule.artist_name.map(SdRule::from),
             album_name: js_rule.album_name.map(SdRule::from),
@@ -223,6 +224,7 @@ pub fn create_simple_rule(
     let sd_rule = SdRule::new(find, replace);
 
     let mut rewrite_rule = RewriteRule {
+        name: None, // WASM interface doesn't support rule names yet
         track_name: None,
         artist_name: None,
         album_name: None,

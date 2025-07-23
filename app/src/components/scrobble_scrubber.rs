@@ -773,8 +773,7 @@ async fn set_timestamp_anchor_direct(
     // Set the timestamp anchor to the track's timestamp
     if let Some(timestamp) = lastfm_track.timestamp {
         // Convert timestamp to DateTime<Utc>
-        let timestamp_dt =
-            DateTime::from_timestamp(timestamp as i64, 0).unwrap_or_else(Utc::now);
+        let timestamp_dt = DateTime::from_timestamp(timestamp as i64, 0).unwrap_or_else(Utc::now);
 
         // Create new timestamp state
         let timestamp_state = TimestampState {

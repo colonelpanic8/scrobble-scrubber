@@ -74,7 +74,9 @@ fn rule_card(rule: RewriteRule, state: Signal<AppState>, index: usize) -> Elemen
             style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
             div { style: "display: flex; justify-content: between; align-items: start; margin-bottom: 0.75rem;",
                 div { style: "flex: 1;",
-                    h4 { style: "font-weight: 600; margin-bottom: 0.5rem; color: #374151;", "Rule #{index + 1}" }
+                    h4 { style: "font-weight: 600; margin-bottom: 0.5rem; color: #374151;",
+                        {rule.name.as_deref().unwrap_or(&format!("Rule #{}", index + 1))}
+                    }
 
                     if let Some(track_rule) = rule.track_name.as_ref() {
                         div { style: "margin-bottom: 0.5rem;",
