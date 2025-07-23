@@ -1,3 +1,4 @@
+use crate::cache::TrackCache;
 use crate::components::RulePreview;
 use crate::server_functions::{
     clear_cache, get_cache_stats, load_artist_tracks, load_recent_tracks_from_page,
@@ -120,10 +121,11 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
                             if let Some(session_str) = session_str {
                                 loading_tracks.set(true);
                                 let next_page = current_page + 1;
-                                if let Ok(mut new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
+                                if let Ok(_new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
                                     state.with_mut(|s| {
-                                        s.recent_tracks.tracks.append(&mut new_tracks);
                                         s.current_page = next_page;
+                                        // Reload cache to get the newly cached tracks
+                                        s.track_cache = TrackCache::load();
                                     });
                                 }
                                 loading_tracks.set(false);
@@ -178,12 +180,13 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
                                         loading_artist_tracks.set(true);
 
                                         match load_artist_tracks(session_str, artist.clone()).await {
-                                            Ok(tracks) => {
+                                            Ok(_tracks) => {
                                                 state.with_mut(|s| {
                                                     s.artist_tracks.insert(artist, TrackSourceState {
                                                         enabled: true,
-                                                        tracks,
                                                     });
+                                                    // Reload cache to get the newly cached tracks
+                                                    s.track_cache = TrackCache::load();
                                                 });
                                             }
                                             Err(e) => {
@@ -230,7 +233,10 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
                                         }
                                         div { style: "display: flex; align-items: center; gap: 0.5rem;",
                                             span { style: "font-size: 0.75rem; color: #6b7280;",
-                                                "{state_read.recent_tracks.tracks.len()} tracks"
+                                                {
+                                                    let total_tracks: usize = state_read.track_cache.recent_tracks.values().map(|v| v.len()).sum();
+                                                    format!("{total_tracks} tracks")
+                                                }
                                             }
                                             // Show cache indicator if recent tracks are cached
                                             {
@@ -277,7 +283,10 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
                                             }
                                             div { style: "display: flex; align-items: center; gap: 0.5rem;",
                                                 span { style: "font-size: 0.75rem; color: #6b7280;",
-                                                    "{track_state.tracks.len()} tracks"
+                                                    {
+                                                        let track_count = state_read.track_cache.artist_tracks.get(artist_name).map(|v| v.len()).unwrap_or(0);
+                                                        format!("{track_count} tracks")
+                                                    }
                                                 }
                                                 // Show cache indicator if this artist is in the cache
                                                 {

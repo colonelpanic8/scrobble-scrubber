@@ -7,15 +7,19 @@ use dioxus::prelude::*;
 pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
     let mut all_tracks = Vec::new();
 
-    // Add recent tracks if enabled
+    // Add recent tracks if enabled (from all cached pages)
     if state.recent_tracks.enabled {
-        all_tracks.extend(state.recent_tracks.tracks.clone());
+        for cached_tracks in state.track_cache.recent_tracks.values() {
+            all_tracks.extend(cached_tracks.clone());
+        }
     }
 
-    // Add artist tracks if enabled
-    for track_state in state.artist_tracks.values() {
-        if track_state.enabled {
-            all_tracks.extend(track_state.tracks.clone());
+    // Add artist tracks if enabled (from cache)
+    for (artist_name, cached_tracks) in &state.track_cache.artist_tracks {
+        if let Some(track_state) = state.artist_tracks.get(artist_name) {
+            if track_state.enabled {
+                all_tracks.extend(cached_tracks.clone());
+            }
         }
     }
 

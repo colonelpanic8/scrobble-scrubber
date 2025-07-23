@@ -1,3 +1,4 @@
+use crate::cache::TrackCache;
 use crate::types::{AppState, ScrubberEvent, ScrubberEventType, ScrubberStatus};
 use chrono::Utc;
 use dioxus::prelude::*;
@@ -167,12 +168,14 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h3 { style: "font-size: 1.25rem; font-weight: bold; margin: 0;", "Processing Anchor" }
                     {
-                        let recent_tracks_loaded = !state.read().recent_tracks.tracks.is_empty();
+                        let state_read = state.read();
+                        let total_tracks: usize = state_read.track_cache.recent_tracks.values().map(|v| v.len()).sum();
+                        let recent_tracks_loaded = total_tracks > 0;
                         if recent_tracks_loaded {
                             rsx! {
                                 div { style: "display: flex; align-items: center; gap: 0.5rem;",
                                     span { style: "font-size: 0.875rem; color: #059669; background: #d1fae5; padding: 0.25rem 0.5rem; border-radius: 0.25rem;",
-                                        "📂 Using cached recent tracks ({state.read().recent_tracks.tracks.len()} tracks)"
+                                        "📂 Using cached recent tracks ({total_tracks} tracks)"
                                     }
                                     button {
                                         style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
@@ -205,48 +208,57 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                     "Set the processing anchor to control where the scrubber starts processing. Moving the anchor backwards will cause the scrubber to reprocess older tracks."
                 }
 
-                if state.read().recent_tracks.tracks.is_empty() {
-                    div { style: "text-align: center; color: #6b7280; padding: 2rem;",
-                        p { "No recent tracks loaded yet." }
-                        p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
-                            "Load recent tracks in the Rule Workshop or click 'Load Recent Tracks' above to see your scrobbles and set the processing anchor."
-                        }
-                    }
-                } else {
-                    div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                        for (index, track) in state.read().recent_tracks.tracks.iter().enumerate().take(50) {
-                            {
-                                let track = track.clone();
-                                let timestamp_str = if let Some(ts) = track.timestamp {
-                                    let dt = chrono::DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(chrono::Utc::now);
-                                    dt.format("%Y-%m-%d %H:%M:%S").to_string()
-                                } else {
-                                    "No timestamp".to_string()
-                                };
+                {
+                    let state_read = state.read();
+                    let all_cached_tracks: Vec<_> = state_read.track_cache.recent_tracks.values().flatten().cloned().collect();
 
-                                rsx! {
-                                    div {
-                                        key: "{index}",
-                                        style: "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #f3f4f6; hover:background: #f9fafb;",
-                                        div { style: "flex-grow: 1;",
-                                            div { style: "font-weight: 500; color: #1f2937;", "{track.name}" }
-                                            div { style: "font-size: 0.875rem; color: #6b7280;", "by {track.artist}" }
-                                            if let Some(album) = &track.album {
-                                                div { style: "font-size: 0.75rem; color: #9ca3af;", "from {album}" }
+                    if all_cached_tracks.is_empty() {
+                        rsx! {
+                            div { style: "text-align: center; color: #6b7280; padding: 2rem;",
+                                p { "No recent tracks loaded yet." }
+                                p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
+                                    "Load recent tracks in the Rule Workshop or click 'Load Recent Tracks' above to see your scrobbles and set the processing anchor."
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {
+                            div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
+                                for (index, track) in all_cached_tracks.iter().enumerate().take(50) {
+                                    {
+                                        let track = track.clone();
+                                        let timestamp_str = if let Some(ts) = track.timestamp {
+                                            let dt = chrono::DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(chrono::Utc::now);
+                                            dt.format("%Y-%m-%d %H:%M:%S").to_string()
+                                        } else {
+                                            "No timestamp".to_string()
+                                        };
+
+                                        rsx! {
+                                            div {
+                                                key: "{index}",
+                                                style: "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #f3f4f6; hover:background: #f9fafb;",
+                                                div { style: "flex-grow: 1;",
+                                                    div { style: "font-weight: 500; color: #1f2937;", "{track.name}" }
+                                                    div { style: "font-size: 0.875rem; color: #6b7280;", "by {track.artist}" }
+                                                    if let Some(album) = &track.album {
+                                                        div { style: "font-size: 0.75rem; color: #9ca3af;", "from {album}" }
+                                                    }
+                                                }
+                                                div { style: "text-align: right; margin-right: 1rem;",
+                                                    div { style: "font-size: 0.75rem; color: #6b7280;", "{timestamp_str}" }
+                                                }
+                                                button {
+                                                    style: "background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
+                                                    onclick: move |_| {
+                                                        let track_clone = track.clone();
+                                                        spawn(async move {
+                                                            set_timestamp_anchor(state, track_clone).await;
+                                                        });
+                                                    },
+                                                    "Set Anchor"
+                                                }
                                             }
-                                        }
-                                        div { style: "text-align: right; margin-right: 1rem;",
-                                            div { style: "font-size: 0.75rem; color: #6b7280;", "{timestamp_str}" }
-                                        }
-                                        button {
-                                            style: "background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
-                                            onclick: move |_| {
-                                                let track_clone = track.clone();
-                                                spawn(async move {
-                                                    set_timestamp_anchor(state, track_clone).await;
-                                                });
-                                            },
-                                            "Set Anchor"
                                         }
                                     }
                                 }
@@ -651,20 +663,26 @@ async fn load_recent_tracks_for_timestamp(mut state: Signal<AppState>) {
     if let Some(session_json) = session_json {
         // Use the same cached server function as the Rule Workshop
         match load_recent_tracks_from_page(session_json, 1).await {
-            Ok(tracks) => {
-                // Update state with recent tracks
+            Ok(_tracks) => {
+                // Update state with current page and reload cache
                 state.with_mut(|s| {
-                    s.recent_tracks.tracks = tracks;
                     s.current_page = 1;
+                    s.track_cache = TrackCache::load();
                 });
 
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
-                    message: format!(
-                        "Loaded {} recent tracks (with caching)",
-                        state.read().recent_tracks.tracks.len()
-                    ),
+                    message: format!("Loaded {} recent tracks (with caching)", {
+                        let state_read = state.read();
+                        let total_tracks: usize = state_read
+                            .track_cache
+                            .recent_tracks
+                            .values()
+                            .map(|v| v.len())
+                            .sum();
+                        total_tracks
+                    }),
                 };
 
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {

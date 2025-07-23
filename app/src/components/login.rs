@@ -1,3 +1,4 @@
+use crate::cache::TrackCache;
 use crate::server_functions::{load_recent_tracks_from_page, login_to_lastfm};
 use crate::types::AppState;
 use dioxus::prelude::*;
@@ -73,10 +74,11 @@ pub fn LoginPage(mut state: Signal<AppState>) -> Element {
                                 });
 
                                 // Load recent tracks using the session
-                                if let Ok(tracks) = load_recent_tracks_from_page(session_str, 1).await {
+                                if let Ok(_tracks) = load_recent_tracks_from_page(session_str, 1).await {
                                     state.with_mut(|s| {
-                                        s.recent_tracks.tracks = tracks;
                                         s.current_page = 1;
+                                        // Reload cache to get the newly cached tracks
+                                        s.track_cache = TrackCache::load();
                                     });
                                 }
                             }

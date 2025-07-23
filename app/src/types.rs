@@ -52,7 +52,7 @@ pub enum Page {
 #[derive(Clone, Debug)]
 pub struct TrackSourceState {
     pub enabled: bool,
-    pub tracks: Vec<SerializableTrack>,
+    // tracks are now stored only in the cache, not duplicated here
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -121,10 +121,7 @@ impl Default for AppState {
         Self {
             logged_in: false,
             session: None,
-            recent_tracks: TrackSourceState {
-                enabled: true,
-                tracks: Vec::new(),
-            },
+            recent_tracks: TrackSourceState { enabled: true },
             artist_tracks: std::collections::HashMap::new(),
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks

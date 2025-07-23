@@ -10,6 +10,8 @@ mod server_functions;
 mod types;
 mod utils;
 
+use cache::TrackCache;
+
 use components::*;
 use server_functions::*;
 use types::*;
@@ -44,24 +46,17 @@ fn App() -> Element {
                                 s.storage = Some(Arc::new(Mutex::new(storage)));
                                 s.saved_rules = saved_rules;
 
-                                // Load cached artist tracks into UI state
-                                for (artist_name, cached_tracks) in &s.track_cache.artist_tracks {
+                                // Initialize artist track states for cached artists (enabled by default)
+                                for artist_name in s.track_cache.artist_tracks.keys() {
                                     s.artist_tracks.insert(
                                         artist_name.clone(),
-                                        TrackSourceState {
-                                            enabled: true,
-                                            tracks: cached_tracks.clone(),
-                                        },
+                                        TrackSourceState { enabled: true },
                                     );
                                 }
 
-                                // Load cached recent tracks into UI state (if no recent tracks loaded yet)
-                                if s.recent_tracks.tracks.is_empty() {
-                                    if let Some(cached_recent) = s.track_cache.recent_tracks.get(&1)
-                                    {
-                                        s.recent_tracks.tracks = cached_recent.clone();
-                                        s.current_page = 1;
-                                    }
+                                // Set current_page to the highest cached page
+                                if let Some(max_page) = s.track_cache.recent_tracks.keys().max() {
+                                    s.current_page = *max_page;
                                 }
                             });
                         }
@@ -110,10 +105,12 @@ fn App() -> Element {
                             });
 
                             // Load recent tracks using the session
-                            if let Ok(tracks) = load_recent_tracks_from_page(session_str, 1).await {
+                            if let Ok(_tracks) = load_recent_tracks_from_page(session_str, 1).await
+                            {
                                 state.with_mut(|s| {
-                                    s.recent_tracks.tracks = tracks;
                                     s.current_page = 1;
+                                    // Reload cache to get the newly cached tracks
+                                    s.track_cache = TrackCache::load();
                                 });
                             }
                         }
