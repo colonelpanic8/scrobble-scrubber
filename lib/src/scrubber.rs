@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use lastfm_edit::{iterator::AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
-use log::{info, warn};
+use log::{info, trace, warn};
 
 use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
@@ -385,6 +385,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Process a single batch of tracks with their suggestions
     async fn process_track_batch(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+        trace!("Starting batch analysis for {} tracks", tracks.len());
+
         let batch_suggestions = self.analyze_tracks(tracks).await;
 
         for (track_index, suggestions) in batch_suggestions {
@@ -405,21 +407,43 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 suggestions.len()
             );
 
+            trace!(
+                "Track details - Album: {:?}, Timestamp: {:?}, Playcount: {}",
+                track.album,
+                track.timestamp,
+                track.playcount
+            );
+
             // Emit track processed event
             self.emit_event(ScrubberEvent::track_processed(&track.name, &track.artist));
 
-            for suggestion in suggestions {
-                self.apply_suggestion(track, &suggestion).await?;
+            for (i, suggestion) in suggestions.iter().enumerate() {
+                trace!(
+                    "Applying suggestion {}/{} for track '{}' by '{}': {:?}",
+                    i + 1,
+                    suggestions.len(),
+                    track.name,
+                    track.artist,
+                    suggestion
+                );
+
+                self.apply_suggestion(track, suggestion).await?;
+
                 // Emit rule applied event based on suggestion type
-                let description = match &suggestion {
-                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(_) => {
+                let description = match suggestion {
+                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
+                        trace!("Applied edit: {:?}", edit);
                         "Applied edit".to_string()
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
-                        rule: _,
+                        rule,
                         motivation,
-                    } => format!("Proposed rule: {motivation}"),
+                    } => {
+                        trace!("Proposed rule: {:?} with motivation: {}", rule, motivation);
+                        format!("Proposed rule: {motivation}")
+                    }
                     crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
+                        trace!("No action taken for track");
                         "No action taken".to_string()
                     }
                 };
@@ -756,7 +780,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 // Check if any applicable rule requires individual confirmation
                 let individual_rule_confirmation = rules_state.rewrite_rules.iter().any(|rule| {
-                    rule.applies_to(track).unwrap_or(false) && rule.requires_confirmation
+                    let applies = rule.applies_to(track).unwrap_or(false);
+                    let requires_conf = rule.requires_confirmation;
+                    trace!(
+                        "Rule '{}' applies: {}, requires confirmation: {}",
+                        rule.name.as_deref().unwrap_or("Unnamed"),
+                        applies,
+                        requires_conf
+                    );
+                    applies && requires_conf
                 });
 
                 // Check if global settings require confirmation (persistent state takes precedence over config)
@@ -764,9 +796,17 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     || settings_state.require_confirmation_for_edits
                     || self.config.scrubber.require_confirmation;
 
+                trace!(
+                    "Confirmation settings - Global: {}, Individual rule: {}, Config dry_run: {}",
+                    global_confirmation,
+                    individual_rule_confirmation,
+                    self.config.scrubber.dry_run
+                );
+
                 let requires_confirmation = global_confirmation || individual_rule_confirmation;
 
                 if requires_confirmation {
+                    trace!("Edit requires confirmation, creating pending edit");
                     self.create_pending_edit(track, edit).await?;
                     if self.config.scrubber.dry_run {
                         info!(
@@ -775,11 +815,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         );
                     }
                 } else if self.config.scrubber.dry_run {
+                    trace!("Dry run mode, would apply edit directly");
                     info!(
                         "DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}",
                         track.name, track.artist
                     );
                 } else {
+                    trace!("Applying edit directly to track");
                     self.apply_edit(track, edit).await?;
                 }
             }

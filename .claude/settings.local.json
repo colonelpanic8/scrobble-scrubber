@@ -74,7 +74,14 @@
       "Bash(./verify_fix)",
       "Bash(git rebase:*)",
       "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber set-anchor --tracks 5)",
-      "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 3)"
+      "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 3)",
+      "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 1)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 1)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 2)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 10)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 20)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- last-n --tracks 100 --dry-run)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 5)"
     ],
     "deny": [
       "Bash(dx serve:*)"

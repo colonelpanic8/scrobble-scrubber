@@ -578,9 +578,8 @@ async fn set_timestamp_anchor(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    // Initialize env_logger from environment variables (RUST_LOG), fallback to Info level
+    env_logger::init();
     let args = Args::parse();
 
     // Load configuration from args, env vars, and config files
