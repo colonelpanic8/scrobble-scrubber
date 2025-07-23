@@ -2,7 +2,7 @@ use crate::types::{AppState, PreviewType};
 use crate::utils::get_current_tracks;
 use dioxus::prelude::*;
 use lastfm_edit::Track;
-use scrobble_scrubber::rewrite::{apply_all_rules, create_no_op_edit};
+use scrobble_scrubber::rewrite::{any_rules_match, apply_all_rules, create_no_op_edit};
 
 #[component]
 pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element {
@@ -22,12 +22,18 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
 
     for (idx, strack) in tracks.iter().enumerate() {
         let track: Track = strack.clone().into();
-        let mut edit = create_no_op_edit(&track);
-        let _rule_applied = apply_all_rules(&rules_to_apply, &mut edit).unwrap_or_default();
 
-        let has_changes = edit.track_name != track.name
-            || edit.artist_name != track.artist
-            || edit.album_name != track.album.clone().unwrap_or_default();
+        // Use pattern matching to check if rules match (regardless of whether they would change anything)
+        let rules_match = any_rules_match(&rules_to_apply, &track).unwrap_or(false);
+
+        // Create edit to show the result (whether changed or not)
+        let mut edit = create_no_op_edit(&track);
+        if rules_match {
+            let _rule_applied = apply_all_rules(&rules_to_apply, &mut edit).unwrap_or_default();
+        }
+
+        // Show as matching if patterns match, regardless of whether output changes
+        let has_changes = rules_match;
 
         if has_changes {
             matching_count += 1;

@@ -29,6 +29,16 @@ pub fn any_rules_apply(rules: &[RewriteRule], track: &Track) -> Result<bool, Rew
     Ok(false)
 }
 
+/// Check if any of the rewrite rules' patterns match the given track (regardless of whether they would modify it)
+pub fn any_rules_match(rules: &[RewriteRule], track: &Track) -> Result<bool, RewriteError> {
+    for rule in rules {
+        if rule.matches(track)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// Apply all rewrite rules to a `ScrobbleEdit`, returning true if any changes were made
 pub fn apply_all_rules(
     rules: &[RewriteRule],
@@ -220,6 +230,40 @@ impl SdRule {
         let result = self.apply(input)?;
         Ok(result != input)
     }
+
+    /// Check if this rule's pattern matches the input string (regardless of whether it would modify it)
+    pub fn matches(&self, input: &str) -> Result<bool, RewriteError> {
+        let mut regex_builder = regex::RegexBuilder::new(&self.find);
+        regex_builder.multi_line(true);
+
+        // Apply flags if present
+        if let Some(flags) = &self.flags {
+            for c in flags.chars() {
+                match c {
+                    'c' => {
+                        regex_builder.case_insensitive(false);
+                    }
+                    'i' => {
+                        regex_builder.case_insensitive(true);
+                    }
+                    'm' => {}
+                    'e' => {
+                        regex_builder.multi_line(false);
+                    }
+                    's' => {
+                        if !flags.contains('m') {
+                            regex_builder.multi_line(false);
+                        }
+                        regex_builder.dot_matches_new_line(true);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let regex = regex_builder.build().map_err(RewriteError::RegexError)?;
+        Ok(regex.is_match(input))
+    }
 }
 
 /// A comprehensive rewrite rule that can transform fields of a scrobble
@@ -323,6 +367,48 @@ impl RewriteRule {
         }
 
         // Rule applies if all present rules would modify their fields
+        // Rules with all None fields are treated as always matching (catch-all)
+        Ok(true)
+    }
+
+    /// Check if this rule's patterns match the given track (regardless of whether it would modify it)
+    ///
+    /// A rule matches when:
+    /// - All None fields are considered as always matching
+    /// - All Some fields must match their respective track fields (pattern matching only)
+    /// - A rule with all None fields is treated as always matching (acts as a catch-all)
+    /// - If any Some field's pattern doesn't match, the rule doesn't match
+    pub fn matches(&self, track: &Track) -> Result<bool, RewriteError> {
+        // Check track name pattern if present
+        if let Some(rule) = &self.track_name {
+            if !rule.matches(&track.name)? {
+                return Ok(false);
+            }
+        }
+
+        // Check artist name pattern if present
+        if let Some(rule) = &self.artist_name {
+            if !rule.matches(&track.artist)? {
+                return Ok(false);
+            }
+        }
+
+        // Check album name pattern if present
+        if let Some(rule) = &self.album_name {
+            let album_name = track.album.as_deref().unwrap_or("");
+            if !rule.matches(album_name)? {
+                return Ok(false);
+            }
+        }
+
+        // Check album artist name pattern if present (always empty for Track)
+        if let Some(rule) = &self.album_artist_name {
+            if !rule.matches("")? {
+                return Ok(false);
+            }
+        }
+
+        // Rule matches if all present rule patterns match their fields
         // Rules with all None fields are treated as always matching (catch-all)
         Ok(true)
     }
