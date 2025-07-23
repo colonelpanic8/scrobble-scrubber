@@ -801,7 +801,7 @@ async fn create_scrubber_and_trigger_immediate(
         );
 
         // Trigger immediate processing
-        scrubber.trigger_immediate_processing().await;
+        scrubber.trigger_immediate_processing();
 
         let info_event = ScrubberEvent {
             timestamp: Utc::now(),

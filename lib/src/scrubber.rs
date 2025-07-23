@@ -10,7 +10,7 @@ use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, Timestam
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 use crate::track_cache::TrackCache;
 use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     client: Box<dyn LastFmEditClient + Send + Sync>,
@@ -18,9 +18,9 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     action_provider: P,
     config: ScrobbleScrubberConfig,
     is_running: Arc<RwLock<bool>>,
-    should_stop: Arc<RwLock<bool>>,
+    should_stop: Arc<Notify>,
     event_sender: broadcast::Sender<ScrubberEvent>,
-    trigger_immediate: Arc<RwLock<bool>>,
+    trigger_immediate: Arc<Notify>,
     track_cache: TrackCache,
     json_logger: JsonLogger,
 }
@@ -43,17 +43,17 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             action_provider,
             config,
             is_running: Arc::new(RwLock::new(false)),
-            should_stop: Arc::new(RwLock::new(false)),
+            should_stop: Arc::new(Notify::new()),
             event_sender,
-            trigger_immediate: Arc::new(RwLock::new(false)),
+            trigger_immediate: Arc::new(Notify::new()),
             track_cache: TrackCache::load(),
             json_logger,
         }
     }
 
     /// Trigger immediate processing, bypassing the normal wait interval
-    pub async fn trigger_immediate_processing(&self) {
-        *self.trigger_immediate.write().await = true;
+    pub fn trigger_immediate_processing(&self) {
+        self.trigger_immediate.notify_one();
     }
 
     /// Subscribe to scrubber events
@@ -85,8 +85,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Request the scrubber to stop gracefully
-    pub async fn stop(&self) {
-        *self.should_stop.write().await = true;
+    pub fn stop(&self) {
+        self.should_stop.notify_one();
     }
 
     /// Trigger a single scrubbing run manually
@@ -159,55 +159,33 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub async fn run(&mut self) -> Result<()> {
         self.emit_event(ScrubberEvent::started("Scrubber started".to_string()));
 
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+            self.config.scrubber.interval,
+        ));
+        interval.tick().await; // Skip the first immediate tick
+
         loop {
-            // Check if we should stop
-            if *self.should_stop.read().await {
-                info!("Scrubber stop requested, exiting main loop");
-                break;
-            }
-
-            *self.is_running.write().await = true;
-            info!("Starting track monitoring cycle...");
-            self.emit_event(ScrubberEvent::cycle_started(
-                "Starting track monitoring cycle".to_string(),
-            ));
-
-            if let Err(e) = self.check_and_process_tracks().await {
-                warn!("Error during track processing: {e}");
-                self.emit_event(ScrubberEvent::error(format!(
-                    "Error during track processing: {e}"
-                )));
-            }
-
-            *self.is_running.write().await = false;
-
-            info!("Sleeping for {} seconds...", self.config.scrubber.interval);
-
-            // Sleep with periodic checks for stop signal
-            let sleep_duration = std::time::Duration::from_secs(self.config.scrubber.interval);
-            let check_interval = std::time::Duration::from_secs(1);
-            let mut elapsed = std::time::Duration::ZERO;
-
-            while elapsed < sleep_duration {
-                if *self.should_stop.read().await {
-                    info!("Scrubber stop requested during sleep, exiting");
-                    return Ok(());
+            tokio::select! {
+                // Regular interval tick
+                _ = interval.tick() => {
+                    info!("Starting scheduled track monitoring cycle...");
+                    self.run_processing_cycle().await;
                 }
 
-                // Check if immediate processing was triggered
-                if *self.trigger_immediate.read().await {
-                    *self.trigger_immediate.write().await = false; // Reset flag
-                    info!("Immediate processing triggered, skipping remaining sleep");
+                // Immediate processing triggered
+                _ = self.trigger_immediate.notified() => {
+                    info!("Immediate processing triggered");
                     self.emit_event(ScrubberEvent::info(
                         "Immediate processing triggered".to_string(),
                     ));
-                    break;
+                    self.run_processing_cycle().await;
                 }
 
-                let remaining = sleep_duration - elapsed;
-                let sleep_time = std::cmp::min(check_interval, remaining);
-                tokio::time::sleep(sleep_time).await;
-                elapsed += sleep_time;
+                // Stop signal received
+                _ = self.should_stop.notified() => {
+                    info!("Scrubber stop requested, exiting main loop");
+                    break;
+                }
             }
         }
 
@@ -215,7 +193,32 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
+    /// Run a single processing cycle with proper state management
+    async fn run_processing_cycle(&mut self) {
+        *self.is_running.write().await = true;
+        let _ = self.check_and_process_tracks().await; // Error handling is done inside the method
+        *self.is_running.write().await = false;
+    }
+
     async fn check_and_process_tracks(&mut self) -> Result<()> {
+        info!("Starting track monitoring cycle...");
+        self.emit_event(ScrubberEvent::cycle_started(
+            "Starting track monitoring cycle".to_string(),
+        ));
+
+        let result = self.check_and_process_tracks_inner().await;
+
+        if let Err(ref e) = result {
+            warn!("Error during track processing: {e}");
+            self.emit_event(ScrubberEvent::error(format!(
+                "Error during track processing: {e}"
+            )));
+        }
+
+        result
+    }
+
+    async fn check_and_process_tracks_inner(&mut self) -> Result<()> {
         // Step 1: Load current timestamp state to know where we left off
         let timestamp_state = self
             .storage
@@ -324,8 +327,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
-    /// Find tracks to process from cache based on timestamp state
-    /// The anchor points to the last track we processed, so we process all tracks newer than the anchor
+    /// Find tracks to process from cache based on timestamp state. The anchor
+    /// points to the last track we processed, so we process all tracks newer
+    /// than the anchor
     async fn find_tracks_to_process_from_cache(
         &self,
         timestamp_state: &TimestampState,
