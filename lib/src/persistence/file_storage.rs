@@ -71,6 +71,12 @@ impl StateStorage for FileStorage {
         self.db
             .set("rewrite_rules_state", state)
             .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Force a database dump to ensure the changes are persisted immediately
+        self.db
+            .dump()
+            .map_err(|e| FileStorageError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -85,6 +91,12 @@ impl StateStorage for FileStorage {
         self.db
             .set("pending_edits_state", state)
             .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Force a database dump to ensure the changes are persisted immediately
+        self.db
+            .dump()
+            .map_err(|e| FileStorageError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -99,6 +111,12 @@ impl StateStorage for FileStorage {
         self.db
             .set("pending_rewrite_rules_state", state)
             .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Force a database dump to ensure the changes are persisted immediately
+        self.db
+            .dump()
+            .map_err(|e| FileStorageError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
