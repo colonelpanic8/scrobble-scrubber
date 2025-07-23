@@ -3,8 +3,8 @@ use crate::error_utils::{
     approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
     remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
 };
-use ::scrobble_scrubber::track_cache::SerializableTrack;
 use dioxus::prelude::*;
+use lastfm_edit::Track;
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 #[server(LoginToLastfm)]
@@ -28,9 +28,7 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
 }
 
 #[server(LoadRecentTracks)]
-pub async fn load_recent_tracks(
-    session_str: String,
-) -> Result<Vec<SerializableTrack>, ServerFnError> {
+pub async fn load_recent_tracks(session_str: String) -> Result<Vec<Track>, ServerFnError> {
     load_recent_tracks_from_page(session_str, 1).await
 }
 
@@ -67,7 +65,7 @@ async fn fetch_artist_albums(
 pub async fn load_artist_tracks(
     session_str: String,
     artist_name: String,
-) -> Result<Vec<SerializableTrack>, ServerFnError> {
+) -> Result<Vec<Track>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
 
     // Try to load from cache first
@@ -109,7 +107,7 @@ pub async fn load_artist_tracks(
             });
 
         for track in album_tracks {
-            all_tracks.push(SerializableTrack::from(track));
+            all_tracks.push(track);
         }
     }
 
@@ -135,22 +133,20 @@ async fn fetch_recent_tracks_from_page(
     client: lastfm_edit::LastFmEditClientImpl,
     page: u32,
     limit: u32,
-) -> Result<Vec<SerializableTrack>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
     let tracks = client.get_recent_scrobbles(page).await?;
 
     // Take only the requested limit
-    let limited_tracks = tracks.into_iter().take(limit as usize);
+    let limited_tracks = tracks.into_iter().take(limit as usize).collect();
 
-    let serializable_tracks = limited_tracks.map(SerializableTrack::from).collect();
-
-    Ok(serializable_tracks)
+    Ok(limited_tracks)
 }
 
 #[server(LoadRecentTracksFromPage)]
 pub async fn load_recent_tracks_from_page(
     session_str: String,
     page: u32,
-) -> Result<Vec<SerializableTrack>, ServerFnError> {
+) -> Result<Vec<Track>, ServerFnError> {
     use ::scrobble_scrubber::track_cache::TrackCache;
 
     // Try to load from cache first
@@ -197,12 +193,7 @@ pub async fn load_recent_tracks_from_page(
     }
 
     // Cache the successfully fetched tracks
-    // Convert from SerializableTrack to Track for merging (they're the same structure)
-    let tracks_for_cache: Vec<lastfm_edit::Track> = tracks
-        .iter()
-        .map(|t| lastfm_edit::Track::from(t.clone()))
-        .collect();
-    cache.merge_recent_tracks(tracks_for_cache);
+    cache.merge_recent_tracks(tracks.clone());
     cache
         .save()
         .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {}", e));

@@ -21,7 +21,7 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
     let total_tracks = tracks.len();
 
     for (idx, strack) in tracks.iter().enumerate() {
-        let track: Track = strack.clone().into();
+        let track: Track = strack.clone();
 
         // Use pattern matching to check if rules match (regardless of whether they would change anything)
         let rules_match = any_rules_match(&rules_to_apply, &track).unwrap_or(false);

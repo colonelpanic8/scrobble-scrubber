@@ -1,11 +1,11 @@
 use crate::types::AppState;
 use ::scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
-use ::scrobble_scrubber::track_cache::SerializableTrack;
 use dioxus::document::eval;
 use dioxus::prelude::*;
+use lastfm_edit::Track;
 
-pub fn get_current_tracks(state: &AppState) -> Vec<SerializableTrack> {
+pub fn get_current_tracks(state: &AppState) -> Vec<Track> {
     let mut all_tracks = Vec::new();
 
     // Add recent tracks if enabled (single chronological list)

@@ -31,6 +31,8 @@ pub enum ScrubberEventType {
     CycleStarted,
     /// Processing anchor timestamp was updated
     AnchorUpdated,
+    /// Tracks were found that need processing
+    TracksFound,
 }
 
 impl ScrubberEvent {
@@ -108,6 +110,14 @@ impl ScrubberEvent {
         Self::new_with_anchor(
             ScrubberEventType::AnchorUpdated,
             format!("Processing anchor updated to '{track_name}' by '{artist_name}'"),
+            anchor_timestamp,
+        )
+    }
+
+    pub fn tracks_found(count: usize, anchor_timestamp: u64) -> Self {
+        Self::new_with_anchor(
+            ScrubberEventType::TracksFound,
+            format!("Found {count} tracks to process"),
             anchor_timestamp,
         )
     }

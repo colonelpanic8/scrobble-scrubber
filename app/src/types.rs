@@ -48,13 +48,14 @@ pub struct ScrubberEvent {
 pub enum ScrubberEventType {
     Started,
     Stopped,
-    #[allow(dead_code)]
     TrackProcessed,
-    #[allow(dead_code)]
     RuleApplied,
     Error,
     Info,
+    CycleCompleted,
+    CycleStarted,
     AnchorUpdated,
+    TracksFound,
 }
 
 #[derive(Clone, Debug)]

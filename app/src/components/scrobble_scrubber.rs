@@ -1,8 +1,9 @@
 use crate::server_functions::load_recent_tracks_from_page;
 use crate::types::{AppState, ScrubberEvent, ScrubberEventType, ScrubberStatus};
-use ::scrobble_scrubber::track_cache::{SerializableTrack, TrackCache};
+use ::scrobble_scrubber::track_cache::TrackCache;
 use chrono::Utc;
 use dioxus::prelude::*;
+use lastfm_edit::Track;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -145,7 +146,10 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                         ScrubberEventType::RuleApplied => ("✏️", "#059669"),
                                         ScrubberEventType::Error => ("❌", "#dc2626"),
                                         ScrubberEventType::Info => ("ℹ️", "#6b7280"),
+                                        ScrubberEventType::CycleCompleted => ("✅", "#059669"),
+                                        ScrubberEventType::CycleStarted => ("🔄", "#2563eb"),
                                         ScrubberEventType::AnchorUpdated => ("📍", "#f59e0b"),
+                                        ScrubberEventType::TracksFound => ("🔍", "#7c3aed"),
                                     };
                                     let formatted_time = event.timestamp.format("%H:%M:%S").to_string();
 
@@ -407,7 +411,15 @@ async fn run_scrubber_loop(
     mut state: Signal<AppState>,
     sender: Arc<broadcast::Sender<ScrubberEvent>>,
 ) {
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+    // Get interval from config, default to 30 seconds if not available
+    let interval_seconds = state
+        .read()
+        .config
+        .as_ref()
+        .map(|c| c.scrubber.interval)
+        .unwrap_or(30);
+
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_seconds));
 
     loop {
         // Check if we should stop
@@ -526,14 +538,14 @@ async fn process_scrobbles(
         let start_event = ScrubberEvent {
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
-            message: "Starting to process last 50 tracks...".to_string(),
+            message: "Starting cache-based track processing...".to_string(),
             anchor_timestamp: None,
         };
         let _ = sender.send(start_event.clone());
         state.with_mut(|s| s.scrubber_state.events.push(start_event));
 
-        // Run a single processing cycle (process last 50 tracks)
-        let processing_result = scrubber.process_last_n_tracks(50).await;
+        // Run a single processing cycle using cache-based processing
+        let processing_result = scrubber.trigger_run().await;
 
         // Process events after scrubbing completes to get the actual counts
         let mut tracks_processed = 0;
@@ -545,7 +557,7 @@ async fn process_scrobbles(
 
         while !has_cycle_completed {
             match tokio::time::timeout(
-                tokio::time::Duration::from_millis(50),
+                tokio::time::Duration::from_millis(500),
                 event_receiver.recv(),
             )
             .await
@@ -579,7 +591,7 @@ async fn process_scrobbles(
                             final_message = lib_event.message.clone(); // Get the exact message from the library
                             ScrubberEvent {
                                 timestamp: lib_event.timestamp,
-                                event_type: ScrubberEventType::Info,
+                                event_type: ScrubberEventType::CycleCompleted,
                                 message: lib_event.message,
                                 anchor_timestamp: lib_event.anchor_timestamp,
                             }
@@ -587,7 +599,7 @@ async fn process_scrobbles(
                         ::scrobble_scrubber::events::ScrubberEventType::CycleStarted => {
                             ScrubberEvent {
                                 timestamp: lib_event.timestamp,
-                                event_type: ScrubberEventType::Info,
+                                event_type: ScrubberEventType::CycleStarted,
                                 message: lib_event.message,
                                 anchor_timestamp: lib_event.anchor_timestamp,
                             }
@@ -608,6 +620,14 @@ async fn process_scrobbles(
                             ScrubberEvent {
                                 timestamp: lib_event.timestamp,
                                 event_type: ScrubberEventType::AnchorUpdated,
+                                message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::TracksFound => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::TracksFound,
                                 message: lib_event.message,
                                 anchor_timestamp: lib_event.anchor_timestamp,
                             }
@@ -650,7 +670,7 @@ async fn process_scrobbles(
             Ok(()) => {
                 // Use the final message from the library if we got it, otherwise create a fallback
                 if !has_cycle_completed {
-                    final_message = format!("Processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
+                    final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
                 }
 
                 let success_event = ScrubberEvent {
@@ -818,7 +838,7 @@ async fn create_scrubber_and_trigger_immediate(
     Ok(())
 }
 
-async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTrack) {
+async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
     let set_anchor_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Info,
@@ -886,21 +906,14 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTr
 
 async fn set_timestamp_anchor_direct(
     storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    track: SerializableTrack,
+    track: Track,
     state: &mut Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::persistence::{StateStorage, TimestampState};
     use chrono::{DateTime, Utc};
 
-    // Convert SerializableTrack back to lastfm_edit::Track for timestamp
-    let lastfm_track = lastfm_edit::Track {
-        name: track.name.clone(),
-        artist: track.artist.clone(),
-        album: track.album.clone(),
-        album_artist: None, // SerializableTrack doesn't have album_artist
-        playcount: track.playcount,
-        timestamp: track.timestamp,
-    };
+    // Track is already the correct type, no conversion needed
+    let lastfm_track = track;
 
     // Use storage directly to set the timestamp anchor
     let mut storage_guard = storage.lock().await;

@@ -367,10 +367,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         }
                     }
                 } else {
-                    trace!(
+                    warn!(
                         "Cached track '{}' by '{}' has no timestamp",
-                        cached_track.name,
-                        cached_track.artist
+                        cached_track.name, cached_track.artist
                     );
                 }
             } else {
@@ -381,12 +380,22 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 );
             }
 
-            // Convert SerializableTrack back to Track for processing
-            tracks_to_process.push(lastfm_edit::Track::from(cached_track));
+            // Add track directly since cached_track is already a Track
+            tracks_to_process.push(cached_track);
         }
 
         // Reverse to process oldest first (tracks were collected newest first)
         tracks_to_process.reverse();
+
+        // Emit TracksFound event with count and anchor timestamp
+        let anchor_timestamp = timestamp_state
+            .last_processed_timestamp
+            .map(|ts| ts.timestamp() as u64)
+            .unwrap_or(0);
+
+        let tracks_found_event =
+            ScrubberEvent::tracks_found(tracks_to_process.len(), anchor_timestamp);
+        let _ = self.event_sender.send(tracks_found_event);
 
         Ok(tracks_to_process)
     }

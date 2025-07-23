@@ -99,7 +99,8 @@
       "Bash(git branch:*)",
       "Bash(RUST_LOG=debug dx build 2 >& 1)",
       "Bash(RUST_BACKTRACE=1 cargo build --features=desktop 2 >& 1)",
-      "Bash(RUST_BACKTRACE=1 RUST_LOG=debug dx build --verbose 2 >& 1)"
+      "Bash(RUST_BACKTRACE=1 RUST_LOG=debug dx build --verbose 2 >& 1)",
+      "Bash(/tmp:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

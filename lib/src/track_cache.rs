@@ -6,41 +6,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-/// Serializable version of Track for caching
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SerializableTrack {
-    pub name: String,
-    pub artist: String,
-    pub album: Option<String>,
-    pub timestamp: Option<u64>,
-    pub playcount: u32,
-}
-
-impl From<Track> for SerializableTrack {
-    fn from(track: Track) -> Self {
-        Self {
-            name: track.name,
-            artist: track.artist,
-            album: track.album,
-            timestamp: track.timestamp,
-            playcount: track.playcount,
-        }
-    }
-}
-
-impl From<SerializableTrack> for Track {
-    fn from(strack: SerializableTrack) -> Self {
-        Self {
-            name: strack.name,
-            artist: strack.artist,
-            album: strack.album,
-            album_artist: None, // SerializableTrack doesn't have album_artist
-            timestamp: strack.timestamp,
-            playcount: strack.playcount,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct CacheMergeStats {
     pub added: usize,
@@ -53,9 +18,9 @@ pub struct CacheMergeStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackCache {
     /// Recent tracks (ordered newest first)
-    pub recent_tracks: Vec<SerializableTrack>,
+    pub recent_tracks: Vec<Track>,
     /// Artist tracks by artist name
-    pub artist_tracks: HashMap<String, Vec<SerializableTrack>>,
+    pub artist_tracks: HashMap<String, Vec<Track>>,
     /// Cache metadata
     pub metadata: CacheMetadata,
 }
@@ -152,13 +117,13 @@ impl TrackCache {
     }
 
     /// Get recent tracks (limited to first n tracks)
-    pub fn get_recent_tracks(&self, limit: usize) -> &[SerializableTrack] {
+    pub fn get_recent_tracks(&self, limit: usize) -> &[Track] {
         let end = std::cmp::min(limit, self.recent_tracks.len());
         &self.recent_tracks[..end]
     }
 
     /// Add recent tracks to the cache (merges and maintains order)
-    pub fn add_recent_tracks(&mut self, mut tracks: Vec<SerializableTrack>) {
+    pub fn add_recent_tracks(&mut self, mut tracks: Vec<Track>) {
         // Sort new tracks newest first
         tracks.sort_by(|a, b| {
             match (a.timestamp, b.timestamp) {
@@ -176,12 +141,12 @@ impl TrackCache {
     }
 
     /// Get artist tracks
-    pub fn get_artist_tracks(&self, artist: &str) -> Option<&Vec<SerializableTrack>> {
+    pub fn get_artist_tracks(&self, artist: &str) -> Option<&Vec<Track>> {
         self.artist_tracks.get(artist)
     }
 
     /// Cache artist tracks
-    pub fn cache_artist_tracks(&mut self, artist: String, tracks: Vec<SerializableTrack>) {
+    pub fn cache_artist_tracks(&mut self, artist: String, tracks: Vec<Track>) {
         self.artist_tracks.insert(artist, tracks);
         self.update_timestamp();
     }
@@ -223,12 +188,12 @@ impl TrackCache {
     }
 
     /// Get all recent tracks (already sorted newest first)
-    pub fn get_all_recent_tracks(&self) -> Vec<SerializableTrack> {
+    pub fn get_all_recent_tracks(&self) -> Vec<Track> {
         self.recent_tracks.clone()
     }
 
     /// Get the N most recent tracks
-    pub fn get_recent_tracks_limited(&self, limit: usize) -> Vec<SerializableTrack> {
+    pub fn get_recent_tracks_limited(&self, limit: usize) -> Vec<Track> {
         self.recent_tracks.iter().take(limit).cloned().collect()
     }
 
@@ -249,15 +214,14 @@ impl TrackCache {
             total_processed: new_tracks.len(),
         };
 
-        // Convert new tracks to serializable format
-        let mut new_serializable_tracks: Vec<SerializableTrack> = new_tracks
+        // Filter tracks with timestamps and sort newest first
+        let mut filtered_new_tracks: Vec<Track> = new_tracks
             .into_iter()
             .filter(|track| track.timestamp.is_some()) // Skip tracks without timestamps
-            .map(SerializableTrack::from)
             .collect();
 
         // Sort new tracks newest first
-        new_serializable_tracks.sort_by(|a, b| {
+        filtered_new_tracks.sort_by(|a, b| {
             match (a.timestamp, b.timestamp) {
                 (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
                 (Some(_), None) => std::cmp::Ordering::Less,
@@ -267,7 +231,7 @@ impl TrackCache {
         });
 
         // Simple deduplication: merge with existing tracks, keeping newest and avoiding duplicates
-        let mut all_tracks = new_serializable_tracks;
+        let mut all_tracks = filtered_new_tracks;
         all_tracks.extend(self.recent_tracks.iter().cloned());
 
         // Remove duplicates by timestamp, keeping the first occurrence (newest)

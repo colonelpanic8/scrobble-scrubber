@@ -7,7 +7,7 @@ use scrobble_scrubber::scrub_action_provider::{
     RewriteRulesScrubActionProvider, ScrubActionSuggestion,
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
-use scrobble_scrubber::track_cache::SerializableTrack;
+// SerializableTrack is no longer needed - Track is now serializable
 use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
 
@@ -348,11 +348,7 @@ async fn test_scrubber_track_processing_order_with_cache() {
 
     // Manually populate the cache with tracks in reverse chronological order
     // (as they would come from the API - newest first)
-    let _cache_tracks = vec![
-        SerializableTrack::from(track3),
-        SerializableTrack::from(track2),
-        SerializableTrack::from(track1),
-    ];
+    let _cache_tracks = vec![track3, track2, track1];
 
     // Access the scrubber's internal track cache and add our test tracks
     // Note: This is testing the internal processing order, not the full end-to-end flow
