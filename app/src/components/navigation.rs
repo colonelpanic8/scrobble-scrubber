@@ -9,7 +9,7 @@ pub fn Navigation(mut state: Signal<AppState>) -> Element {
         nav {
             style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1rem; margin-bottom: 1.5rem;",
             ul {
-                style: "display: flex; list-style: none; margin: 0; padding: 0; gap: 1rem;",
+                style: "display: flex; justify-content: center; list-style: none; margin: 0; padding: 0; gap: 1rem;",
                 li {
                     button {
                         style: format!(
