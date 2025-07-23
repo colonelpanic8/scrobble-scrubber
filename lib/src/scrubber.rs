@@ -8,7 +8,7 @@ use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, LogTrackInfo, ProcessingContext};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
-use crate::track_cache::TrackCache;
+use crate::track_provider::{CachedTrackProvider, DirectTrackProvider, TrackProvider};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 
@@ -21,7 +21,7 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     should_stop: Arc<Notify>,
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<Notify>,
-    track_cache: TrackCache,
+    track_provider: TrackProvider,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
@@ -41,8 +41,62 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             should_stop: Arc::new(Notify::new()),
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
-            track_cache: TrackCache::load(),
+            track_provider: TrackProvider::Cached(CachedTrackProvider::new()),
         }
+    }
+
+    /// Create a new scrubber with a custom track provider
+    pub fn with_track_provider(
+        storage: Arc<Mutex<S>>,
+        client: Box<dyn LastFmEditClient + Send + Sync>,
+        action_provider: P,
+        config: ScrobbleScrubberConfig,
+        track_provider: TrackProvider,
+    ) -> Self {
+        let (event_sender, _) = broadcast::channel(1000);
+        Self {
+            client,
+            storage,
+            action_provider,
+            config,
+            is_running: Arc::new(RwLock::new(false)),
+            should_stop: Arc::new(Notify::new()),
+            event_sender,
+            trigger_immediate: Arc::new(Notify::new()),
+            track_provider,
+        }
+    }
+
+    /// Create a new scrubber with cached track provider (default behavior)
+    pub fn with_cached_provider(
+        storage: Arc<Mutex<S>>,
+        client: Box<dyn LastFmEditClient + Send + Sync>,
+        action_provider: P,
+        config: ScrobbleScrubberConfig,
+    ) -> Self {
+        Self::with_track_provider(
+            storage,
+            client,
+            action_provider,
+            config,
+            TrackProvider::Cached(CachedTrackProvider::new()),
+        )
+    }
+
+    /// Create a new scrubber with direct track provider (no caching)
+    pub fn with_direct_provider(
+        storage: Arc<Mutex<S>>,
+        client: Box<dyn LastFmEditClient + Send + Sync>,
+        action_provider: P,
+        config: ScrobbleScrubberConfig,
+    ) -> Self {
+        Self::with_track_provider(
+            storage,
+            client,
+            action_provider,
+            config,
+            TrackProvider::Direct(DirectTrackProvider::new()),
+        )
     }
 
     /// Trigger immediate processing, bypassing the normal wait interval
@@ -71,6 +125,18 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// going through the scrubber's wrapper methods
     pub fn client(&self) -> &(dyn lastfm_edit::LastFmEditClient + Send + Sync) {
         self.client.as_ref()
+    }
+
+    /// Get access to the underlying cache if using CachedTrackProvider
+    /// Returns None if using a different track provider implementation
+    pub fn cache(&self) -> Option<&crate::track_cache::TrackCache> {
+        self.track_provider.cache()
+    }
+
+    /// Get mutable access to the underlying cache if using CachedTrackProvider
+    /// Returns None if using a different track provider implementation
+    pub fn cache_mut(&mut self) -> Option<&mut crate::track_cache::TrackCache> {
+        self.track_provider.cache_mut()
     }
 
     /// Check if the scrubber is currently running a cycle
@@ -237,7 +303,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .last_processed_timestamp
             .expect("Anchor timestamp should be set after ensure_timestamp_initialized");
 
-        self.track_cache
+        self.track_provider
             .update_cache_from_api(self.client.as_ref(), Some(anchor_timestamp))
             .await?;
 
@@ -330,8 +396,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     ) -> Result<Vec<lastfm_edit::Track>> {
         let mut tracks_to_process = Vec::new();
 
-        // Get all recent tracks from cache, sorted newest first
-        let cached_tracks = self.track_cache.get_all_recent_tracks();
+        // Get all recent tracks from provider, sorted newest first
+        let cached_tracks = self.track_provider.get_all_recent_tracks();
 
         // Debug: Show anchor timestamp
         if let Some(anchor) = timestamp_state.last_processed_timestamp {
@@ -496,10 +562,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 &track.artist,
                 &result,
             ));
-
-            // Log track processing to JSON
-            // Note: We no longer log all processed tracks by default
-            // Only edits, failures, and skips are logged via events
         }
 
         // Then apply suggestions

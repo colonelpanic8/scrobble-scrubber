@@ -5,6 +5,7 @@ pub mod rewrite;
 pub mod rewrite_processor;
 pub mod scrub_action_provider;
 pub mod track_cache;
+pub mod track_provider;
 
 pub mod config;
 #[cfg(feature = "musicbrainz")]
