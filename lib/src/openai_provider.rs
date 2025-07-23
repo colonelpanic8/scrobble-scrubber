@@ -67,23 +67,17 @@ struct RewriteRuleSuggestion {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SdRuleData {
-    /// The pattern to search for (regex by default, or literal if `is_literal` is true)
+    /// The pattern to search for (regex)
     find: String,
     /// The replacement string (supports $1, $2, ${named}, etc.)
     replace: String,
-    /// Whether to use literal string matching instead of regex
-    is_literal: bool,
     /// Regex flags (e.g., "i" for case insensitive)
     flags: Option<String>,
 }
 
 impl From<SdRuleData> for crate::rewrite::SdRule {
     fn from(data: SdRuleData) -> Self {
-        let mut sd_rule = if data.is_literal {
-            crate::rewrite::SdRule::new_literal(&data.find, &data.replace)
-        } else {
-            crate::rewrite::SdRule::new_regex(&data.find, &data.replace)
-        };
+        let mut sd_rule = crate::rewrite::SdRule::new(&data.find, &data.replace);
 
         if let Some(flags) = &data.flags {
             sd_rule = sd_rule.with_flags(flags);
@@ -245,7 +239,7 @@ impl OpenAIScrubActionProvider {
             "find".to_string(),
             Box::new(JSONSchemaDefine {
                 schema_type: Some(JSONSchemaType::String),
-                description: Some("The pattern to search for (regex by default, or literal if is_literal is true)".to_string()),
+                description: Some("The pattern to search for (regex)".to_string()),
                 enum_values: None,
                 properties: None,
                 required: None,
@@ -259,20 +253,6 @@ impl OpenAIScrubActionProvider {
                 schema_type: Some(JSONSchemaType::String),
                 description: Some(
                     "The replacement string (supports $1, $2, ${named}, etc.)".to_string(),
-                ),
-                enum_values: None,
-                properties: None,
-                required: None,
-                items: None,
-            }),
-        );
-
-        properties.insert(
-            "is_literal".to_string(),
-            Box::new(JSONSchemaDefine {
-                schema_type: Some(JSONSchemaType::Boolean),
-                description: Some(
-                    "Whether to use literal string matching instead of regex".to_string(),
                 ),
                 enum_values: None,
                 properties: None,
@@ -318,11 +298,7 @@ impl OpenAIScrubActionProvider {
                 description: Some("Optional transformation for track name".to_string()),
                 enum_values: None,
                 properties: Some(Self::create_sd_rule_properties()),
-                required: Some(vec![
-                    "find".to_string(),
-                    "replace".to_string(),
-                    "is_literal".to_string(),
-                ]),
+                required: Some(vec!["find".to_string(), "replace".to_string()]),
                 items: None,
             }),
         );
@@ -334,11 +310,7 @@ impl OpenAIScrubActionProvider {
                 description: Some("Optional transformation for album name".to_string()),
                 enum_values: None,
                 properties: Some(Self::create_sd_rule_properties()),
-                required: Some(vec![
-                    "find".to_string(),
-                    "replace".to_string(),
-                    "is_literal".to_string(),
-                ]),
+                required: Some(vec!["find".to_string(), "replace".to_string()]),
                 items: None,
             }),
         );
@@ -350,11 +322,7 @@ impl OpenAIScrubActionProvider {
                 description: Some("Optional transformation for artist name".to_string()),
                 enum_values: None,
                 properties: Some(Self::create_sd_rule_properties()),
-                required: Some(vec![
-                    "find".to_string(),
-                    "replace".to_string(),
-                    "is_literal".to_string(),
-                ]),
+                required: Some(vec!["find".to_string(), "replace".to_string()]),
                 items: None,
             }),
         );
@@ -366,11 +334,7 @@ impl OpenAIScrubActionProvider {
                 description: Some("Optional transformation for album artist name".to_string()),
                 enum_values: None,
                 properties: Some(Self::create_sd_rule_properties()),
-                required: Some(vec![
-                    "find".to_string(),
-                    "replace".to_string(),
-                    "is_literal".to_string(),
-                ]),
+                required: Some(vec!["find".to_string(), "replace".to_string()]),
                 items: None,
             }),
         );

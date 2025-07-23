@@ -53,14 +53,9 @@ pub fn apply_all_rules(
 ///
 /// ## Pattern Matching
 ///
-/// ### Regex Mode (default)
 /// - Uses regular expressions for pattern matching
 /// - Pattern can match anywhere in the input string
 /// - If pattern matches, entire string is replaced
-///
-/// ### Literal Mode
-/// - Uses exact string matching
-/// - If literal text is found anywhere in input, entire string is replaced
 ///
 /// ## Replacement Syntax
 ///
@@ -68,11 +63,11 @@ pub fn apply_all_rules(
 ///
 /// ### Numbered Capture Groups
 /// - `$0` - The entire match
-/// - `$1` - First capture group  
+/// - `$1` - First capture group
 /// - `$2` - Second capture group
 /// - `$n` - nth capture group
 ///
-/// ### Named Capture Groups  
+/// ### Named Capture Groups
 /// - `${name}` - Named capture group
 /// - Example: `(?P<artist>.+)` can be referenced as `${artist}`
 ///
@@ -89,63 +84,45 @@ pub fn apply_all_rules(
 /// use scrobble_scrubber::rewrite::SdRule;
 ///
 /// // Basic replacement: "Vulfpeck ft. anyone" -> "Vulfpeck"
-/// let rule = SdRule::new_regex("Vulfpeck", "Vulfpeck");
+/// let rule = SdRule::new("Vulfpeck", "Vulfpeck");
 /// assert_eq!(rule.apply("Vulfpeck ft. Antwaun Stanley").unwrap(), "Vulfpeck");
 ///
 /// // Capture groups: extract artist from "Artist - Song"
-/// let rule = SdRule::new_regex(r"(.+) - .+", "$1");  
+/// let rule = SdRule::new(r"(.+) - .+", "$1");
 /// assert_eq!(rule.apply("The Beatles - Yesterday").unwrap(), "The Beatles");
 ///
 /// // Named capture groups: reformat track info
-/// let rule = SdRule::new_regex(
+/// let rule = SdRule::new(
 ///     r"(?P<artist>.+) - (?P<song>.+)",
 ///     "${song} by ${artist}"
 /// );
 /// assert_eq!(rule.apply("Queen - Bohemian Rhapsody").unwrap(), "Bohemian Rhapsody by Queen");
-///
-/// // Literal matching: clean up featuring credits
-/// let rule = SdRule::new_literal("feat.", "featuring");
-/// assert_eq!(rule.apply("Artist feat. Someone").unwrap(), "featuring");
 /// ```
 ///
 /// ## Regex Flags
 ///
 /// - `i` - Case insensitive matching
-/// - `m` - Multiline mode (default)  
+/// - `m` - Multiline mode (default)
 /// - `s` - Dot matches newline
 /// - `c` - Case sensitive (explicit)
 /// - `e` - Single line mode (disables multiline)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SdRule {
-    /// The pattern to search for (regex by default, or literal if `is_literal` is true)
+    /// The pattern to search for (always treated as regex)
     pub find: String,
     /// The replacement string (supports capture group substitution)
     pub replace: String,
-    /// Whether to use literal string matching instead of regex
-    pub is_literal: bool,
     /// Regex flags (e.g., "i" for case insensitive)
     pub flags: Option<String>,
 }
 
 impl SdRule {
-    /// Create a new regex-based rule
+    /// Create a new rule (always regex-based)
     #[must_use]
-    pub fn new_regex(find: &str, replace: &str) -> Self {
+    pub fn new(find: &str, replace: &str) -> Self {
         Self {
             find: find.to_string(),
             replace: replace.to_string(),
-            is_literal: false,
-            flags: None,
-        }
-    }
-
-    /// Create a new literal string rule
-    #[must_use]
-    pub fn new_literal(find: &str, replace: &str) -> Self {
-        Self {
-            find: find.to_string(),
-            replace: replace.to_string(),
-            is_literal: true,
             flags: None,
         }
     }
@@ -160,90 +137,81 @@ impl SdRule {
     /// Apply this rule to a string, returning the result
     /// If the pattern matches anywhere in the input, the entire string is replaced
     pub fn apply(&self, input: &str) -> Result<String, RewriteError> {
-        if self.is_literal {
-            // For literal mode, if pattern is found anywhere, replace entire string
-            if input.contains(&self.find) {
-                Ok(self.replace.clone())
-            } else {
-                Ok(input.to_string())
-            }
-        } else {
-            // For regex mode, if pattern matches anywhere, replace entire string
-            // But allow capture group substitution from the original input
-            let mut regex_builder = regex::RegexBuilder::new(&self.find);
-            regex_builder.multi_line(true);
+        // Always use regex mode - if pattern matches anywhere, replace entire string
+        // But allow capture group substitution from the original input
+        let mut regex_builder = regex::RegexBuilder::new(&self.find);
+        regex_builder.multi_line(true);
 
-            // Apply flags if present
-            if let Some(flags) = &self.flags {
-                for c in flags.chars() {
-                    match c {
-                        'c' => {
-                            regex_builder.case_insensitive(false);
-                        }
-                        'i' => {
-                            regex_builder.case_insensitive(true);
-                        }
-                        'm' => {}
-                        'e' => {
+        // Apply flags if present
+        if let Some(flags) = &self.flags {
+            for c in flags.chars() {
+                match c {
+                    'c' => {
+                        regex_builder.case_insensitive(false);
+                    }
+                    'i' => {
+                        regex_builder.case_insensitive(true);
+                    }
+                    'm' => {}
+                    'e' => {
+                        regex_builder.multi_line(false);
+                    }
+                    's' => {
+                        if !flags.contains('m') {
                             regex_builder.multi_line(false);
                         }
-                        's' => {
-                            if !flags.contains('m') {
-                                regex_builder.multi_line(false);
-                            }
-                            regex_builder.dot_matches_new_line(true);
-                        }
-                        _ => {}
+                        regex_builder.dot_matches_new_line(true);
                     }
+                    _ => {}
+                }
+            }
+        }
+
+        let regex = regex_builder.build().map_err(RewriteError::RegexError)?;
+
+        if let Some(captures) = regex.captures(input) {
+            // Pattern matches - replace entire string, expanding capture groups
+            let mut result = self.replace.clone();
+
+            // Handle escaped characters first (convert to placeholders)
+            let escaped_dollar_placeholder = "\u{E000}ESCAPED_DOLLAR\u{E000}"; // Use private use area
+            let escaped_lbrace_placeholder = "\u{E000}ESCAPED_LBRACE\u{E000}";
+            let escaped_rbrace_placeholder = "\u{E000}ESCAPED_RBRACE\u{E000}";
+            let escaped_backslash_placeholder = "\u{E000}ESCAPED_BACKSLASH\u{E000}";
+
+            // Handle backslashes first to prevent double-processing
+            result = result.replace(r"\\", escaped_backslash_placeholder);
+            result = result.replace(r"\$", escaped_dollar_placeholder);
+            result = result.replace("$$", escaped_dollar_placeholder);
+            result = result.replace(r"\{", escaped_lbrace_placeholder);
+            result = result.replace(r"\}", escaped_rbrace_placeholder);
+
+            // Replace numbered capture group references ($0, $1, $2, etc.)
+            for i in 0..captures.len() {
+                let placeholder = format!("${i}");
+                if let Some(capture) = captures.get(i) {
+                    result = result.replace(&placeholder, capture.as_str());
                 }
             }
 
-            let regex = regex_builder.build().map_err(RewriteError::RegexError)?;
-
-            if let Some(captures) = regex.captures(input) {
-                // Pattern matches - replace entire string, expanding capture groups
-                let mut result = self.replace.clone();
-
-                // Handle escaped characters first (convert to placeholders)
-                let escaped_dollar_placeholder = "\u{E000}ESCAPED_DOLLAR\u{E000}"; // Use private use area
-                let escaped_lbrace_placeholder = "\u{E000}ESCAPED_LBRACE\u{E000}";
-                let escaped_rbrace_placeholder = "\u{E000}ESCAPED_RBRACE\u{E000}";
-                let escaped_backslash_placeholder = "\u{E000}ESCAPED_BACKSLASH\u{E000}";
-
-                // Handle backslashes first to prevent double-processing
-                result = result.replace(r"\\", escaped_backslash_placeholder);
-                result = result.replace(r"\$", escaped_dollar_placeholder);
-                result = result.replace("$$", escaped_dollar_placeholder);
-                result = result.replace(r"\{", escaped_lbrace_placeholder);
-                result = result.replace(r"\}", escaped_rbrace_placeholder);
-
-                // Replace numbered capture group references ($0, $1, $2, etc.)
-                for i in 0..captures.len() {
-                    let placeholder = format!("${i}");
-                    if let Some(capture) = captures.get(i) {
-                        result = result.replace(&placeholder, capture.as_str());
-                    }
+            // Replace named capture group references (${name})
+            for name in regex.capture_names().flatten() {
+                let placeholder = format!("${{{name}}}");
+                if let Some(capture) = captures.name(name) {
+                    result = result.replace(&placeholder, capture.as_str());
                 }
-
-                // Replace named capture group references (${name})
-                for name in regex.capture_names().flatten() {
-                    let placeholder = format!("${{{name}}}");
-                    if let Some(capture) = captures.name(name) {
-                        result = result.replace(&placeholder, capture.as_str());
-                    }
-                }
-
-                // Restore escaped characters
-                result = result.replace(escaped_dollar_placeholder, "$");
-                result = result.replace(escaped_lbrace_placeholder, "{");
-                result = result.replace(escaped_rbrace_placeholder, "}");
-                result = result.replace(escaped_backslash_placeholder, "\\");
-
-                Ok(result)
-            } else {
-                // Pattern doesn't match - return input unchanged
-                Ok(input.to_string())
             }
+
+            // Restore escaped characters
+            result = result.replace(escaped_dollar_placeholder, "$");
+            result = result.replace(escaped_lbrace_placeholder, "{");
+            result = result.replace(escaped_rbrace_placeholder, "}");
+            result = result.replace(escaped_backslash_placeholder, "\\");
+
+            Ok(result)
+        } else {
+            // Pattern doesn't match - return input unchanged
+            Ok(input.to_string())
         }
     }
 
@@ -318,37 +286,49 @@ impl RewriteRule {
     }
 
     /// Check if this rule would apply to the given track (without creating an edit)
+    ///
+    /// A rule applies only when ALL non-empty (Some) regex patterns would match their respective fields.
+    /// If any non-empty regex pattern doesn't match, the rule doesn't apply.
+    /// Empty (None) fields are ignored.
     pub fn applies_to(&self, track: &Track) -> Result<bool, RewriteError> {
+        // Collect all non-empty rules and check if they ALL would modify their respective fields
+        let mut has_any_rules = false;
+
         // Check track name transformation if present
         if let Some(rule) = &self.track_name {
-            if rule.would_modify(&track.name)? {
-                return Ok(true);
+            has_any_rules = true;
+            if !rule.would_modify(&track.name)? {
+                return Ok(false);
             }
         }
 
         // Check artist name transformation if present
         if let Some(rule) = &self.artist_name {
-            if rule.would_modify(&track.artist)? {
-                return Ok(true);
+            has_any_rules = true;
+            if !rule.would_modify(&track.artist)? {
+                return Ok(false);
             }
         }
 
         // Check album name transformation if present
         if let Some(rule) = &self.album_name {
+            has_any_rules = true;
             let album_name = track.album.as_deref().unwrap_or("");
-            if rule.would_modify(album_name)? {
-                return Ok(true);
+            if !rule.would_modify(album_name)? {
+                return Ok(false);
             }
         }
 
         // Check album artist name transformation if present (always empty for Track)
         if let Some(rule) = &self.album_artist_name {
-            if rule.would_modify("")? {
-                return Ok(true);
+            has_any_rules = true;
+            if !rule.would_modify("")? {
+                return Ok(false);
             }
         }
 
-        Ok(false)
+        // Rule applies only if we have at least one rule and all present rules would modify
+        Ok(has_any_rules)
     }
 
     /// Apply this rule to an existing `ScrobbleEdit`, modifying it in place
@@ -423,27 +403,27 @@ pub fn default_rules() -> Vec<RewriteRule> {
     vec![
         // Remove remaster suffixes from track names
         RewriteRule::new()
-            .with_track_name(SdRule::new_regex(
+            .with_track_name(SdRule::new(
                 r" - \d{4} [Rr]emaster| - [Rr]emaster \d{4}| - [Rr]emaster| \(\d{4} [Rr]emaster\)| \([Rr]emaster \d{4}\)| \([Rr]emaster\)",
                 ""
             )),
 
         // Normalize featuring formats in artist names
         RewriteRule::new()
-            .with_artist_name(SdRule::new_regex(r" [Ff]t\. | [Ff]eaturing ", " feat. ")),
+            .with_artist_name(SdRule::new(r" [Ff]t\. | [Ff]eaturing ", " feat. ")),
 
         // Clean up extra whitespace in track names
         RewriteRule::new()
-            .with_track_name(SdRule::new_regex(r"\s+", " "))
-            .with_artist_name(SdRule::new_regex(r"\s+", " ")),
+            .with_track_name(SdRule::new(r"\s+", " "))
+            .with_artist_name(SdRule::new(r"\s+", " ")),
 
         // Remove leading/trailing whitespace
         RewriteRule::new()
-            .with_track_name(SdRule::new_regex(r"^\s+|\s+$", ""))
-            .with_artist_name(SdRule::new_regex(r"^\s+|\s+$", "")),
+            .with_track_name(SdRule::new(r"^\s+|\s+$", ""))
+            .with_artist_name(SdRule::new(r"^\s+|\s+$", "")),
 
         // Remove explicit content warnings
         RewriteRule::new()
-            .with_track_name(SdRule::new_regex(r" \(Explicit\)$| - Explicit$", "")),
+            .with_track_name(SdRule::new(r" \(Explicit\)$| - Explicit$", "")),
     ]
 }

@@ -453,7 +453,7 @@ where
 
                 // Track rule
                 if !self.rule_editor.track_find.is_empty() {
-                    let sd_rule = SdRule::new_literal(
+                    let sd_rule = SdRule::new(
                         &self.rule_editor.track_find,
                         &self.rule_editor.track_replace,
                     );
@@ -463,7 +463,7 @@ where
 
                 // Artist rule
                 if !self.rule_editor.artist_find.is_empty() {
-                    let sd_rule = SdRule::new_literal(
+                    let sd_rule = SdRule::new(
                         &self.rule_editor.artist_find,
                         &self.rule_editor.artist_replace,
                     );
@@ -473,7 +473,7 @@ where
 
                 // Album rule
                 if !self.rule_editor.album_find.is_empty() {
-                    let sd_rule = SdRule::new_literal(
+                    let sd_rule = SdRule::new(
                         &self.rule_editor.album_find,
                         &self.rule_editor.album_replace,
                     );
@@ -642,7 +642,7 @@ where
         let mut has_rules = false;
 
         if !self.rule_editor.track_find.is_empty() {
-            let sd_rule = SdRule::new_literal(
+            let sd_rule = SdRule::new(
                 &self.rule_editor.track_find,
                 &self.rule_editor.track_replace,
             );
@@ -651,7 +651,7 @@ where
         }
 
         if !self.rule_editor.artist_find.is_empty() {
-            let sd_rule = SdRule::new_literal(
+            let sd_rule = SdRule::new(
                 &self.rule_editor.artist_find,
                 &self.rule_editor.artist_replace,
             );
@@ -660,7 +660,7 @@ where
         }
 
         if !self.rule_editor.album_find.is_empty() {
-            let sd_rule = SdRule::new_literal(
+            let sd_rule = SdRule::new(
                 &self.rule_editor.album_find,
                 &self.rule_editor.album_replace,
             );

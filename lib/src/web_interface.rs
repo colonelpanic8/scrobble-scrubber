@@ -83,11 +83,7 @@ pub enum ProcessingRequest {
 pub type ProcessingRequestSender = mpsc::UnboundedSender<ProcessingRequest>;
 
 fn format_sd_rule(rule: &SdRule, field_name: &str) -> String {
-    let rule_type = if rule.is_literal {
-        "<span style='color: #28a745; font-weight: bold;'>literal</span>"
-    } else {
-        "<span style='color: #dc3545; font-weight: bold;'>regex</span>"
-    };
+    let rule_type = "<span style='color: #dc3545; font-weight: bold;'>regex</span>";
 
     let flags_str = rule
         .flags

@@ -14,23 +14,9 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
     let mut album_replace = use_signal(String::new);
     let mut album_artist_find = use_signal(String::new);
     let mut album_artist_replace = use_signal(String::new);
-    let mut is_regex = use_signal(|| true);
 
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
-            // Regex toggle
-            div { style: "display: flex; align-items: center; gap: 0.5rem;",
-                input {
-                    r#type: "checkbox",
-                    checked: "{is_regex}",
-                    onchange: move |e| {
-                        is_regex.set(e.checked());
-                        update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                       &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
-                    }
-                }
-                label { style: "font-weight: 500;", "Use Regular Expression" }
-            }
 
             // Track Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
@@ -40,12 +26,12 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
                             style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
-                            placeholder: if *is_regex.read() { "Regex pattern" } else { "Text to find" },
+                            placeholder: "Regex pattern",
                             value: "{track_find}",
                             oninput: move |e| {
                                 track_find.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -58,7 +44,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             oninput: move |e| {
                                 track_replace.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -73,12 +59,12 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
                             style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
-                            placeholder: if *is_regex.read() { "Regex pattern" } else { "Text to find" },
+                            placeholder: "Regex pattern",
                             value: "{artist_find}",
                             oninput: move |e| {
                                 artist_find.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -91,7 +77,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             oninput: move |e| {
                                 artist_replace.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -106,12 +92,12 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
                             style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
-                            placeholder: if *is_regex.read() { "Regex pattern" } else { "Text to find" },
+                            placeholder: "Regex pattern",
                             value: "{album_find}",
                             oninput: move |e| {
                                 album_find.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -124,7 +110,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             oninput: move |e| {
                                 album_replace.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -139,12 +125,12 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
                             style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;",
-                            placeholder: if *is_regex.read() { "Regex pattern" } else { "Text to find" },
+                            placeholder: "Regex pattern",
                             value: "{album_artist_find}",
                             oninput: move |e| {
                                 album_artist_find.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -157,7 +143,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
                             oninput: move |e| {
                                 album_artist_replace.set(e.value());
                                 update_all_rules(state, &track_find, &track_replace, &artist_find, &artist_replace,
-                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace, *is_regex.read());
+                                               &album_find, &album_replace, &album_artist_find, &album_artist_replace);
                             }
                         }
                     }
@@ -221,7 +207,6 @@ fn update_all_rules(
     album_replace: &Signal<String>,
     album_artist_find: &Signal<String>,
     album_artist_replace: &Signal<String>,
-    is_regex: bool,
 ) {
     let mut rule = RewriteRule::new();
 
@@ -229,11 +214,7 @@ fn update_all_rules(
     let track_find_str = track_find.read();
     let track_replace_str = track_replace.read();
     if !track_find_str.is_empty() {
-        let sd_rule = if is_regex {
-            SdRule::new_regex(&track_find_str, &track_replace_str)
-        } else {
-            SdRule::new_literal(&track_find_str, &track_replace_str)
-        };
+        let sd_rule = SdRule::new(&track_find_str, &track_replace_str);
         rule = rule.with_track_name(sd_rule);
     }
 
@@ -241,11 +222,7 @@ fn update_all_rules(
     let artist_find_str = artist_find.read();
     let artist_replace_str = artist_replace.read();
     if !artist_find_str.is_empty() {
-        let sd_rule = if is_regex {
-            SdRule::new_regex(&artist_find_str, &artist_replace_str)
-        } else {
-            SdRule::new_literal(&artist_find_str, &artist_replace_str)
-        };
+        let sd_rule = SdRule::new(&artist_find_str, &artist_replace_str);
         rule = rule.with_artist_name(sd_rule);
     }
 
@@ -253,11 +230,7 @@ fn update_all_rules(
     let album_find_str = album_find.read();
     let album_replace_str = album_replace.read();
     if !album_find_str.is_empty() {
-        let sd_rule = if is_regex {
-            SdRule::new_regex(&album_find_str, &album_replace_str)
-        } else {
-            SdRule::new_literal(&album_find_str, &album_replace_str)
-        };
+        let sd_rule = SdRule::new(&album_find_str, &album_replace_str);
         rule = rule.with_album_name(sd_rule);
     }
 
@@ -265,11 +238,7 @@ fn update_all_rules(
     let album_artist_find_str = album_artist_find.read();
     let album_artist_replace_str = album_artist_replace.read();
     if !album_artist_find_str.is_empty() {
-        let sd_rule = if is_regex {
-            SdRule::new_regex(&album_artist_find_str, &album_artist_replace_str)
-        } else {
-            SdRule::new_literal(&album_artist_find_str, &album_artist_replace_str)
-        };
+        let sd_rule = SdRule::new(&album_artist_find_str, &album_artist_replace_str);
         rule = rule.with_album_artist_name(sd_rule);
     }
 

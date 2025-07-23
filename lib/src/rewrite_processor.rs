@@ -25,8 +25,6 @@ pub struct TransformRule {
     pub pattern: String,
     /// The replacement - reconstructs entire output using captures  
     pub replacement: String,
-    /// Whether to use literal matching instead of regex
-    pub is_literal: bool,
     /// Optional regex flags
     pub flags: Option<String>,
     /// Maximum number of applications (0 = unlimited)
@@ -35,22 +33,10 @@ pub struct TransformRule {
 
 impl TransformRule {
     /// Create a new regex-based transform rule
-    pub fn new_regex(pattern: &str, replacement: &str) -> Self {
+    pub fn new(pattern: &str, replacement: &str) -> Self {
         Self {
             pattern: pattern.to_string(),
             replacement: replacement.to_string(),
-            is_literal: false,
-            flags: None,
-            max_applications: 0,
-        }
-    }
-
-    /// Create a new literal string replacement rule
-    pub fn new_literal(find: &str, replace: &str) -> Self {
-        Self {
-            pattern: find.to_string(),
-            replacement: replace.to_string(),
-            is_literal: true,
             flags: None,
             max_applications: 0,
         }
@@ -88,23 +74,13 @@ impl RewriteProcessor {
         let mut compiled_rules = HashMap::new();
 
         for rule in rules {
-            let (pattern, replacement) = if rule.is_literal {
-                // For literal matching, we need to create a full-string regex that captures everything
-                // and replaces the literal pattern within it
-                let escaped_find = regex::escape(&rule.pattern);
-                let pattern = format!("^(.*){escaped_find}(.*)$");
-                // Replacement reconstructs the full string with the literal replacement
-                let replacement = format!("${{1}}{}${{2}}", &rule.replacement);
-                (pattern, replacement)
-            } else {
-                // Validate that regex patterns use anchors for full string matching
-                if !rule.pattern.starts_with('^') || !rule.pattern.ends_with('$') {
-                    return Err(RewriteProcessorError::MissingAnchorsError(
-                        rule.pattern.clone(),
-                    ));
-                }
-                (rule.pattern.clone(), rule.replacement.clone())
-            };
+            // Validate that regex patterns use anchors for full string matching
+            if !rule.pattern.starts_with('^') || !rule.pattern.ends_with('$') {
+                return Err(RewriteProcessorError::MissingAnchorsError(
+                    rule.pattern.clone(),
+                ));
+            }
+            let (pattern, replacement) = (rule.pattern.clone(), rule.replacement.clone());
 
             let mut regex_builder = regex::RegexBuilder::new(&pattern);
 
@@ -286,18 +262,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_literal_replacement() {
-        let rule = TransformRule::new_literal("feat.", "featuring");
-        let processor = RewriteProcessor::new(vec![rule]).unwrap();
-
-        let result = processor.process("Song Title (feat. Artist)").unwrap();
-        assert_eq!(result, "Song Title (featuring Artist)");
-    }
-
-    #[test]
     fn test_regex_full_string_replacement() {
         // Pattern that captures everything and replaces "feat." with "featuring"
-        let rule = TransformRule::new_regex(r"^(.*)feat\.(.*)$", "${1}featuring${2}");
+        let rule = TransformRule::new(r"^(.*)feat\.(.*)$", "${1}featuring${2}");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
 
         let result = processor.process("Song Title (feat. Artist)").unwrap();
@@ -307,7 +274,7 @@ mod tests {
     #[test]
     fn test_regex_requires_anchors() {
         // This should fail because it doesn't use ^ and $ anchors
-        let rule = TransformRule::new_regex("feat.", "featuring");
+        let rule = TransformRule::new("feat.", "featuring");
         let result = RewriteProcessor::new(vec![rule]);
 
         assert!(matches!(
@@ -318,8 +285,7 @@ mod tests {
 
     #[test]
     fn test_case_insensitive_replacement() {
-        let rule =
-            TransformRule::new_regex(r"^(.*)FEAT\.(.*)$", "${1}featuring${2}").with_flags("i");
+        let rule = TransformRule::new(r"^(.*)FEAT\.(.*)$", "${1}featuring${2}").with_flags("i");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
 
         let result = processor.process("Song Title (feat. Artist)").unwrap();
@@ -328,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_no_change_when_no_match() {
-        let rule = TransformRule::new_regex(r"^(.*)feat\.(.*)$", "$1featuring$2");
+        let rule = TransformRule::new(r"^(.*)feat\.(.*)$", "$1featuring$2");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
 
         let result = processor.process("Song Title").unwrap();
@@ -338,11 +304,8 @@ mod tests {
     #[test]
     fn test_metadata_processor() {
         let rule = MetadataRewriteRule {
-            track_name: Some(TransformRule::new_regex(
-                r"^(.*)feat\.(.*)$",
-                "${1}featuring${2}",
-            )),
-            artist_name: Some(TransformRule::new_regex(r"^(.*)&(.*)$", "${1} and ${2}")),
+            track_name: Some(TransformRule::new(r"^(.*)feat\.(.*)$", "${1}featuring${2}")),
+            artist_name: Some(TransformRule::new(r"^(.*)&(.*)$", "${1} and ${2}")),
             album_name: None,
             album_artist_name: None,
             requires_confirmation: false,

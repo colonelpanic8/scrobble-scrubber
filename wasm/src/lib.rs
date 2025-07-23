@@ -68,7 +68,6 @@ pub struct JSRewriteRule {
 pub struct JSSdRule {
     pub find: String,
     pub replace: String,
-    pub is_literal: bool,
     pub flags: Option<String>,
 }
 
@@ -77,7 +76,6 @@ impl From<&SdRule> for JSSdRule {
         JSSdRule {
             find: sd_rule.find.clone(),
             replace: sd_rule.replace.clone(),
-            is_literal: sd_rule.is_literal,
             flags: sd_rule.flags.clone(),
         }
     }
@@ -85,12 +83,11 @@ impl From<&SdRule> for JSSdRule {
 
 impl From<JSSdRule> for SdRule {
     fn from(js_rule: JSSdRule) -> Self {
-        SdRule {
-            find: js_rule.find,
-            replace: js_rule.replace,
-            is_literal: js_rule.is_literal,
-            flags: js_rule.flags,
+        let mut sd_rule = SdRule::new(&js_rule.find, &js_rule.replace);
+        if let Some(flags) = js_rule.flags {
+            sd_rule = sd_rule.with_flags(&flags);
         }
+        sd_rule
     }
 }
 
@@ -221,14 +218,9 @@ pub fn create_simple_rule(
     field: &str,
     find: &str,
     replace: &str,
-    is_literal: bool,
+    _is_literal: bool,
 ) -> Result<String, JsValue> {
-    let sd_rule = SdRule {
-        find: find.to_string(),
-        replace: replace.to_string(),
-        is_literal,
-        flags: None,
-    };
+    let sd_rule = SdRule::new(find, replace);
 
     let mut rewrite_rule = RewriteRule {
         track_name: None,
@@ -401,9 +393,7 @@ pub fn get_common_rule_templates() -> JsValue {
                 "track_name": {
                     "find": "^(.*)\\s*\\(.*[Rr]emaster.*\\)\\s*$",
                     "replace": "$1",
-                    "is_literal": false,
                     "flags": null,
-                    "max_replacements": 0
                 },
                 "artist_name": null,
                 "album_name": null,
@@ -420,9 +410,7 @@ pub fn get_common_rule_templates() -> JsValue {
                 "album_name": {
                     "find": "^(.*)\\s*\\([Dd]eluxe [Ee]dition\\)\\s*$",
                     "replace": "$1",
-                    "is_literal": false,
                     "flags": null,
-                    "max_replacements": 0
                 },
                 "album_artist_name": null,
                 "requires_confirmation": false
@@ -435,9 +423,7 @@ pub fn get_common_rule_templates() -> JsValue {
                 "track_name": {
                     "find": "^(.*)\\s+ft\\.\\s+(.*)$",
                     "replace": "$1 feat. $2",
-                    "is_literal": false,
                     "flags": null,
-                    "max_replacements": 0
                 },
                 "artist_name": null,
                 "album_name": null,
@@ -452,9 +438,7 @@ pub fn get_common_rule_templates() -> JsValue {
                 "track_name": {
                     "find": "^(.*)\\s*-\\s*[0-9]{4}\\s*$",
                     "replace": "$1",
-                    "is_literal": false,
                     "flags": null,
-                    "max_replacements": 0
                 },
                 "artist_name": null,
                 "album_name": null,
@@ -469,9 +453,7 @@ pub fn get_common_rule_templates() -> JsValue {
                 "track_name": {
                     "find": "^(.*)\\s*\\([Rr]adio [Ee]dit\\)\\s*$",
                     "replace": "$1",
-                    "is_literal": false,
                     "flags": null,
-                    "max_replacements": 0
                 },
                 "artist_name": null,
                 "album_name": null,
