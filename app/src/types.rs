@@ -1,8 +1,8 @@
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
+use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::track_cache::TrackCache;
-use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
@@ -28,6 +28,7 @@ pub enum PreviewType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)] // These will be used when proper scrubber is implemented
 pub enum ScrubberStatus {
     Stopped,
     Starting,
@@ -36,37 +37,106 @@ pub enum ScrubberStatus {
     Error(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ScrubberEvent {
-    pub timestamp: DateTime<Utc>,
-    pub event_type: ScrubberEventType,
-    pub message: String,
-    pub anchor_timestamp: Option<u64>,
-}
+// Using library events directly - no need for duplicate types
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ScrubberEventType {
-    Started,
-    Stopped,
-    TrackProcessed,
-    RuleApplied,
-    Error,
-    Info,
-    CycleCompleted,
-    CycleStarted,
-    AnchorUpdated,
-    TracksFound,
-    TrackEdited,
-    TrackEditFailed,
-    TrackSkipped,
+pub mod event_formatting {
+    use ::scrobble_scrubber::events::{ScrubberEvent, ScrubberEventType};
+
+    /// Format a library event for display in the UI
+    pub fn format_event_message(event: &ScrubberEvent) -> String {
+        match &event.event_type {
+            ScrubberEventType::Started(msg) => msg.clone(),
+            ScrubberEventType::Stopped(msg) => msg.clone(),
+            ScrubberEventType::TrackProcessed { track, result, .. } => {
+                format!("'{}' by '{}' - {}", track.name, track.artist, result)
+            }
+            ScrubberEventType::RuleApplied {
+                track, description, ..
+            } => {
+                format!(
+                    "Applied rule '{}' to '{}' by '{}'",
+                    description, track.name, track.artist
+                )
+            }
+            ScrubberEventType::Error(msg) => msg.clone(),
+            ScrubberEventType::Info(msg) => msg.clone(),
+            ScrubberEventType::CycleCompleted {
+                processed_count,
+                applied_count,
+            } => {
+                format!("Processing cycle completed: {processed_count} tracks processed, {applied_count} rules applied")
+            }
+            ScrubberEventType::CycleStarted(msg) => msg.clone(),
+            ScrubberEventType::AnchorUpdated {
+                anchor_timestamp: _,
+                track,
+            } => {
+                format!(
+                    "Processing anchor updated to '{}' by '{}'",
+                    track.name, track.artist
+                )
+            }
+            ScrubberEventType::TracksFound { count, .. } => {
+                format!("Found {count} tracks to process")
+            }
+            ScrubberEventType::TrackEdited { track, .. } => {
+                format!("Edited track '{}' by '{}'", track.artist, track.name)
+            }
+            ScrubberEventType::TrackEditFailed { track, error, .. } => {
+                format!(
+                    "Failed to edit '{}' by '{}': {}",
+                    track.artist, track.name, error
+                )
+            }
+            ScrubberEventType::TrackSkipped { track, reason, .. } => {
+                format!("Skipped '{}' by '{}': {}", track.artist, track.name, reason)
+            }
+        }
+    }
+
+    /// Get the anchor timestamp from an event if it has one
+    #[allow(dead_code)] // Will be used when proper scrubber is implemented
+    pub fn get_anchor_timestamp(event: &ScrubberEvent) -> Option<u64> {
+        match &event.event_type {
+            ScrubberEventType::AnchorUpdated {
+                anchor_timestamp, ..
+            } => Some(*anchor_timestamp),
+            ScrubberEventType::TracksFound {
+                anchor_timestamp, ..
+            } => Some(*anchor_timestamp),
+            _ => None,
+        }
+    }
+
+    /// Get a simple event type string for categorization
+    pub fn get_event_category(event: &ScrubberEvent) -> &'static str {
+        match &event.event_type {
+            ScrubberEventType::Started(_) => "started",
+            ScrubberEventType::Stopped(_) => "stopped",
+            ScrubberEventType::TrackProcessed { .. } => "track_processed",
+            ScrubberEventType::RuleApplied { .. } => "rule_applied",
+            ScrubberEventType::Error(_) => "error",
+            ScrubberEventType::Info(_) => "info",
+            ScrubberEventType::CycleCompleted { .. } => "cycle_completed",
+            ScrubberEventType::CycleStarted(_) => "cycle_started",
+            ScrubberEventType::AnchorUpdated { .. } => "anchor_updated",
+            ScrubberEventType::TracksFound { .. } => "tracks_found",
+            ScrubberEventType::TrackEdited { .. } => "track_edited",
+            ScrubberEventType::TrackEditFailed { .. } => "track_edit_failed",
+            ScrubberEventType::TrackSkipped { .. } => "track_skipped",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct ScrubberState {
     pub status: ScrubberStatus,
     pub events: Vec<ScrubberEvent>,
+    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub processed_count: usize,
+    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub rules_applied_count: usize,
+    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
     pub current_anchor_timestamp: Option<u64>,
 }

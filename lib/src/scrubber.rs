@@ -383,7 +383,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 );
 
                 // Emit anchor update event
-                self.emit_event(ScrubberEvent::anchor_updated(
+                self.emit_event(ScrubberEvent::anchor_updated_from_names(
                     ts,
                     &newest_processed_track.name,
                     &newest_processed_track.artist,
@@ -567,10 +567,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
 
             // Emit detailed track processed event
-            self.emit_event(ScrubberEvent::track_processed_with_result(
-                &track.name,
-                &track.artist,
-                &result,
+            self.emit_event(ScrubberEvent::track_processed(
+                track.clone(),
+                track_suggestions.clone(),
+                result,
             ));
         }
 
@@ -641,9 +641,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     }
                 };
                 self.emit_event(ScrubberEvent::rule_applied(
-                    &track.name,
-                    &track.artist,
-                    &description,
+                    track.clone(),
+                    suggestion.clone(),
+                    description,
                 ));
             }
         }
@@ -708,7 +708,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             // Emit anchor update event
-            self.emit_event(ScrubberEvent::anchor_updated(
+            self.emit_event(ScrubberEvent::anchor_updated_from_names(
                 ts,
                 &track.name,
                 &track.artist,

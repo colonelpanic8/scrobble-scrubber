@@ -151,7 +151,7 @@ pub fn apply_all_rules(
 /// - `s` - Dot matches newline
 /// - `c` - Case sensitive (explicit)
 /// - `e` - Single line mode (disables multiline)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SdRule {
     /// The pattern to search for (always treated as regex)
     pub find: String,
@@ -302,7 +302,7 @@ impl SdRule {
 }
 
 /// A comprehensive rewrite rule that can transform fields of a scrobble
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RewriteRule {
     /// Optional name for this rule
     pub name: Option<String>,

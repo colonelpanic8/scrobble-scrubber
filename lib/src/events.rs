@@ -1,210 +1,210 @@
+use crate::scrub_action_provider::ScrubActionSuggestion;
 use chrono::{DateTime, Utc};
+use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 
 // Re-export for event-based logging
 pub use crate::json_logger::{LogEditInfo, LogTrackInfo, ProcessingContext};
 
 /// Events emitted by the ScrobbleScrubber during operation
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScrubberEvent {
     pub timestamp: DateTime<Utc>,
     pub event_type: ScrubberEventType,
-    pub message: String,
-    /// For AnchorUpdated events, contains the anchor timestamp
-    pub anchor_timestamp: Option<u64>,
-    /// For edit-related events, contains detailed tracking info
-    pub edit_data: Option<EditEventData>,
 }
 
-/// Detailed data for edit-related events
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EditEventData {
-    pub track: LogTrackInfo,
-    pub edit: Option<LogEditInfo>,
-    pub context: ProcessingContext,
-    pub error: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ScrubberEventType {
     /// Scrubber has started running
-    Started,
+    Started(String),
     /// Scrubber has stopped
-    Stopped,
-    /// A track has been processed (whether changed or not)
-    TrackProcessed,
-    /// A rule was applied to a track, resulting in changes
-    RuleApplied,
+    Stopped(String),
+    /// A track has been processed with suggestions applied
+    TrackProcessed {
+        track: Track,
+        suggestions: Vec<ScrubActionSuggestion>,
+        result: String,
+    },
+    /// A rule was applied to a track
+    RuleApplied {
+        track: Track,
+        suggestion: ScrubActionSuggestion,
+        description: String,
+    },
     /// An error occurred during processing
-    Error,
+    Error(String),
     /// General informational message
-    Info,
+    Info(String),
     /// Processing cycle completed
-    CycleCompleted,
+    CycleCompleted {
+        processed_count: usize,
+        applied_count: usize,
+    },
     /// Processing cycle started
-    CycleStarted,
+    CycleStarted(String),
     /// Processing anchor timestamp was updated
-    AnchorUpdated,
+    AnchorUpdated { anchor_timestamp: u64, track: Track },
     /// Tracks were found that need processing
-    TracksFound,
+    TracksFound { count: usize, anchor_timestamp: u64 },
     /// Track edit was successful
-    TrackEdited,
+    TrackEdited {
+        track: LogTrackInfo,
+        edit: LogEditInfo,
+        context: ProcessingContext,
+    },
     /// Track edit failed
-    TrackEditFailed,
+    TrackEditFailed {
+        track: LogTrackInfo,
+        edit: Option<LogEditInfo>,
+        context: ProcessingContext,
+        error: String,
+    },
     /// Track was skipped (dry run, requires confirmation, etc.)
-    TrackSkipped,
+    TrackSkipped {
+        track: LogTrackInfo,
+        context: ProcessingContext,
+        reason: String,
+    },
 }
 
 impl ScrubberEvent {
-    pub fn new(event_type: ScrubberEventType, message: String) -> Self {
+    pub fn new(event_type: ScrubberEventType) -> Self {
         Self {
             timestamp: Utc::now(),
             event_type,
-            message,
-            anchor_timestamp: None,
-            edit_data: None,
-        }
-    }
-
-    pub fn new_with_anchor(
-        event_type: ScrubberEventType,
-        message: String,
-        anchor_timestamp: u64,
-    ) -> Self {
-        Self {
-            timestamp: Utc::now(),
-            event_type,
-            message,
-            anchor_timestamp: Some(anchor_timestamp),
-            edit_data: None,
         }
     }
 
     pub fn started(message: String) -> Self {
-        Self::new(ScrubberEventType::Started, message)
+        Self::new(ScrubberEventType::Started(message))
     }
 
     pub fn stopped(message: String) -> Self {
-        Self::new(ScrubberEventType::Stopped, message)
+        Self::new(ScrubberEventType::Stopped(message))
     }
 
-    pub fn track_processed(track_name: &str, artist_name: &str) -> Self {
-        Self::new(
-            ScrubberEventType::TrackProcessed,
-            format!("🎵 '{track_name}' by '{artist_name}'"),
-        )
+    pub fn track_processed(
+        track: Track,
+        suggestions: Vec<ScrubActionSuggestion>,
+        result: String,
+    ) -> Self {
+        Self::new(ScrubberEventType::TrackProcessed {
+            track,
+            suggestions,
+            result,
+        })
     }
 
     pub fn track_processed_with_result(track_name: &str, artist_name: &str, result: &str) -> Self {
-        Self::new(
-            ScrubberEventType::TrackProcessed,
-            format!("🎵 '{track_name}' by '{artist_name}' - {result}"),
-        )
+        // Create a minimal track for backwards compatibility
+        let track = Track {
+            name: track_name.to_string(),
+            artist: artist_name.to_string(),
+            album: None,
+            album_artist: None,
+            timestamp: None,
+            playcount: 0,
+        };
+        Self::new(ScrubberEventType::TrackProcessed {
+            track,
+            suggestions: vec![],
+            result: result.to_string(),
+        })
     }
 
-    pub fn rule_applied(track_name: &str, artist_name: &str, rule_description: &str) -> Self {
-        Self::new(
-            ScrubberEventType::RuleApplied,
-            format!("Applied rule '{rule_description}' to '{track_name}' by '{artist_name}'"),
-        )
+    pub fn rule_applied(
+        track: Track,
+        suggestion: ScrubActionSuggestion,
+        description: String,
+    ) -> Self {
+        Self::new(ScrubberEventType::RuleApplied {
+            track,
+            suggestion,
+            description,
+        })
     }
 
     pub fn error(message: String) -> Self {
-        Self::new(ScrubberEventType::Error, message)
+        Self::new(ScrubberEventType::Error(message))
     }
 
     pub fn info(message: String) -> Self {
-        Self::new(ScrubberEventType::Info, message)
+        Self::new(ScrubberEventType::Info(message))
     }
 
     pub fn cycle_started(message: String) -> Self {
-        Self::new(ScrubberEventType::CycleStarted, message)
+        Self::new(ScrubberEventType::CycleStarted(message))
     }
 
     pub fn cycle_completed(processed_count: usize, applied_count: usize) -> Self {
-        Self::new(
-            ScrubberEventType::CycleCompleted,
-            format!("Processing cycle completed: {processed_count} tracks processed, {applied_count} rules applied"),
-        )
+        Self::new(ScrubberEventType::CycleCompleted {
+            processed_count,
+            applied_count,
+        })
     }
 
-    pub fn anchor_updated(anchor_timestamp: u64, track_name: &str, artist_name: &str) -> Self {
-        Self::new_with_anchor(
-            ScrubberEventType::AnchorUpdated,
-            format!("Processing anchor updated to '{track_name}' by '{artist_name}'"),
+    pub fn anchor_updated(anchor_timestamp: u64, track: Track) -> Self {
+        Self::new(ScrubberEventType::AnchorUpdated {
             anchor_timestamp,
-        )
+            track,
+        })
+    }
+
+    // Helper for backwards compatibility with old scrubber calls
+    pub fn anchor_updated_from_names(
+        anchor_timestamp: u64,
+        track_name: &str,
+        artist_name: &str,
+    ) -> Self {
+        let track = Track {
+            name: track_name.to_string(),
+            artist: artist_name.to_string(),
+            album: None,
+            album_artist: None,
+            timestamp: Some(anchor_timestamp),
+            playcount: 0,
+        };
+        Self::anchor_updated(anchor_timestamp, track)
     }
 
     pub fn tracks_found(count: usize, anchor_timestamp: u64) -> Self {
-        Self::new_with_anchor(
-            ScrubberEventType::TracksFound,
-            format!("Found {count} tracks to process"),
+        Self::new(ScrubberEventType::TracksFound {
+            count,
             anchor_timestamp,
-        )
+        })
     }
 
     pub fn track_edited(
-        track: &crate::json_logger::LogTrackInfo,
-        edit: &crate::json_logger::LogEditInfo,
-        context: crate::json_logger::ProcessingContext,
+        track: &LogTrackInfo,
+        edit: &LogEditInfo,
+        context: ProcessingContext,
     ) -> Self {
-        Self {
-            timestamp: Utc::now(),
-            event_type: ScrubberEventType::TrackEdited,
-            message: format!("Track '{}' by '{}' was edited", track.name, track.artist),
-            anchor_timestamp: None,
-            edit_data: Some(EditEventData {
-                track: track.clone(),
-                edit: Some(edit.clone()),
-                context,
-                error: None,
-            }),
-        }
+        Self::new(ScrubberEventType::TrackEdited {
+            track: track.clone(),
+            edit: edit.clone(),
+            context,
+        })
     }
 
     pub fn track_edit_failed(
-        track: &crate::json_logger::LogTrackInfo,
-        edit: Option<&crate::json_logger::LogEditInfo>,
-        context: crate::json_logger::ProcessingContext,
+        track: &LogTrackInfo,
+        edit: Option<&LogEditInfo>,
+        context: ProcessingContext,
         error: String,
     ) -> Self {
-        Self {
-            timestamp: Utc::now(),
-            event_type: ScrubberEventType::TrackEditFailed,
-            message: format!(
-                "Failed to edit track '{}' by '{}': {}",
-                track.name, track.artist, error
-            ),
-            anchor_timestamp: None,
-            edit_data: Some(EditEventData {
-                track: track.clone(),
-                edit: edit.cloned(),
-                context,
-                error: Some(error),
-            }),
-        }
+        Self::new(ScrubberEventType::TrackEditFailed {
+            track: track.clone(),
+            edit: edit.cloned(),
+            context,
+            error,
+        })
     }
 
-    pub fn track_skipped(
-        track: &crate::json_logger::LogTrackInfo,
-        context: crate::json_logger::ProcessingContext,
-        reason: String,
-    ) -> Self {
-        Self {
-            timestamp: Utc::now(),
-            event_type: ScrubberEventType::TrackSkipped,
-            message: format!(
-                "Skipped track '{}' by '{}': {}",
-                track.name, track.artist, reason
-            ),
-            anchor_timestamp: None,
-            edit_data: Some(EditEventData {
-                track: track.clone(),
-                edit: None,
-                context,
-                error: None,
-            }),
-        }
+    pub fn track_skipped(track: &LogTrackInfo, context: ProcessingContext, reason: String) -> Self {
+        Self::new(ScrubberEventType::TrackSkipped {
+            track: track.clone(),
+            context,
+            reason,
+        })
     }
 }

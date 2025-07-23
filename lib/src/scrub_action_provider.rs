@@ -36,7 +36,7 @@ impl From<&str> for ActionProviderError {
 }
 
 /// Represents a suggested action from an external source (LLM, API, etc.)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ScrubActionSuggestion {
     /// Suggest an immediate scrobble edit
     Edit(ScrobbleEdit),
