@@ -233,6 +233,11 @@ pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnE
 
 #[server(LoadPendingEdits)]
 pub async fn load_pending_edits() -> Result<Vec<PendingEdit>, ServerFnError> {
+    load_pending_edits_from_page(1).await
+}
+
+#[server(LoadPendingEditsFromPage)]
+pub async fn load_pending_edits_from_page(page: u32) -> Result<Vec<PendingEdit>, ServerFnError> {
     use scrobble_scrubber::config::ScrobbleScrubberConfig;
     use scrobble_scrubber::persistence::{FileStorage, StateStorage};
     use std::sync::Arc;
@@ -252,11 +257,29 @@ pub async fn load_pending_edits() -> Result<Vec<PendingEdit>, ServerFnError> {
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to load pending edits: {e}")))?;
 
-    Ok(pending_edits_state.pending_edits)
+    const ITEMS_PER_PAGE: usize = 10;
+    let start_index = ((page - 1) as usize) * ITEMS_PER_PAGE;
+    let end_index = start_index + ITEMS_PER_PAGE;
+
+    let page_items = pending_edits_state
+        .pending_edits
+        .into_iter()
+        .skip(start_index)
+        .take(ITEMS_PER_PAGE)
+        .collect();
+
+    Ok(page_items)
 }
 
 #[server(LoadPendingRewriteRules)]
 pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, ServerFnError> {
+    load_pending_rewrite_rules_from_page(1).await
+}
+
+#[server(LoadPendingRewriteRulesFromPage)]
+pub async fn load_pending_rewrite_rules_from_page(
+    page: u32,
+) -> Result<Vec<PendingRewriteRule>, ServerFnError> {
     use scrobble_scrubber::config::ScrobbleScrubberConfig;
     use scrobble_scrubber::persistence::{FileStorage, StateStorage};
     use std::sync::Arc;
@@ -276,7 +299,18 @@ pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, Ser
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to load pending rules: {e}")))?;
 
-    Ok(pending_rules_state.pending_rules)
+    const ITEMS_PER_PAGE: usize = 10;
+    let start_index = ((page - 1) as usize) * ITEMS_PER_PAGE;
+    let end_index = start_index + ITEMS_PER_PAGE;
+
+    let page_items = pending_rules_state
+        .pending_rules
+        .into_iter()
+        .skip(start_index)
+        .take(ITEMS_PER_PAGE)
+        .collect();
+
+    Ok(page_items)
 }
 
 #[server(ApprovePendingEdit)]

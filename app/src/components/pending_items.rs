@@ -1,6 +1,6 @@
 use crate::server_functions::{
-    approve_pending_edit, approve_pending_rewrite_rule, load_pending_edits,
-    load_pending_rewrite_rules, reject_pending_edit, reject_pending_rewrite_rule,
+    approve_pending_edit, approve_pending_rewrite_rule, load_pending_edits_from_page,
+    load_pending_rewrite_rules_from_page, reject_pending_edit, reject_pending_rewrite_rule,
 };
 use crate::types::AppState;
 use dioxus::prelude::*;
@@ -34,25 +34,35 @@ fn get_rule_description(rule: &scrobble_scrubber::rewrite::RewriteRule) -> Strin
 pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
     let mut pending_edits = use_signal(Vec::<PendingEdit>::new);
     let mut pending_rules = use_signal(Vec::<PendingRewriteRule>::new);
-    let mut loading = use_signal(|| false);
+    let mut loading_edits = use_signal(|| false);
+    let mut loading_rules = use_signal(|| false);
     let mut error_message = use_signal(String::new);
     let mut success_message = use_signal(String::new);
+    let mut current_edits_page = use_signal(|| 0u32);
+    let mut current_rules_page = use_signal(|| 0u32);
 
-    // Load pending items on mount
+    // Load initial pending items on mount
     use_effect(move || {
         spawn(async move {
-            loading.set(true);
+            loading_edits.set(true);
+            loading_rules.set(true);
             error_message.set(String::new());
 
-            // Load pending edits
-            match load_pending_edits().await {
-                Ok(edits) => pending_edits.set(edits),
+            // Load first page of pending edits
+            match load_pending_edits_from_page(1).await {
+                Ok(edits) => {
+                    pending_edits.set(edits);
+                    current_edits_page.set(1);
+                }
                 Err(e) => error_message.set(format!("Failed to load pending edits: {e}")),
             }
 
-            // Load pending rules
-            match load_pending_rewrite_rules().await {
-                Ok(rules) => pending_rules.set(rules),
+            // Load first page of pending rules
+            match load_pending_rewrite_rules_from_page(1).await {
+                Ok(rules) => {
+                    pending_rules.set(rules);
+                    current_rules_page.set(1);
+                }
                 Err(e) => {
                     let current_error = error_message.read().clone();
                     if current_error.is_empty() {
@@ -65,18 +75,21 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
                 }
             }
 
-            loading.set(false);
+            loading_edits.set(false);
+            loading_rules.set(false);
         });
     });
 
     let reload_data = move || {
         spawn(async move {
-            // Reload both pending edits and rules
-            if let Ok(edits) = load_pending_edits().await {
+            // Reload from page 1 and reset pagination
+            if let Ok(edits) = load_pending_edits_from_page(1).await {
                 pending_edits.set(edits);
+                current_edits_page.set(1);
             }
-            if let Ok(rules) = load_pending_rewrite_rules().await {
+            if let Ok(rules) = load_pending_rewrite_rules_from_page(1).await {
                 pending_rules.set(rules);
+                current_rules_page.set(1);
             }
         });
     };
@@ -85,7 +98,7 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
             h1 { style: "font-size: 2rem; font-weight: bold; margin-bottom: 1rem;", "Pending Items" }
 
-            if *loading.read() {
+            if *loading_edits.read() && pending_edits.read().is_empty() {
                 div { style: "text-align: center; padding: 2rem;",
                     p { "Loading pending items..." }
                 }
@@ -107,12 +120,44 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h2 { style: "font-size: 1.5rem; font-weight: bold;", "Pending Edits" }
-                    span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
-                        "{pending_edits.read().len()} items"
+                    div { style: "display: flex; align-items: center; gap: 1rem;",
+                        span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                            "{pending_edits.read().len()} items"
+                        }
+                        button {
+                            style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {}; font-size: 0.875rem;",
+                                "#059669",
+                                if *loading_edits.read() { "0.5" } else { "1" }
+                            ),
+                            disabled: *loading_edits.read(),
+                            onclick: move |_| async move {
+                                loading_edits.set(true);
+                                let next_page = *current_edits_page.read() + 1;
+
+                                match load_pending_edits_from_page(next_page).await {
+                                    Ok(mut new_edits) => {
+                                        if !new_edits.is_empty() {
+                                            pending_edits.with_mut(|edits| {
+                                                edits.append(&mut new_edits);
+                                            });
+                                            current_edits_page.set(next_page);
+                                        }
+                                    }
+                                    Err(e) => error_message.set(format!("Failed to load more edits: {e}")),
+                                }
+
+                                loading_edits.set(false);
+                            },
+                            if *loading_edits.read() {
+                                "Loading..."
+                            } else {
+                                "Load More Edits"
+                            }
+                        }
                     }
                 }
 
-                if pending_edits.read().is_empty() {
+                if pending_edits.read().is_empty() && !*loading_edits.read() {
                     div { style: "text-align: center; color: #6b7280; padding: 2rem;",
                         p { "No pending edits" }
                     }
@@ -166,12 +211,44 @@ pub fn PendingItemsPage(state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h2 { style: "font-size: 1.5rem; font-weight: bold;", "Pending Rewrite Rules" }
-                    span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
-                        "{pending_rules.read().len()} items"
+                    div { style: "display: flex; align-items: center; gap: 1rem;",
+                        span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                            "{pending_rules.read().len()} items"
+                        }
+                        button {
+                            style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {}; font-size: 0.875rem;",
+                                "#059669",
+                                if *loading_rules.read() { "0.5" } else { "1" }
+                            ),
+                            disabled: *loading_rules.read(),
+                            onclick: move |_| async move {
+                                loading_rules.set(true);
+                                let next_page = *current_rules_page.read() + 1;
+
+                                match load_pending_rewrite_rules_from_page(next_page).await {
+                                    Ok(mut new_rules) => {
+                                        if !new_rules.is_empty() {
+                                            pending_rules.with_mut(|rules| {
+                                                rules.append(&mut new_rules);
+                                            });
+                                            current_rules_page.set(next_page);
+                                        }
+                                    }
+                                    Err(e) => error_message.set(format!("Failed to load more rules: {e}")),
+                                }
+
+                                loading_rules.set(false);
+                            },
+                            if *loading_rules.read() {
+                                "Loading..."
+                            } else {
+                                "Load More Rules"
+                            }
+                        }
                     }
                 }
 
-                if pending_rules.read().is_empty() {
+                if pending_rules.read().is_empty() && !*loading_rules.read() {
                     div { style: "text-align: center; color: #6b7280; padding: 2rem;",
                         p { "No pending rewrite rules" }
                     }

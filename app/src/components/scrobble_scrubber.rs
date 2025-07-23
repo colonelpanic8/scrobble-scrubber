@@ -1,7 +1,6 @@
 use crate::types::{AppState, ScrubberEvent, ScrubberEventType, ScrubberStatus};
 use chrono::Utc;
 use dioxus::prelude::*;
-use lastfm_edit::iterator::AsyncPaginatedIterator;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -167,14 +166,38 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h3 { style: "font-size: 1.25rem; font-weight: bold; margin: 0;", "Processing Anchor" }
-                    button {
-                        style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                        onclick: move |_| {
-                            spawn(async move {
-                                load_recent_tracks_for_timestamp(state).await;
-                            });
-                        },
-                        "Load Recent Tracks"
+                    {
+                        let recent_tracks_loaded = !state.read().recent_tracks.tracks.is_empty();
+                        if recent_tracks_loaded {
+                            rsx! {
+                                div { style: "display: flex; align-items: center; gap: 0.5rem;",
+                                    span { style: "font-size: 0.875rem; color: #059669; background: #d1fae5; padding: 0.25rem 0.5rem; border-radius: 0.25rem;",
+                                        "📂 Using cached recent tracks ({state.read().recent_tracks.tracks.len()} tracks)"
+                                    }
+                                    button {
+                                        style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                        onclick: move |_| {
+                                            spawn(async move {
+                                                load_recent_tracks_for_timestamp(state).await;
+                                            });
+                                        },
+                                        "Refresh"
+                                    }
+                                }
+                            }
+                        } else {
+                            rsx! {
+                                button {
+                                    style: "background: #8b5cf6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                    onclick: move |_| {
+                                        spawn(async move {
+                                            load_recent_tracks_for_timestamp(state).await;
+                                        });
+                                    },
+                                    "Load Recent Tracks"
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -184,7 +207,10 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
 
                 if state.read().recent_tracks.tracks.is_empty() {
                     div { style: "text-align: center; color: #6b7280; padding: 2rem;",
-                        "Click 'Load Recent Tracks' to see your recent scrobbles and set the processing anchor."
+                        p { "No recent tracks loaded yet." }
+                        p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
+                            "Load recent tracks in the Rule Workshop or click 'Load Recent Tracks' above to see your scrobbles and set the processing anchor."
+                        }
                     }
                 } else {
                     div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
@@ -606,6 +632,8 @@ async fn create_scrubber_and_trigger_immediate(
 }
 
 async fn load_recent_tracks_for_timestamp(mut state: Signal<AppState>) {
+    use crate::server_functions::load_recent_tracks_from_page;
+
     let load_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Info,
@@ -615,61 +643,45 @@ async fn load_recent_tracks_for_timestamp(mut state: Signal<AppState>) {
     if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
         let _ = sender.send(load_event.clone());
     }
-
     state.with_mut(|s| s.scrubber_state.events.push(load_event));
 
     // Get session from state
     let session_json = state.read().session.clone();
 
     if let Some(session_json) = session_json {
-        // Create client and fetch recent tracks
-        match serde_json::from_str::<lastfm_edit::LastFmEditSession>(&session_json) {
-            Ok(session) => {
-                let http_client = http_client::native::NativeClient::new();
-                let client =
-                    lastfm_edit::LastFmEditClient::from_session(Box::new(http_client), session);
-
-                let mut recent_iterator = client.recent_tracks();
-                let mut tracks = Vec::new();
-                let mut count = 0;
-
-                // Fetch up to 50 recent tracks
-                while let Ok(Some(track)) = recent_iterator.next().await {
-                    tracks.push(crate::types::SerializableTrack::from(track));
-                    count += 1;
-                    if count >= 50 {
-                        break;
-                    }
-                }
-
+        // Use the same cached server function as the Rule Workshop
+        match load_recent_tracks_from_page(session_json, 1).await {
+            Ok(tracks) => {
                 // Update state with recent tracks
                 state.with_mut(|s| {
                     s.recent_tracks.tracks = tracks;
+                    s.current_page = 1;
                 });
 
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
-                    message: format!("Loaded {count} recent tracks"),
+                    message: format!(
+                        "Loaded {} recent tracks (with caching)",
+                        state.read().recent_tracks.tracks.len()
+                    ),
                 };
 
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(success_event.clone());
                 }
-
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
             }
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Error,
-                    message: format!("Failed to deserialize session: {e}"),
+                    message: format!("Failed to load recent tracks: {e}"),
                 };
 
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(error_event.clone());
                 }
-
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
             }
         }
@@ -683,7 +695,6 @@ async fn load_recent_tracks_for_timestamp(mut state: Signal<AppState>) {
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
             let _ = sender.send(no_session_event.clone());
         }
-
         state.with_mut(|s| s.scrubber_state.events.push(no_session_event));
     }
 }
