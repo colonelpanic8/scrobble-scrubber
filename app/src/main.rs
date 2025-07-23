@@ -54,6 +54,15 @@ fn App() -> Element {
                                         },
                                     );
                                 }
+
+                                // Load cached recent tracks into UI state (if no recent tracks loaded yet)
+                                if s.recent_tracks.tracks.is_empty() {
+                                    if let Some(cached_recent) = s.track_cache.recent_tracks.get(&1)
+                                    {
+                                        s.recent_tracks.tracks = cached_recent.clone();
+                                        s.current_page = 1;
+                                    }
+                                }
                             });
                         }
                         Err(e) => {

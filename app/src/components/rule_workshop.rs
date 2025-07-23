@@ -25,7 +25,22 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
             // Load tracks section and Live preview
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
+                    div {
+                        h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
+                        {
+                            let state_read = state.read();
+                            let cached_pages_count = state_read.track_cache.recent_tracks.len();
+                            if cached_pages_count > 0 {
+                                rsx! {
+                                    p { style: "font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;",
+                                        "📂 {cached_pages_count} pages cached"
+                                    }
+                                }
+                            } else {
+                                rsx! { div {} }
+                            }
+                        }
+                    }
 
                     div { style: "display: flex; align-items: center; gap: 1rem;",
                         // Toggle for showing all tracks vs only matching
@@ -167,8 +182,22 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                                                 "Recent Tracks"
                                             }
                                         }
-                                        span { style: "font-size: 0.75rem; color: #6b7280;",
-                                            "{state_read.recent_tracks.tracks.len()} tracks"
+                                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
+                                            span { style: "font-size: 0.75rem; color: #6b7280;",
+                                                "{state_read.recent_tracks.tracks.len()} tracks"
+                                            }
+                                            // Show cache indicator if recent tracks are cached
+                                            {
+                                                if state_read.track_cache.recent_tracks.contains_key(&state_read.current_page) {
+                                                    rsx! {
+                                                        span { style: "font-size: 0.625rem; color: #059669; background: #d1fae5; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
+                                                            "📂 cached"
+                                                        }
+                                                    }
+                                                } else {
+                                                    rsx! { span {} }
+                                                }
+                                            }
                                         }
                                     }
 
