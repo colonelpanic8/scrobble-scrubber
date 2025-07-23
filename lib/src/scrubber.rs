@@ -222,6 +222,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let mut tracks_to_process = Vec::new();
         info!("Scanning recent tracks to find new tracks since last run...");
 
+        // Debug: Show anchor timestamp
+        if let Some(anchor) = timestamp_state.last_processed_timestamp {
+            trace!("Using anchor timestamp: {anchor}");
+        } else {
+            trace!("No anchor timestamp set (first run)");
+        }
+
         while let Some(track) = recent_iterator.next().await? {
             examined += 1;
 
@@ -230,6 +237,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 if let Some(track_ts) = track.timestamp {
                     let track_time = DateTime::from_timestamp(track_ts as i64, 0);
                     if let Some(track_time) = track_time {
+                        trace!(
+                            "Examining track '{}' by '{}' at {} vs anchor at {}",
+                            track.name,
+                            track.artist,
+                            track_time,
+                            last_processed
+                        );
+
                         if track_time <= last_processed {
                             info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
                                   track.name, track.artist, track_time, tracks_to_process.len());
@@ -241,6 +256,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                             track.name, track.artist, track_time
                         );
                     }
+                } else {
+                    trace!(
+                        "Track '{}' by '{}' has no timestamp",
+                        track.name,
+                        track.artist
+                    );
                 }
             } else {
                 // First run - no anchor timestamp, collect tracks up to limit
@@ -250,17 +271,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 );
             }
 
-            // Check if we've hit the collection limit
-            if tracks_to_process.len() >= self.config.scrubber.max_tracks as usize {
-                info!(
-                    "Reached maximum track collection limit ({}), stopping scan",
-                    self.config.scrubber.max_tracks
-                );
-                break;
-            }
-
             tracks_to_process.push(track);
         }
+
+        trace!("Track scanning complete: examined {examined} tracks from Last.fm API");
 
         info!(
             "Scan complete: examined {} tracks, collected {} tracks to process",
@@ -432,14 +446,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 // Emit rule applied event based on suggestion type
                 let description = match suggestion {
                     crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
-                        trace!("Applied edit: {:?}", edit);
+                        trace!("Applied edit: {edit:?}");
                         "Applied edit".to_string()
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
                         rule,
                         motivation,
                     } => {
-                        trace!("Proposed rule: {:?} with motivation: {}", rule, motivation);
+                        trace!("Proposed rule: {rule:?} with motivation: {motivation}");
                         format!("Proposed rule: {motivation}")
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {

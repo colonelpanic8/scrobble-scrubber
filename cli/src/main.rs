@@ -55,10 +55,6 @@ enum Commands {
         #[arg(short, long)]
         interval: Option<u64>,
 
-        /// Maximum number of tracks to check per run
-        #[arg(short, long)]
-        max_tracks: Option<usize>,
-
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
         dry_run: bool,
@@ -81,9 +77,9 @@ enum Commands {
     },
     /// Run once and exit after processing new tracks since last run
     Once {
-        /// Maximum number of tracks to check
-        #[arg(short, long)]
-        max_tracks: Option<usize>,
+        /// Set timestamp anchor to specific time before processing (ISO 8601 format like "2025-07-22T07:08:00Z")
+        #[arg(long)]
+        set_anchor_timestamp: Option<String>,
 
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
@@ -200,6 +196,12 @@ enum Commands {
         #[arg(short, long)]
         timestamp: String,
     },
+    /// Show recent tracks directly from Last.fm API
+    ShowRecentTracks {
+        /// Number of tracks to show (default: 50)
+        #[arg(short, long, default_value = "50")]
+        limit: usize,
+    },
 }
 
 /// Load configuration from args with optional config file override
@@ -222,7 +224,6 @@ fn merge_args_into_config(
     match &args.command {
         Commands::Run {
             interval,
-            max_tracks,
             dry_run,
             require_confirmation,
             require_proposed_rule_confirmation,
@@ -231,9 +232,6 @@ fn merge_args_into_config(
         } => {
             if let Some(interval) = interval {
                 config.scrubber.interval = *interval;
-            }
-            if let Some(max_tracks) = max_tracks {
-                config.scrubber.max_tracks = *max_tracks as u32;
             }
             if *dry_run {
                 config.scrubber.dry_run = true;
@@ -252,16 +250,13 @@ fn merge_args_into_config(
             }
         }
         Commands::Once {
-            max_tracks,
+            set_anchor_timestamp: _,
             dry_run,
             require_confirmation,
             require_proposed_rule_confirmation,
             enable_web_interface,
             web_port,
         } => {
-            if let Some(max_tracks) = max_tracks {
-                config.scrubber.max_tracks = *max_tracks as u32;
-            }
             if *dry_run {
                 config.scrubber.dry_run = true;
             }
@@ -355,6 +350,9 @@ fn merge_args_into_config(
         }
         Commands::SetAnchorTimestamp { .. } => {
             // No specific configuration needed for setting anchor by timestamp
+        }
+        Commands::ShowRecentTracks { .. } => {
+            // No specific configuration needed for showing recent tracks
         }
     }
 
@@ -600,13 +598,12 @@ async fn set_timestamp_anchor_to_timestamp(
     let timestamp = DateTime::parse_from_rfc3339(timestamp_str)
         .map_err(|e| {
             LastFmError::Io(std::io::Error::other(format!(
-                "Failed to parse timestamp '{}': {}. Use ISO 8601 format like '2025-07-22T07:08:00Z'",
-                timestamp_str, e
+                "Failed to parse timestamp '{timestamp_str}': {e}. Use ISO 8601 format like '2025-07-22T07:08:00Z'"
             )))
         })?
         .with_timezone(&chrono::Utc);
 
-    println!("Setting anchor to timestamp: {}", timestamp);
+    println!("Setting anchor to timestamp: {timestamp}");
 
     let timestamp_state = TimestampState {
         last_processed_timestamp: Some(timestamp),
@@ -624,7 +621,48 @@ async fn set_timestamp_anchor_to_timestamp(
         })?;
 
     println!("✅ Timestamp anchor set successfully");
-    println!("Next scrubber run will process tracks after {}", timestamp);
+    println!("Next scrubber run will process tracks after {timestamp}");
+
+    Ok(())
+}
+
+/// Show recent tracks directly from Last.fm API
+async fn show_recent_tracks_from_api(client: &LastFmEditClient, limit: usize) -> Result<()> {
+    use chrono::DateTime;
+    use lastfm_edit::AsyncPaginatedIterator;
+
+    println!("🎵 Recent Tracks from Last.fm API");
+    println!("=================================");
+
+    let mut recent_iterator = client.recent_tracks();
+    let mut count = 0;
+
+    while let Some(track) = recent_iterator.next().await? {
+        count += 1;
+
+        let timestamp = if let Some(ts) = track.timestamp {
+            DateTime::from_timestamp(ts as i64, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                .unwrap_or_else(|| "Invalid timestamp".to_string())
+        } else {
+            "No timestamp".to_string()
+        };
+
+        println!(
+            "  {}: '{}' by '{}' [{}]",
+            count, track.name, track.artist, timestamp
+        );
+
+        if count >= limit {
+            break;
+        }
+    }
+
+    if count == 0 {
+        println!("  No recent tracks found");
+    } else {
+        println!("\nShowed {count} tracks from Last.fm API");
+    }
 
     Ok(())
 }
@@ -751,6 +789,33 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Handle commands that don't need a scrubber instance first
+    match &args.command {
+        Commands::ShowCache { limit, all_pages } => {
+            show_cache_state(*limit, *all_pages)?;
+            return Ok(());
+        }
+        Commands::ShowRules => {
+            show_active_rules(&storage).await?;
+            return Ok(());
+        }
+        Commands::SetAnchor { tracks } => {
+            set_timestamp_anchor(&storage, *tracks).await?;
+            return Ok(());
+        }
+        Commands::SetAnchorTimestamp { timestamp } => {
+            set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
+            return Ok(());
+        }
+        Commands::ShowRecentTracks { limit } => {
+            show_recent_tracks_from_api(&client, *limit).await?;
+            return Ok(());
+        }
+        _ => {
+            // Continue to create scrubber for other commands
+        }
+    }
+
     // Create scrubber wrapped in Arc<Mutex<>>
     let scrubber = Arc::new(Mutex::new(ScrobbleScrubber::new(
         storage.clone(),
@@ -792,21 +857,25 @@ async fn main() -> Result<()> {
             info!("Rule workshop TUI closed");
             return Ok(());
         }
-        Commands::ShowCache { limit, all_pages } => {
-            show_cache_state(*limit, *all_pages)?;
-            return Ok(());
+        Commands::ShowCache { .. } => {
+            // This case is handled above
+            unreachable!("ShowCache command should have been handled earlier");
         }
         Commands::ShowRules => {
-            show_active_rules(&storage).await?;
-            return Ok(());
+            // This case is handled above
+            unreachable!("ShowRules command should have been handled earlier");
         }
-        Commands::SetAnchor { tracks } => {
-            set_timestamp_anchor(&storage, *tracks).await?;
-            return Ok(());
+        Commands::SetAnchor { .. } => {
+            // This case is handled above
+            unreachable!("SetAnchor command should have been handled earlier");
         }
-        Commands::SetAnchorTimestamp { timestamp } => {
-            set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
-            return Ok(());
+        Commands::SetAnchorTimestamp { .. } => {
+            // This case is handled above
+            unreachable!("SetAnchorTimestamp command should have been handled earlier");
+        }
+        Commands::ShowRecentTracks { .. } => {
+            // This case is handled above
+            unreachable!("ShowRecentTracks command should have been handled earlier");
         }
         _ => {
             // For other commands, we need to acquire the lock
@@ -819,7 +888,16 @@ async fn main() -> Result<()> {
             info!("Starting continuous monitoring mode");
             scrubber_guard.run().await?;
         }
-        Commands::Once { .. } => {
+        Commands::Once {
+            set_anchor_timestamp,
+            ..
+        } => {
+            if let Some(timestamp_str) = set_anchor_timestamp {
+                info!("Setting timestamp anchor before processing");
+                drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
+                set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
+                scrubber_guard = scrubber.lock().await; // Re-acquire lock
+            }
             info!("Running single pass");
             scrubber_guard.trigger_run().await?;
         }
@@ -883,6 +961,10 @@ async fn main() -> Result<()> {
         Commands::SetAnchorTimestamp { .. } => {
             // This case is handled above
             unreachable!("SetAnchorTimestamp command should have been handled earlier");
+        }
+        Commands::ShowRecentTracks { .. } => {
+            // This case is handled above
+            unreachable!("ShowRecentTracks command should have been handled earlier");
         }
     }
 

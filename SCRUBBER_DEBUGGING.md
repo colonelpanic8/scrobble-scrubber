@@ -35,7 +35,7 @@ RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dr
 
 
 ## Expected Behavior
-Should see trace logs showing rules applying to Beatles tracks with patterns like:
+Should see trace logaas showing rules applying to Beatles tracks with patterns like:
 - Track name: "Cry Baby Cry - Remastered 2009" should match pattern `(.+) -.*Remaster.*` → "Cry Baby Cry"
 
 ## Next Steps

@@ -82,7 +82,12 @@
       "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 20)",
       "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- last-n --tracks 100 --dry-run)",
       "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 5)",
-      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 50)"
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 50)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 5 --set-anchor-timestamp \"2025-07-22T07:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- artist --name \"The Beatles\" --dry-run)",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 10 --set-anchor-timestamp \"2025-07-22T07:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=trace cargo run -p scrobble-scrubber-cli -- once --dry-run --max-tracks 75 --set-anchor-timestamp \"2025-07-22T07:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=info cargo run -p scrobble-scrubber-cli -- once --dry-run --set-anchor-timestamp \"2025-07-22T07:00:00Z\")"
     ],
     "deny": [
       "Bash(dx serve:*)"
