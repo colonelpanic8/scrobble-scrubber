@@ -456,6 +456,40 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         let batch_suggestions = self.analyze_tracks(tracks).await;
 
+        // Process each track individually and emit detailed events
+        for (track_index, track) in tracks.iter().enumerate() {
+            info!(
+                "Processing track: {} - {} (index {})",
+                track.artist, track.name, track_index
+            );
+
+            // Find suggestions for this track
+            let empty_suggestions = vec![];
+            let track_suggestions = batch_suggestions
+                .iter()
+                .find(|(index, _)| *index == track_index)
+                .map(|(_, suggestions)| suggestions)
+                .unwrap_or(&empty_suggestions);
+
+            // Determine processing result
+            let result = if track_suggestions.is_empty() {
+                "no rules applied".to_string()
+            } else {
+                match track_suggestions.len() {
+                    1 => "1 rule applied".to_string(),
+                    n => format!("{n} rules applied"),
+                }
+            };
+
+            // Emit detailed track processed event
+            self.emit_event(ScrubberEvent::track_processed_with_result(
+                &track.name,
+                &track.artist,
+                &result,
+            ));
+        }
+
+        // Then apply suggestions
         for (track_index, suggestions) in batch_suggestions {
             if track_index >= tracks.len() {
                 log::warn!(
@@ -467,22 +501,21 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
 
             let track = &tracks[track_index];
+
+            if suggestions.is_empty() {
+                info!(
+                    "No suggestions for track: {} - {}",
+                    track.artist, track.name
+                );
+                continue;
+            }
+
             info!(
-                "Processing track: {} - {} ({} suggestions)",
+                "Applying {} suggestions to track: {} - {}",
+                suggestions.len(),
                 track.artist,
-                track.name,
-                suggestions.len()
+                track.name
             );
-
-            trace!(
-                "Track details - Album: {:?}, Timestamp: {:?}, Playcount: {}",
-                track.album,
-                track.timestamp,
-                track.playcount
-            );
-
-            // Emit track processed event
-            self.emit_event(ScrubberEvent::track_processed(&track.name, &track.artist));
 
             for (i, suggestion) in suggestions.iter().enumerate() {
                 trace!(

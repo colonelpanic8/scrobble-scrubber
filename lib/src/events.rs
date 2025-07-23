@@ -67,7 +67,14 @@ impl ScrubberEvent {
     pub fn track_processed(track_name: &str, artist_name: &str) -> Self {
         Self::new(
             ScrubberEventType::TrackProcessed,
-            format!("Processed '{track_name}' by '{artist_name}'"),
+            format!("🎵 '{track_name}' by '{artist_name}'"),
+        )
+    }
+
+    pub fn track_processed_with_result(track_name: &str, artist_name: &str, result: &str) -> Self {
+        Self::new(
+            ScrubberEventType::TrackProcessed,
+            format!("🎵 '{track_name}' by '{artist_name}' - {result}"),
         )
     }
 
