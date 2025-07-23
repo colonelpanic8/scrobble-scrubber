@@ -23,22 +23,32 @@ pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
 pub fn any_rules_apply(rules: &[RewriteRule], track: &Track) -> Result<bool, RewriteError> {
     use log::trace;
 
-    trace!("Checking {rules_len} rules against track '{track_name}' by '{track_artist}'", 
-           rules_len = rules.len(), track_name = track.name, track_artist = track.artist);
+    trace!(
+        "Checking {rules_len} rules against track '{track_name}' by '{track_artist}'",
+        rules_len = rules.len(),
+        track_name = track.name,
+        track_artist = track.artist
+    );
 
     for (i, rule) in rules.iter().enumerate() {
         let rule_name = rule.name.as_deref().unwrap_or("unnamed");
         trace!("Checking rule {i} '{rule_name}' against track");
 
         if rule.applies_to(track)? {
-            trace!("Rule {i} '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
-                   track_name = track.name, track_artist = track.artist);
+            trace!(
+                "Rule {i} '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
+                track_name = track.name,
+                track_artist = track.artist
+            );
             return Ok(true);
         }
     }
 
-    trace!("No rules apply to track '{track_name}' by '{track_artist}'",
-           track_name = track.name, track_artist = track.artist);
+    trace!(
+        "No rules apply to track '{track_name}' by '{track_artist}'",
+        track_name = track.name,
+        track_artist = track.artist
+    );
     Ok(false)
 }
 
@@ -424,8 +434,11 @@ impl RewriteRule {
 
         // Rule applies if all present rules would modify their fields
         // Rules with all None fields are treated as always matching (catch-all)
-        trace!("Rule '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
-               track_name = track.name, track_artist = track.artist);
+        trace!(
+            "Rule '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
+            track_name = track.name,
+            track_artist = track.artist
+        );
         Ok(true)
     }
 

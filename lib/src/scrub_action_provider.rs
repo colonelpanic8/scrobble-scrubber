@@ -118,10 +118,14 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
                 // Apply all rules to see what changes would be made
                 let mut edit = crate::rewrite::create_no_op_edit(track);
                 let changes_made = crate::rewrite::apply_all_rules(&self.rules, &mut edit)?;
-                trace!("RewriteRulesScrubActionProvider track {index}: changes_made={changes_made}");
+                trace!(
+                    "RewriteRulesScrubActionProvider track {index}: changes_made={changes_made}"
+                );
 
                 if changes_made {
-                    trace!("RewriteRulesScrubActionProvider track {index}: creating edit suggestion");
+                    trace!(
+                        "RewriteRulesScrubActionProvider track {index}: creating edit suggestion"
+                    );
                     // Always return the ScrobbleEdit - let the scrubber handle confirmation logic
                     // The scrubber will check both global settings and individual rule confirmation requirements
                     suggestions.push(ScrubActionSuggestion::Edit(edit));

@@ -507,92 +507,120 @@ async fn process_scrobbles(
         // Subscribe to detailed events from the scrubber library
         let mut event_receiver = scrubber.subscribe_events();
 
-        // Spawn a task to forward detailed events from the scrubber library to the web app
-        let sender_clone = sender.clone();
-        let mut state_clone = *state;
-        spawn(async move {
-            let mut tracks_processed = 0;
-            let mut rules_applied = 0;
-
-            while let Ok(lib_event) = event_receiver.recv().await {
-                // Convert library event to web app event
-                let web_event = match lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed => {
-                        tracks_processed += 1;
-                        ScrubberEvent {
-                            timestamp: lib_event.timestamp,
-                            event_type: ScrubberEventType::TrackProcessed,
-                            message: format!("{} (Total: {tracks_processed})", lib_event.message),
-                        }
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied => {
-                        rules_applied += 1;
-                        ScrubberEvent {
-                            timestamp: lib_event.timestamp,
-                            event_type: ScrubberEventType::RuleApplied,
-                            message: format!("{} (Total: {rules_applied})", lib_event.message),
-                        }
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted => {
-                        ScrubberEvent {
-                            timestamp: lib_event.timestamp,
-                            event_type: ScrubberEventType::Info,
-                            message: format!("Processing cycle completed: {tracks_processed} tracks processed, {rules_applied} rules applied"),
-                        }
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::CycleStarted => {
-                        tracks_processed = 0;
-                        rules_applied = 0;
-                        ScrubberEvent {
-                            timestamp: lib_event.timestamp,
-                            event_type: ScrubberEventType::Info,
-                            message: lib_event.message,
-                        }
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::Error => ScrubberEvent {
-                        timestamp: lib_event.timestamp,
-                        event_type: ScrubberEventType::Error,
-                        message: lib_event.message,
-                    },
-                    ::scrobble_scrubber::events::ScrubberEventType::Info => ScrubberEvent {
-                        timestamp: lib_event.timestamp,
-                        event_type: ScrubberEventType::Info,
-                        message: lib_event.message,
-                    },
-                    _ => ScrubberEvent {
-                        timestamp: lib_event.timestamp,
-                        event_type: ScrubberEventType::Info,
-                        message: lib_event.message,
-                    },
-                };
-
-                // Forward to web app event system
-                let _ = sender_clone.send(web_event.clone());
-                state_clone.with_mut(|s| {
-                    s.scrubber_state.events.push(web_event.clone());
-                    // Update counters based on event type
-                    match web_event.event_type {
-                        ScrubberEventType::TrackProcessed => {
-                            s.scrubber_state.processed_count += 1;
-                        }
-                        ScrubberEventType::RuleApplied => {
-                            s.scrubber_state.rules_applied_count += 1;
-                        }
-                        _ => {}
-                    }
-                });
-            }
-        });
+        // Start logging before processing
+        let start_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ScrubberEventType::Info,
+            message: "Starting to process last 50 tracks...".to_string(),
+        };
+        let _ = sender.send(start_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(start_event));
 
         // Run a single processing cycle (process last 50 tracks)
         let processing_result = scrubber.process_last_n_tracks(50).await;
 
+        // Process events after scrubbing completes to get the actual counts
+        let mut tracks_processed = 0;
+        let mut rules_applied = 0;
+        let mut final_message = "Processing completed".to_string();
+
+        // Process events with a timeout to collect statistics
+        let mut has_cycle_completed = false;
+
+        while !has_cycle_completed {
+            match tokio::time::timeout(
+                tokio::time::Duration::from_millis(50),
+                event_receiver.recv(),
+            )
+            .await
+            {
+                Ok(Ok(lib_event)) => {
+                    // Convert library event to web app event
+                    let web_event = match lib_event.event_type {
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed => {
+                            tracks_processed += 1;
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::TrackProcessed,
+                                message: format!(
+                                    "{} (Total: {tracks_processed})",
+                                    lib_event.message
+                                ),
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::RuleApplied => {
+                            rules_applied += 1;
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::RuleApplied,
+                                message: format!("{} (Total: {rules_applied})", lib_event.message),
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted => {
+                            has_cycle_completed = true;
+                            final_message = lib_event.message.clone(); // Get the exact message from the library
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::Info,
+                                message: lib_event.message,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::CycleStarted => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::Info,
+                                message: lib_event.message,
+                            }
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::Error => ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::Error,
+                            message: lib_event.message,
+                        },
+                        ::scrobble_scrubber::events::ScrubberEventType::Info => ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::Info,
+                            message: lib_event.message,
+                        },
+                        _ => ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::Info,
+                            message: lib_event.message,
+                        },
+                    };
+
+                    // Forward to web app event system immediately
+                    let _ = sender.send(web_event.clone());
+                    state.with_mut(|s| {
+                        s.scrubber_state.events.push(web_event.clone());
+                        // Update counters based on event type
+                        match web_event.event_type {
+                            ScrubberEventType::TrackProcessed => {
+                                s.scrubber_state.processed_count += 1;
+                            }
+                            ScrubberEventType::RuleApplied => {
+                                s.scrubber_state.rules_applied_count += 1;
+                            }
+                            _ => {}
+                        }
+                    });
+                }
+                Ok(Err(_)) => break, // Channel closed
+                Err(_) => break,     // Timeout - stop waiting
+            }
+        }
+
         match processing_result {
             Ok(()) => {
+                // Use the final message from the library if we got it, otherwise create a fallback
+                if !has_cycle_completed {
+                    final_message = format!("Processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
+                }
+
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
-                    message: "Scrubber processing completed successfully".to_string(),
+                    message: final_message,
                 };
                 let _ = sender.send(success_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
