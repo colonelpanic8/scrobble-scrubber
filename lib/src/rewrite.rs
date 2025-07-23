@@ -287,16 +287,14 @@ impl RewriteRule {
 
     /// Check if this rule would apply to the given track (without creating an edit)
     ///
-    /// A rule applies only when ALL non-empty (Some) regex patterns would match their respective fields.
-    /// If any non-empty regex pattern doesn't match, the rule doesn't apply.
-    /// Empty (None) fields are ignored.
+    /// A rule applies when:
+    /// - All None fields are considered as always matching
+    /// - All Some fields must match their respective track fields
+    /// - A rule with all None fields is treated as always matching (acts as a catch-all)
+    /// - If any Some field doesn't match, the rule doesn't apply
     pub fn applies_to(&self, track: &Track) -> Result<bool, RewriteError> {
-        // Collect all non-empty rules and check if they ALL would modify their respective fields
-        let mut has_any_rules = false;
-
         // Check track name transformation if present
         if let Some(rule) = &self.track_name {
-            has_any_rules = true;
             if !rule.would_modify(&track.name)? {
                 return Ok(false);
             }
@@ -304,7 +302,6 @@ impl RewriteRule {
 
         // Check artist name transformation if present
         if let Some(rule) = &self.artist_name {
-            has_any_rules = true;
             if !rule.would_modify(&track.artist)? {
                 return Ok(false);
             }
@@ -312,7 +309,6 @@ impl RewriteRule {
 
         // Check album name transformation if present
         if let Some(rule) = &self.album_name {
-            has_any_rules = true;
             let album_name = track.album.as_deref().unwrap_or("");
             if !rule.would_modify(album_name)? {
                 return Ok(false);
@@ -321,14 +317,14 @@ impl RewriteRule {
 
         // Check album artist name transformation if present (always empty for Track)
         if let Some(rule) = &self.album_artist_name {
-            has_any_rules = true;
             if !rule.would_modify("")? {
                 return Ok(false);
             }
         }
 
-        // Rule applies only if we have at least one rule and all present rules would modify
-        Ok(has_any_rules)
+        // Rule applies if all present rules would modify their fields
+        // Rules with all None fields are treated as always matching (catch-all)
+        Ok(true)
     }
 
     /// Apply this rule to an existing `ScrobbleEdit`, modifying it in place
