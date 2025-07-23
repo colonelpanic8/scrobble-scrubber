@@ -16,83 +16,13 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
     let mut show_cache_info = use_signal(|| false);
 
     rsx! {
-        div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
-            // Rule editor
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                h2 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Rule Workshop" }
-                RuleEditor { state }
-            }
+        div {
+            style: "display: flex; flex-direction: column; gap: 1.5rem;",
 
-            // Load tracks section and Live preview
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    div {
-                        h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
-                        {
-                            let state_read = state.read();
-                            let cached_pages_count = state_read.track_cache.recent_tracks.len();
-                            if cached_pages_count > 0 {
-                                rsx! {
-                                    p { style: "font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;",
-                                        "📂 {cached_pages_count} pages cached"
-                                    }
-                                }
-                            } else {
-                                rsx! { div {} }
-                            }
-                        }
-                    }
-
-                    div { style: "display: flex; align-items: center; gap: 1rem;",
-                        // Toggle for showing all tracks vs only matching
-                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
-                            input {
-                                r#type: "checkbox",
-                                id: "show-all-tracks",
-                                checked: "{state.read().show_all_tracks}",
-                                onchange: move |e| {
-                                    state.with_mut(|s| s.show_all_tracks = e.checked());
-                                }
-                            }
-                            label {
-                                r#for: "show-all-tracks",
-                                style: "font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer;",
-                                "Show all tracks"
-                            }
-                        }
-
-                        button {
-                        style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {};",
-                            "#059669",
-                            if *loading_tracks.read() { "0.5" } else { "1" }
-                        ),
-                        disabled: *loading_tracks.read(),
-                        onclick: move |_| async move {
-                            let (session_str, current_page) = {
-                                let s = state.read();
-                                (s.session.clone(), s.current_page)
-                            };
-                            if let Some(session_str) = session_str {
-                                loading_tracks.set(true);
-                                let next_page = current_page + 1;
-                                if let Ok(_new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
-                                    state.with_mut(|s| {
-                                        s.current_page = next_page;
-                                        // Reload cache to get the newly cached tracks
-                                        s.track_cache = TrackCache::load();
-                                    });
-                                }
-                                loading_tracks.set(false);
-                            }
-                        },
-                        if *loading_tracks.read() {
-                            "Loading..."
-                        } else {
-                            "Load More Recent Tracks"
-                        }
-                        }
-                    }
-                }
+            // Track controls section - placed at the top
+            div {
+                style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                h2 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Track Sources" }
 
                 // Artist loading section
                 div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;",
@@ -346,8 +276,79 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                         }
                     }
                 }
+            }
 
-                RulePreview { state, rules_type: PreviewType::CurrentRule }
+            // Responsive container for rule editor and preview
+            div {
+                style: "display: flex; flex-wrap: wrap; gap: 1.5rem;",
+
+                // Rule editor - takes up left column on large screens
+                div {
+                    style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem; flex: 1; min-width: 400px;",
+                    h2 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Rule Editor" }
+                    RuleEditor { state }
+                }
+
+                // Live preview - takes up right column on large screens
+                div {
+                    style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem; flex: 1; min-width: 400px; max-height: 80vh; overflow-y: auto;",
+
+                    div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
+                        h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
+
+                        div { style: "display: flex; align-items: center; gap: 1rem;",
+                            // Toggle for showing all tracks vs only matching
+                            div { style: "display: flex; align-items: center; gap: 0.5rem;",
+                                input {
+                                    r#type: "checkbox",
+                                    id: "show-all-tracks",
+                                    checked: "{state.read().show_all_tracks}",
+                                    onchange: move |e| {
+                                        state.with_mut(|s| s.show_all_tracks = e.checked());
+                                    }
+                                }
+                                label {
+                                    r#for: "show-all-tracks",
+                                    style: "font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer;",
+                                    "Show all tracks"
+                                }
+                            }
+
+                            button {
+                                style: format!("background: {}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; opacity: {};",
+                                    "#059669",
+                                    if *loading_tracks.read() { "0.5" } else { "1" }
+                                ),
+                                disabled: *loading_tracks.read(),
+                                onclick: move |_| async move {
+                                    let (session_str, current_page) = {
+                                        let s = state.read();
+                                        (s.session.clone(), s.current_page)
+                                    };
+                                    if let Some(session_str) = session_str {
+                                        loading_tracks.set(true);
+                                        let next_page = current_page + 1;
+                                        if let Ok(_new_tracks) = load_recent_tracks_from_page(session_str, next_page).await {
+                                            state.with_mut(|s| {
+                                                s.current_page = next_page;
+                                                // Reload cache to get the newly cached tracks
+                                                s.track_cache = TrackCache::load();
+                                            });
+                                        }
+                                        loading_tracks.set(false);
+                                    }
+                                },
+                                if *loading_tracks.read() {
+                                    "Loading..."
+                                } else {
+                                    "Load More Recent Tracks"
+                                }
+                            }
+                        }
+                    }
+
+                    RulePreview { state, rules_type: PreviewType::CurrentRule }
+                }
             }
         }
     }

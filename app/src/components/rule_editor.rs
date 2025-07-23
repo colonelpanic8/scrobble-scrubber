@@ -37,7 +37,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
             // Track Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
                 h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Track Name" }
-                div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;",
+                div { style: "display: grid; grid-template-columns: 1fr; gap: 1rem;",
                     div {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
@@ -70,7 +70,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
             // Artist Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
                 h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Artist Name" }
-                div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;",
+                div { style: "display: grid; grid-template-columns: 1fr; gap: 1rem;",
                     div {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
@@ -103,7 +103,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
             // Album Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
                 h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Album Name" }
-                div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;",
+                div { style: "display: grid; grid-template-columns: 1fr; gap: 1rem;",
                     div {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
@@ -136,7 +136,7 @@ pub fn RuleEditor(mut state: Signal<AppState>) -> Element {
             // Album Artist Name
             div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;",
                 h3 { style: "font-weight: 600; margin-bottom: 1rem; color: #374151;", "Album Artist Name" }
-                div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;",
+                div { style: "display: grid; grid-template-columns: 1fr; gap: 1rem;",
                     div {
                         label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.25rem;", "Find" }
                         input {
