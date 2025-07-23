@@ -72,7 +72,9 @@
       "Bash(dx build:*)",
       "Bash(nix develop:*)",
       "Bash(./verify_fix)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber set-anchor --tracks 5)",
+      "Bash(RUST_LOG=trace ./target/debug/scrobble-scrubber once --dry-run --max-tracks 3)"
     ],
     "deny": [
       "Bash(dx serve:*)"

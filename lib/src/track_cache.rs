@@ -1,8 +1,42 @@
-use crate::types::SerializableTrack;
+use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+/// Serializable version of Track for caching
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SerializableTrack {
+    pub name: String,
+    pub artist: String,
+    pub album: Option<String>,
+    pub timestamp: Option<u64>,
+    pub playcount: u32,
+}
+
+impl From<Track> for SerializableTrack {
+    fn from(track: Track) -> Self {
+        Self {
+            name: track.name,
+            artist: track.artist,
+            album: track.album,
+            timestamp: track.timestamp,
+            playcount: track.playcount,
+        }
+    }
+}
+
+impl From<SerializableTrack> for Track {
+    fn from(strack: SerializableTrack) -> Self {
+        Self {
+            name: strack.name,
+            artist: strack.artist,
+            album: strack.album,
+            timestamp: strack.timestamp,
+            playcount: strack.playcount,
+        }
+    }
+}
 
 /// Cache structure for storing track data on disk
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,11 +73,10 @@ impl Default for TrackCache {
     }
 }
 
-#[allow(dead_code)]
 impl TrackCache {
-    /// Get the cache file path
+    /// Get the cache file path using the config
     fn cache_file_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-        use scrobble_scrubber::config::ScrobbleScrubberConfig;
+        use crate::config::ScrobbleScrubberConfig;
 
         // Try to load config to get the proper storage directory
         match ScrobbleScrubberConfig::load() {
@@ -58,14 +91,21 @@ impl TrackCache {
             }
             Err(_) => {
                 // Fallback to XDG cache dir if config can't be loaded
-                let cache_dir = dirs::cache_dir()
-                    .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))
-                    .ok_or("Could not determine cache directory")?;
+                #[cfg(feature = "cli")]
+                {
+                    let cache_dir = dirs::cache_dir()
+                        .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))
+                        .ok_or("Could not determine cache directory")?;
 
-                let app_cache_dir = cache_dir.join("scrobble-scrubber");
-                fs::create_dir_all(&app_cache_dir)?;
+                    let app_cache_dir = cache_dir.join("scrobble-scrubber");
+                    fs::create_dir_all(&app_cache_dir)?;
 
-                Ok(app_cache_dir.join("track_cache.json"))
+                    Ok(app_cache_dir.join("track_cache.json"))
+                }
+                #[cfg(not(feature = "cli"))]
+                {
+                    Err("Cannot determine cache directory without cli feature".into())
+                }
             }
         }
     }
@@ -77,11 +117,11 @@ impl TrackCache {
                 match fs::read_to_string(&path) {
                     Ok(content) => match serde_json::from_str::<Self>(&content) {
                         Ok(cache) => {
-                            println!("✅ Loaded track cache from {}", path.display());
+                            log::info!("Loaded track cache from {}", path.display());
                             cache
                         }
                         Err(e) => {
-                            eprintln!("⚠️ Failed to parse cache file: {e}, using empty cache");
+                            log::warn!("Failed to parse cache file: {e}, using empty cache");
                             Self::default()
                         }
                     },
@@ -92,7 +132,7 @@ impl TrackCache {
                 }
             }
             Err(e) => {
-                eprintln!("⚠️ Could not determine cache path: {e}, using empty cache");
+                log::warn!("Could not determine cache path: {e}, using empty cache");
                 Self::default()
             }
         }
@@ -103,7 +143,7 @@ impl TrackCache {
         let path = Self::cache_file_path()?;
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&path, content)?;
-        println!("💾 Saved track cache to {}", path.display());
+        log::info!("Saved track cache to {}", path.display());
         Ok(())
     }
 
@@ -164,10 +204,33 @@ impl TrackCache {
             last_updated: self.metadata.last_updated,
         }
     }
+
+    /// Get all recent tracks across all pages, sorted by timestamp (newest first)
+    pub fn get_all_recent_tracks(&self) -> Vec<SerializableTrack> {
+        let mut tracks: Vec<SerializableTrack> =
+            self.recent_tracks.values().flatten().cloned().collect();
+
+        // Sort by timestamp, newest first (higher timestamp = more recent)
+        tracks.sort_by(|a, b| {
+            match (a.timestamp, b.timestamp) {
+                (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
+                (Some(_), None) => std::cmp::Ordering::Less, // Tracks with timestamps come first
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
+
+        tracks
+    }
+
+    /// Get the N most recent tracks
+    pub fn get_recent_tracks_limited(&self, limit: usize) -> Vec<SerializableTrack> {
+        let all_tracks = self.get_all_recent_tracks();
+        all_tracks.into_iter().take(limit).collect()
+    }
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct CacheStats {
     pub recent_pages: usize,
     pub recent_track_count: usize,
@@ -179,14 +242,23 @@ pub struct CacheStats {
 
 impl std::fmt::Display for CacheStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let last_updated = if self.last_updated > 0 {
+            chrono::DateTime::from_timestamp(self.last_updated as i64, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "Unknown".to_string())
+        } else {
+            "Never".to_string()
+        };
+
         write!(
             f,
-            "Cache: {} recent pages ({} tracks), {} artists ({} tracks), total: {} tracks",
+            "Cache Statistics:\n  Recent: {} pages ({} tracks)\n  Artists: {} artists ({} tracks)\n  Total: {} tracks\n  Last Updated: {}",
             self.recent_pages,
             self.recent_track_count,
             self.artist_count,
             self.artist_track_count,
-            self.total_tracks
+            self.total_tracks,
+            last_updated
         )
     }
 }

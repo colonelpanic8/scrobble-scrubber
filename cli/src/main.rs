@@ -177,6 +177,23 @@ enum Commands {
     },
     /// Start the rule workshop TUI for evaluating rewrite rules
     Workshop,
+    /// Show recent tracks cache state (track names, artists, timestamps)
+    ShowCache {
+        /// Limit the number of tracks to show (default: 50)
+        #[arg(short, long, default_value = "50")]
+        limit: usize,
+        /// Show tracks from all cached pages
+        #[arg(long)]
+        all_pages: bool,
+    },
+    /// Show current active rewrite rules
+    ShowRules,
+    /// Set timestamp anchor back N tracks from current position
+    SetAnchor {
+        /// Number of tracks to go back
+        #[arg(short, long)]
+        tracks: u32,
+    },
 }
 
 /// Load configuration from args with optional config file override
@@ -321,6 +338,15 @@ fn merge_args_into_config(
         Commands::Workshop => {
             // No specific configuration needed for TUI workshop
         }
+        Commands::ShowCache { .. } => {
+            // No specific configuration needed for cache inspection
+        }
+        Commands::ShowRules => {
+            // No specific configuration needed for rules inspection
+        }
+        Commands::SetAnchor { .. } => {
+            // No specific configuration needed for setting anchor
+        }
     }
 
     // Apply global args overrides
@@ -349,6 +375,205 @@ fn merge_args_into_config(
     }
 
     config
+}
+
+/// Show recent tracks cache state (track names, artists, timestamps)
+fn show_cache_state(limit: usize, all_pages: bool) -> Result<()> {
+    use chrono::DateTime;
+    use scrobble_scrubber::track_cache::TrackCache;
+
+    let cache = TrackCache::load();
+
+    println!("📂 Track Cache State");
+    println!("==================");
+
+    // Show recent tracks
+    let recent_tracks_count: usize = cache.recent_tracks.values().map(|v| v.len()).sum();
+    let pages_count = cache.recent_tracks.len();
+
+    println!("Recent Tracks:");
+    println!("  {pages_count} pages cached, {recent_tracks_count} total tracks");
+
+    if recent_tracks_count > 0 {
+        let tracks = if all_pages {
+            cache.get_all_recent_tracks()
+        } else {
+            cache.get_recent_tracks_limited(limit)
+        };
+
+        println!("  Showing {} tracks:", tracks.len().min(limit));
+        for (i, track) in tracks.iter().take(limit).enumerate() {
+            let timestamp = track
+                .timestamp
+                .map(|ts| {
+                    DateTime::from_timestamp(ts as i64, 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                        .unwrap_or_else(|| "Invalid timestamp".to_string())
+                })
+                .unwrap_or_else(|| "No timestamp".to_string());
+
+            println!(
+                "    {}: '{}' by '{}' [{}]",
+                i + 1,
+                track.name,
+                track.artist,
+                timestamp
+            );
+        }
+
+        if tracks.len() > limit {
+            println!("    ... and {} more tracks", tracks.len() - limit);
+        }
+    } else {
+        println!("  No recent tracks cached");
+    }
+
+    // Show artist tracks
+    let artist_tracks_count: usize = cache.artist_tracks.values().map(|v| v.len()).sum();
+    let artists_count = cache.artist_tracks.len();
+
+    println!("\nArtist Tracks:");
+    println!("  {artists_count} artists cached, {artist_tracks_count} total tracks");
+
+    if artists_count > 0 {
+        for (artist, tracks) in &cache.artist_tracks {
+            println!("    '{}': {} tracks", artist, tracks.len());
+        }
+    } else {
+        println!("  No artist tracks cached");
+    }
+
+    Ok(())
+}
+
+/// Show current active rewrite rules
+async fn show_active_rules(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+) -> Result<()> {
+    use scrobble_scrubber::persistence::StateStorage;
+
+    println!("📝 Active Rewrite Rules");
+    println!("=====================");
+
+    let rules_state = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load rewrite rules: {e}"
+            )))
+        })?;
+
+    if rules_state.rewrite_rules.is_empty() {
+        println!("No rewrite rules configured");
+        return Ok(());
+    }
+
+    println!("Found {} rewrite rules:", rules_state.rewrite_rules.len());
+
+    for (i, rule) in rules_state.rewrite_rules.iter().enumerate() {
+        println!(
+            "  Rule {}: {}",
+            i + 1,
+            rule.name.as_deref().unwrap_or(&format!("Rule #{}", i + 1))
+        );
+
+        if let Some(track_rule) = &rule.track_name {
+            println!(
+                "    Track: '{}' → '{}'",
+                track_rule.find, track_rule.replace
+            );
+        }
+        if let Some(artist_rule) = &rule.artist_name {
+            println!(
+                "    Artist: '{}' → '{}'",
+                artist_rule.find, artist_rule.replace
+            );
+        }
+        if let Some(album_rule) = &rule.album_name {
+            println!(
+                "    Album: '{}' → '{}'",
+                album_rule.find, album_rule.replace
+            );
+        }
+        if let Some(album_artist_rule) = &rule.album_artist_name {
+            println!(
+                "    Album Artist: '{}' → '{}'",
+                album_artist_rule.find, album_artist_rule.replace
+            );
+        }
+
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Set timestamp anchor back N tracks from current position
+async fn set_timestamp_anchor(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    tracks_back: u32,
+) -> Result<()> {
+    use chrono::DateTime;
+    use scrobble_scrubber::persistence::{StateStorage, TimestampState};
+    use scrobble_scrubber::track_cache::TrackCache;
+
+    println!("⏰ Setting Timestamp Anchor");
+    println!("=========================");
+
+    let cache = TrackCache::load();
+    let recent_tracks = cache.get_all_recent_tracks();
+
+    if recent_tracks.is_empty() {
+        println!("❌ No recent tracks in cache. Load some tracks first.");
+        return Ok(());
+    }
+
+    if tracks_back as usize >= recent_tracks.len() {
+        println!(
+            "❌ Requested to go back {} tracks, but only {} tracks available",
+            tracks_back,
+            recent_tracks.len()
+        );
+        return Ok(());
+    }
+
+    let target_track = &recent_tracks[tracks_back as usize];
+
+    if let Some(timestamp) = target_track.timestamp {
+        let dt = DateTime::from_timestamp(timestamp as i64, 0)
+            .ok_or_else(|| LastFmError::Io(std::io::Error::other("Invalid timestamp")))?;
+
+        println!(
+            "Setting anchor to track '{}' by '{}'",
+            target_track.name, target_track.artist
+        );
+        println!("Timestamp: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
+
+        let timestamp_state = TimestampState {
+            last_processed_timestamp: Some(dt),
+        };
+
+        storage
+            .lock()
+            .await
+            .save_timestamp_state(&timestamp_state)
+            .await
+            .map_err(|e| {
+                LastFmError::Io(std::io::Error::other(format!(
+                    "Failed to save timestamp state: {e}"
+                )))
+            })?;
+
+        println!("✅ Timestamp anchor set successfully");
+        println!("Next scrubber run will process tracks from this point forward");
+    } else {
+        println!("❌ Target track has no timestamp information");
+    }
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -515,6 +740,18 @@ async fn main() -> Result<()> {
             info!("Rule workshop TUI closed");
             return Ok(());
         }
+        Commands::ShowCache { limit, all_pages } => {
+            show_cache_state(*limit, *all_pages)?;
+            return Ok(());
+        }
+        Commands::ShowRules => {
+            show_active_rules(&storage).await?;
+            return Ok(());
+        }
+        Commands::SetAnchor { tracks } => {
+            set_timestamp_anchor(&storage, *tracks).await?;
+            return Ok(());
+        }
         _ => {
             // For other commands, we need to acquire the lock
         }
@@ -574,6 +811,18 @@ async fn main() -> Result<()> {
         Commands::Workshop => {
             // This case is handled above to avoid deadlock
             unreachable!("Workshop command should have been handled earlier");
+        }
+        Commands::ShowCache { .. } => {
+            // This case is handled above
+            unreachable!("ShowCache command should have been handled earlier");
+        }
+        Commands::ShowRules => {
+            // This case is handled above
+            unreachable!("ShowRules command should have been handled earlier");
+        }
+        Commands::SetAnchor { .. } => {
+            // This case is handled above
+            unreachable!("SetAnchor command should have been handled earlier");
         }
     }
 

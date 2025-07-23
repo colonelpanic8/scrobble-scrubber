@@ -1,16 +1,14 @@
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
+use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-mod cache;
 mod components;
 mod server_functions;
 mod types;
 mod utils;
-
-use cache::TrackCache;
 
 use components::*;
 use server_functions::*;

@@ -2,6 +2,7 @@ pub mod events;
 pub mod rewrite;
 pub mod rewrite_processor;
 pub mod scrub_action_provider;
+pub mod track_cache;
 
 #[cfg(feature = "cli")]
 pub mod config;

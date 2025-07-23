@@ -1,45 +1,10 @@
-use crate::cache::TrackCache;
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
+use ::scrobble_scrubber::track_cache::TrackCache;
 use chrono::{DateTime, Utc};
-use lastfm_edit::Track;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SerializableTrack {
-    pub name: String,
-    pub artist: String,
-    pub album: Option<String>,
-    pub timestamp: Option<u64>,
-    pub playcount: u32,
-}
-
-impl From<Track> for SerializableTrack {
-    fn from(track: Track) -> Self {
-        Self {
-            name: track.name,
-            artist: track.artist,
-            album: track.album,
-            timestamp: track.timestamp,
-            playcount: track.playcount,
-        }
-    }
-}
-
-impl From<SerializableTrack> for Track {
-    fn from(strack: SerializableTrack) -> Self {
-        Self {
-            name: strack.name,
-            artist: strack.artist,
-            album: strack.album,
-            timestamp: strack.timestamp,
-            playcount: strack.playcount,
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Page {

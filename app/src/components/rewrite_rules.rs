@@ -1,8 +1,8 @@
-use crate::cache::TrackCache;
 use crate::components::RulePreview;
 use crate::server_functions::{load_artist_tracks, load_recent_tracks_from_page};
 use crate::types::{AppState, PreviewType, TrackSourceState};
 use crate::utils::{clear_all_rules, get_current_tracks};
+use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
 
 #[component]

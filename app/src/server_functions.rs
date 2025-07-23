@@ -1,4 +1,4 @@
-use crate::types::SerializableTrack;
+use ::scrobble_scrubber::track_cache::SerializableTrack;
 use dioxus::prelude::*;
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
@@ -42,7 +42,7 @@ pub async fn load_artist_tracks(
     session_str: String,
     artist_name: String,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
-    use crate::cache::TrackCache;
+    use ::scrobble_scrubber::track_cache::TrackCache;
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -128,7 +128,7 @@ pub async fn load_recent_tracks_from_page(
     session_str: String,
     page: u32,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
-    use crate::cache::TrackCache;
+    use ::scrobble_scrubber::track_cache::TrackCache;
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
@@ -198,7 +198,7 @@ pub async fn load_recent_tracks_from_page(
 
 #[server(GetCacheStats)]
 pub async fn get_cache_stats() -> Result<String, ServerFnError> {
-    use crate::cache::TrackCache;
+    use ::scrobble_scrubber::track_cache::TrackCache;
 
     let cache = TrackCache::load();
     let stats = cache.stats();
@@ -207,7 +207,7 @@ pub async fn get_cache_stats() -> Result<String, ServerFnError> {
 
 #[server(ClearCache)]
 pub async fn clear_cache() -> Result<String, ServerFnError> {
-    use crate::cache::TrackCache;
+    use ::scrobble_scrubber::track_cache::TrackCache;
 
     let mut cache = TrackCache::load();
     cache.clear();
@@ -219,7 +219,7 @@ pub async fn clear_cache() -> Result<String, ServerFnError> {
 
 #[server(ClearArtistCache)]
 pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnError> {
-    use crate::cache::TrackCache;
+    use ::scrobble_scrubber::track_cache::TrackCache;
 
     let mut cache = TrackCache::load();
     cache.clear_artist(&artist_name);

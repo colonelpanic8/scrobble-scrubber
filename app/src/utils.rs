@@ -1,6 +1,7 @@
-use crate::types::{AppState, SerializableTrack};
+use crate::types::AppState;
 use ::scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
+use ::scrobble_scrubber::track_cache::SerializableTrack;
 use dioxus::document::eval;
 use dioxus::prelude::*;
 

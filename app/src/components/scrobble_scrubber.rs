@@ -1,6 +1,6 @@
-use crate::cache::TrackCache;
 use crate::server_functions::load_recent_tracks_from_page;
 use crate::types::{AppState, ScrubberEvent, ScrubberEventType, ScrubberStatus};
+use ::scrobble_scrubber::track_cache::{SerializableTrack, TrackCache};
 use chrono::Utc;
 use dioxus::prelude::*;
 use std::sync::Arc;
@@ -770,7 +770,7 @@ async fn create_scrubber_and_trigger_immediate(
     Ok(())
 }
 
-async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::SerializableTrack) {
+async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTrack) {
     let set_anchor_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Info,
@@ -834,7 +834,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::
 
 async fn set_timestamp_anchor_direct(
     storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    track: crate::types::SerializableTrack,
+    track: SerializableTrack,
     state: &mut Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::persistence::{StateStorage, TimestampState};
