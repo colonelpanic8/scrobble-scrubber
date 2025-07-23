@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
@@ -233,7 +233,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
 
         // Step 3: Update cache with latest tracks from API, using anchor to limit fetch
-        info!("Updating track cache from Last.fm API...");
+        debug!("Updating track cache from Last.fm API...");
 
         // The anchor timestamp must be set at this point due to ensure_timestamp_initialized
         let anchor_timestamp = timestamp_state
