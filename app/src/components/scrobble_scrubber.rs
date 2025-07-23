@@ -698,42 +698,30 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::
         ),
     };
 
+    // Always add to events, whether scrubber is running or not
     if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
         let _ = sender.send(set_anchor_event.clone());
     }
-
     state.with_mut(|s| s.scrubber_state.events.push(set_anchor_event));
 
-    // Get necessary data from state
-    let (session_json, storage, saved_rules, sender_opt) = {
+    // Get necessary data from state - only need storage
+    let storage = {
         let state_read = state.read();
-        (
-            state_read.session.clone(),
-            state_read.storage.clone(),
-            state_read.saved_rules.clone(),
-            state_read.scrubber_state.event_sender.clone(),
-        )
+        state_read.storage.clone()
     };
 
-    // Only proceed if we have session, storage, and event sender
-    if let (Some(session_json), Some(storage), Some(sender)) = (session_json, storage, sender_opt) {
-        match create_scrubber_and_set_timestamp(
-            session_json,
-            storage,
-            saved_rules,
-            track,
-            &sender,
-            &mut state,
-        )
-        .await
-        {
+    // Only proceed if we have storage
+    if let Some(storage) = storage {
+        match set_timestamp_anchor_direct(storage, track, &mut state).await {
             Ok(()) => {
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
                     message: "Successfully set timestamp anchor".to_string(),
                 };
-                let _ = sender.send(success_event.clone());
+                if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
+                    let _ = sender.send(success_event.clone());
+                }
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
             }
             Err(e) => {
@@ -742,7 +730,9 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::
                     event_type: ScrubberEventType::Error,
                     message: format!("Failed to set timestamp anchor: {e}"),
                 };
-                let _ = sender.send(error_event.clone());
+                if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
+                    let _ = sender.send(error_event.clone());
+                }
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
             }
         }
@@ -750,8 +740,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::
         let warning_event = ScrubberEvent {
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
-            message: "Cannot set timestamp anchor: missing session, storage, or event sender"
-                .to_string(),
+            message: "Cannot set timestamp anchor: missing storage".to_string(),
         };
 
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -761,63 +750,54 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: crate::types::
     }
 }
 
-async fn create_scrubber_and_set_timestamp(
-    session_json: String,
+async fn set_timestamp_anchor_direct(
     storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
     track: crate::types::SerializableTrack,
-    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
     state: &mut Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
-    use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClient, LastFmEditSession};
+    use ::scrobble_scrubber::persistence::{StateStorage, TimestampState};
+    use chrono::{DateTime, Utc};
 
-    // Deserialize the session
-    let session: LastFmEditSession = serde_json::from_str(&session_json)?;
-
-    // Create a client with the restored session
-    let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClient::from_session(Box::new(http_client), session);
-
-    // Get the config from state
-    let config = {
-        let state_read = state.read();
-        state_read.config.clone()
+    // Convert SerializableTrack back to lastfm_edit::Track for timestamp
+    let lastfm_track = lastfm_edit::Track {
+        name: track.name.clone(),
+        artist: track.artist.clone(),
+        album: track.album.clone(),
+        playcount: track.playcount,
+        timestamp: track.timestamp,
     };
 
-    if let Some(config) = config {
-        // Create action provider with current rules
-        let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
+    // Use storage directly to set the timestamp anchor
+    let mut storage_guard = storage.lock().await;
 
-        // Create scrubber instance
-        let mut scrubber =
-            ScrobbleScrubber::new(storage.clone(), client, action_provider, config.clone());
+    // Set the timestamp anchor to the track's timestamp
+    if let Some(timestamp) = lastfm_track.timestamp {
+        // Convert timestamp to DateTime<Utc>
+        let timestamp_dt =
+            DateTime::from_timestamp(timestamp as i64, 0).unwrap_or_else(Utc::now);
 
-        // Convert SerializableTrack back to lastfm_edit::Track
-        let lastfm_track = lastfm_edit::Track {
-            name: track.name,
-            artist: track.artist,
-            album: track.album,
-            playcount: track.playcount,
-            timestamp: track.timestamp,
+        // Create new timestamp state
+        let timestamp_state = TimestampState {
+            last_processed_timestamp: Some(timestamp_dt),
         };
 
-        // Set timestamp to track
-        scrubber.set_timestamp_to_track(&lastfm_track).await?;
+        // Save the updated timestamp state
+        storage_guard.save_timestamp_state(&timestamp_state).await?;
 
         let info_event = ScrubberEvent {
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: format!(
-                "Set timestamp anchor to track '{}' by '{}'",
-                lastfm_track.name, lastfm_track.artist
+                "Set timestamp anchor to track '{}' by '{}' (timestamp: {})",
+                lastfm_track.name,
+                lastfm_track.artist,
+                timestamp_dt.format("%Y-%m-%d %H:%M:%S")
             ),
         };
-        let _ = sender.send(info_event.clone());
+
         state.with_mut(|s| s.scrubber_state.events.push(info_event));
     } else {
-        return Err("No configuration available".into());
+        return Err("Track has no timestamp - cannot set as anchor".into());
     }
 
     Ok(())
