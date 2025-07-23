@@ -5,7 +5,6 @@ pub mod rewrite_processor;
 pub mod scrub_action_provider;
 pub mod track_cache;
 
-#[cfg(feature = "cli")]
 pub mod config;
 #[cfg(feature = "musicbrainz")]
 pub mod musicbrainz_provider;
