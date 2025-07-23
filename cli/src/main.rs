@@ -395,11 +395,10 @@ fn show_cache_state(limit: usize, all_pages: bool) -> Result<()> {
     println!("==================");
 
     // Show recent tracks
-    let recent_tracks_count: usize = cache.recent_tracks.values().map(|v| v.len()).sum();
-    let pages_count = cache.recent_tracks.len();
+    let recent_tracks_count = cache.recent_tracks.len();
 
     println!("Recent Tracks:");
-    println!("  {pages_count} pages cached, {recent_tracks_count} total tracks");
+    println!("  {recent_tracks_count} tracks cached");
 
     if recent_tracks_count > 0 {
         let tracks = if all_pages {

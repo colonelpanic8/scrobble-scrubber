@@ -155,9 +155,22 @@ pub async fn load_recent_tracks_from_page(
 
     // Try to load from cache first
     let mut cache = TrackCache::load();
-    if let Some(cached_tracks) = cache.get_recent_tracks(page) {
-        println!("📂 Using cached recent tracks for page {page}");
-        return Ok(cached_tracks.clone());
+    let page_size = 50; // Standard page size
+    let start_index = ((page - 1) * page_size) as usize;
+
+    if !cache.recent_tracks.is_empty() && start_index < cache.recent_tracks.len() {
+        let cached_tracks: Vec<_> = cache
+            .recent_tracks
+            .iter()
+            .skip(start_index)
+            .take(page_size as usize)
+            .cloned()
+            .collect();
+
+        if !cached_tracks.is_empty() {
+            println!("📂 Using cached recent tracks for page {page}");
+            return Ok(cached_tracks);
+        }
     }
 
     // Deserialize session and create client
@@ -184,7 +197,12 @@ pub async fn load_recent_tracks_from_page(
     }
 
     // Cache the successfully fetched tracks
-    cache.cache_recent_tracks(page, tracks.clone());
+    // Convert from SerializableTrack to Track for merging (they're the same structure)
+    let tracks_for_cache: Vec<lastfm_edit::Track> = tracks
+        .iter()
+        .map(|t| lastfm_edit::Track::from(t.clone()))
+        .collect();
+    cache.merge_recent_tracks(tracks_for_cache);
     cache
         .save()
         .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {}", e));

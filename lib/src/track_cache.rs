@@ -52,8 +52,8 @@ pub struct CacheMergeStats {
 /// Cache structure for storing track data on disk
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackCache {
-    /// Recent tracks by page number
-    pub recent_tracks: HashMap<u32, Vec<SerializableTrack>>,
+    /// Recent tracks (ordered newest first)
+    pub recent_tracks: Vec<SerializableTrack>,
     /// Artist tracks by artist name
     pub artist_tracks: HashMap<String, Vec<SerializableTrack>>,
     /// Cache metadata
@@ -71,7 +71,7 @@ pub struct CacheMetadata {
 impl Default for TrackCache {
     fn default() -> Self {
         Self {
-            recent_tracks: HashMap::new(),
+            recent_tracks: Vec::new(),
             artist_tracks: HashMap::new(),
             metadata: CacheMetadata {
                 last_updated: std::time::SystemTime::now()
@@ -151,14 +151,27 @@ impl TrackCache {
         Ok(())
     }
 
-    /// Get recent tracks for a specific page
-    pub fn get_recent_tracks(&self, page: u32) -> Option<&Vec<SerializableTrack>> {
-        self.recent_tracks.get(&page)
+    /// Get recent tracks (limited to first n tracks)
+    pub fn get_recent_tracks(&self, limit: usize) -> &[SerializableTrack] {
+        let end = std::cmp::min(limit, self.recent_tracks.len());
+        &self.recent_tracks[..end]
     }
 
-    /// Cache recent tracks for a specific page
-    pub fn cache_recent_tracks(&mut self, page: u32, tracks: Vec<SerializableTrack>) {
-        self.recent_tracks.insert(page, tracks);
+    /// Add recent tracks to the cache (merges and maintains order)
+    pub fn add_recent_tracks(&mut self, mut tracks: Vec<SerializableTrack>) {
+        // Sort new tracks newest first
+        tracks.sort_by(|a, b| {
+            match (a.timestamp, b.timestamp) {
+                (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
+                (Some(_), None) => std::cmp::Ordering::Less, // Tracks with timestamps come first
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
+
+        // Add to front of existing tracks and maintain order
+        tracks.append(&mut self.recent_tracks);
+        self.recent_tracks = tracks;
         self.update_timestamp();
     }
 
@@ -196,11 +209,11 @@ impl TrackCache {
 
     /// Get cache statistics
     pub fn stats(&self) -> CacheStats {
-        let recent_track_count: usize = self.recent_tracks.values().map(|v| v.len()).sum();
+        let recent_track_count = self.recent_tracks.len();
         let artist_track_count: usize = self.artist_tracks.values().map(|v| v.len()).sum();
 
         CacheStats {
-            recent_pages: self.recent_tracks.len(),
+            recent_pages: 0, // No longer using pages
             recent_track_count,
             artist_count: self.artist_tracks.len(),
             artist_track_count,
@@ -209,28 +222,22 @@ impl TrackCache {
         }
     }
 
-    /// Get all recent tracks across all pages, sorted by timestamp (newest first)
+    /// Get all recent tracks (already sorted newest first)
     pub fn get_all_recent_tracks(&self) -> Vec<SerializableTrack> {
-        let mut tracks: Vec<SerializableTrack> =
-            self.recent_tracks.values().flatten().cloned().collect();
-
-        // Sort by timestamp, newest first (higher timestamp = more recent)
-        tracks.sort_by(|a, b| {
-            match (a.timestamp, b.timestamp) {
-                (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
-                (Some(_), None) => std::cmp::Ordering::Less, // Tracks with timestamps come first
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => std::cmp::Ordering::Equal,
-            }
-        });
-
-        tracks
+        self.recent_tracks.clone()
     }
 
     /// Get the N most recent tracks
     pub fn get_recent_tracks_limited(&self, limit: usize) -> Vec<SerializableTrack> {
-        let all_tracks = self.get_all_recent_tracks();
-        all_tracks.into_iter().take(limit).collect()
+        self.recent_tracks.iter().take(limit).cloned().collect()
+    }
+
+    /// Get the timestamp of the most recent track in cache (if any)
+    pub fn get_most_recent_timestamp(&self) -> Option<DateTime<Utc>> {
+        self.recent_tracks
+            .first() // Since tracks are sorted newest first
+            .and_then(|track| track.timestamp)
+            .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
     }
 
     /// Merge new tracks from API into the cache
@@ -242,79 +249,15 @@ impl TrackCache {
             total_processed: new_tracks.len(),
         };
 
-        // Convert existing tracks to timestamp-indexed map for efficient merging
-        let mut existing_tracks: std::collections::BTreeMap<u64, SerializableTrack> = self
-            .get_all_recent_tracks()
+        // Convert new tracks to serializable format
+        let mut new_serializable_tracks: Vec<SerializableTrack> = new_tracks
             .into_iter()
-            .filter_map(|t| t.timestamp.map(|ts| (ts, t)))
+            .filter(|track| track.timestamp.is_some()) // Skip tracks without timestamps
+            .map(SerializableTrack::from)
             .collect();
 
-        // Process new tracks
-        for track in new_tracks {
-            let Some(timestamp) = track.timestamp else {
-                continue; // Skip tracks without timestamps
-            };
-
-            let serializable_track = SerializableTrack::from(track);
-
-            match existing_tracks.entry(timestamp) {
-                std::collections::btree_map::Entry::Vacant(entry) => {
-                    // New track, add it
-                    entry.insert(serializable_track);
-                    stats.added += 1;
-                }
-                std::collections::btree_map::Entry::Occupied(mut entry) => {
-                    let existing = entry.get();
-                    // Check if it's the same track (same name and artist)
-                    if existing.name == serializable_track.name
-                        && existing.artist == serializable_track.artist
-                    {
-                        // Same track, check if we should update (e.g., higher playcount)
-                        if serializable_track.playcount > existing.playcount {
-                            entry.insert(serializable_track);
-                            stats.updated += 1;
-                        } else {
-                            stats.duplicates += 1;
-                        }
-                    } else {
-                        // Different track with same timestamp - rare but possible
-                        // Keep the one with higher playcount as tiebreaker
-                        if serializable_track.playcount > existing.playcount {
-                            entry.insert(serializable_track);
-                            stats.updated += 1;
-                        } else {
-                            stats.duplicates += 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Rebuild the page-based cache structure from merged data
-        self.rebuild_from_timestamp_map(existing_tracks);
-        self.update_timestamp();
-
-        log::info!(
-            "Cache merge completed: {} added, {} updated, {} duplicates",
-            stats.added,
-            stats.updated,
-            stats.duplicates
-        );
-
-        stats
-    }
-
-    /// Rebuild page-based structure from timestamp-indexed tracks
-    fn rebuild_from_timestamp_map(
-        &mut self,
-        tracks: std::collections::BTreeMap<u64, SerializableTrack>,
-    ) {
-        // Clear existing recent tracks
-        self.recent_tracks.clear();
-
-        // Convert back to sorted vector (newest first)
-        let mut sorted_tracks: Vec<SerializableTrack> = tracks.into_values().collect();
-        sorted_tracks.sort_by(|a, b| {
+        // Sort new tracks newest first
+        new_serializable_tracks.sort_by(|a, b| {
             match (a.timestamp, b.timestamp) {
                 (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
                 (Some(_), None) => std::cmp::Ordering::Less,
@@ -323,42 +266,80 @@ impl TrackCache {
             }
         });
 
-        // Rebuild pages (50 tracks per page, matching API pagination)
-        const TRACKS_PER_PAGE: usize = 50;
-        for (page_index, chunk) in sorted_tracks.chunks(TRACKS_PER_PAGE).enumerate() {
-            let page_number = (page_index + 1) as u32;
-            self.recent_tracks.insert(page_number, chunk.to_vec());
-        }
+        // Simple deduplication: merge with existing tracks, keeping newest and avoiding duplicates
+        let mut all_tracks = new_serializable_tracks;
+        all_tracks.extend(self.recent_tracks.iter().cloned());
+
+        // Remove duplicates by timestamp, keeping the first occurrence (newest)
+        all_tracks.sort_by(|a, b| match (a.timestamp, b.timestamp) {
+            (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        });
+        all_tracks.dedup_by(|a, b| {
+            a.timestamp == b.timestamp && a.name == b.name && a.artist == b.artist
+        });
+
+        let old_count = self.recent_tracks.len();
+        let new_count = all_tracks.len();
+        stats.added = new_count.saturating_sub(old_count);
+
+        self.recent_tracks = all_tracks;
+        self.update_timestamp();
+
+        log::info!(
+            "Cache merge completed: {} tracks total (simplified merge)",
+            self.recent_tracks.len()
+        );
+
+        stats
     }
 
     /// Update cache with latest tracks from Last.fm API
-    /// Fetches tracks until we hit a timestamp earlier than or equal to the anchor timestamp
-    /// The anchor_timestamp must be provided (non-None) to determine when to stop fetching
+    /// Fetches tracks until we hit EITHER the fetch_bound OR the cache's most recent timestamp
+    /// (whichever comes first chronologically). If fetch_bound is None, fetches without lower bound.
     pub async fn update_cache_from_api(
         &mut self,
         client: &(dyn LastFmEditClient + Send + Sync),
-        anchor_timestamp: DateTime<Utc>,
+        fetch_bound: Option<DateTime<Utc>>,
     ) -> lastfm_edit::Result<()> {
         let mut recent_iterator = client.recent_tracks();
         let mut api_tracks = Vec::new();
         let mut fetched = 0;
 
-        info!("Fetching recent tracks from Last.fm API...");
-        info!("Fetching until we reach anchor timestamp: {anchor_timestamp}");
+        let cache_tip = self.get_most_recent_timestamp();
+
+        // Compute the effective stopping bound - use the more recent (higher) of cache_tip and fetch_bound
+        let stop_at = match (cache_tip, fetch_bound) {
+            (Some(cache), Some(bound)) => Some(cache.max(bound)),
+            (Some(cache), None) => Some(cache),
+            (None, Some(bound)) => Some(bound),
+            (None, None) => None,
+        };
 
         while let Some(track) = recent_iterator.next().await? {
             fetched += 1;
 
-            // Check if we've reached our anchor point
             if let Some(track_ts) = track.timestamp {
                 let track_time = DateTime::from_timestamp(track_ts as i64, 0);
                 if let Some(track_time) = track_time {
-                    if track_time <= anchor_timestamp {
-                        info!(
-                            "Reached anchor timestamp at track '{}' by '{}' at {}, stopping fetch after {} tracks",
-                            track.name, track.artist, track_time, fetched
-                        );
-                        break;
+                    // Stop if we've reached our computed stopping bound
+                    if let Some(stop_time) = stop_at {
+                        if track_time <= stop_time {
+                            let bound_type = match (cache_tip, fetch_bound) {
+                                (Some(cache), Some(_bound)) if stop_time == cache => "cache tip",
+                                (Some(_), Some(_)) => "fetch bound",
+                                (Some(_), None) => "cache tip",
+                                (None, Some(_)) => "fetch bound",
+                                _ => "unknown bound", // shouldn't happen
+                            };
+                            info!(
+                                "Reached {} at track '{}' by '{}' at {}, stopping fetch after {} tracks",
+                                bound_type, track.name, track.artist, track_time, fetched
+                            );
+                            break;
+                        }
                     }
                 }
             }

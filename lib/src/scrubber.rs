@@ -244,7 +244,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .expect("Anchor timestamp should be set after ensure_timestamp_initialized");
 
         self.track_cache
-            .update_cache_from_api(self.client.as_ref(), anchor_timestamp)
+            .update_cache_from_api(self.client.as_ref(), Some(anchor_timestamp))
             .await?;
 
         // Step 3: Find tracks to process from cache using current anchor
@@ -339,11 +339,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Get all recent tracks from cache, sorted newest first
         let cached_tracks = self.track_cache.get_all_recent_tracks();
 
-        info!(
-            "Scanning {} cached tracks to find new tracks since last run...",
-            cached_tracks.len()
-        );
-
         // Debug: Show anchor timestamp
         if let Some(anchor) = timestamp_state.last_processed_timestamp {
             trace!("Using anchor timestamp: {anchor}");
@@ -370,11 +365,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                                   cached_track.name, cached_track.artist, track_time, tracks_to_process.len());
                             break; // Stop here - we've caught up to where we left off
                         }
-                        // Track is newer than our anchor, collect it for processing
-                        info!(
-                            "Found new track: '{}' by '{}' at {}",
-                            cached_track.name, cached_track.artist, track_time
-                        );
                     }
                 } else {
                     trace!(

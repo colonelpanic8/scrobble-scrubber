@@ -89,9 +89,9 @@ fn App() -> Element {
                                 .insert(artist_name.clone(), TrackSourceState { enabled: true });
                         }
 
-                        // Set current_page to the highest cached page
-                        if let Some(max_page) = s.track_cache.recent_tracks.keys().max() {
-                            s.current_page = *max_page;
+                        // With the new cache structure, we default to page 1 if tracks exist
+                        if !s.track_cache.recent_tracks.is_empty() {
+                            s.current_page = 1;
                         }
                     });
                 }

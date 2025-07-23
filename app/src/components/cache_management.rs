@@ -55,8 +55,8 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
 
                 {
                     let state_read = state.read();
-                    let recent_pages_count = state_read.track_cache.recent_tracks.len();
-                    let total_recent_tracks: usize = state_read.track_cache.recent_tracks.values().map(|v| v.len()).sum();
+                    let recent_pages_count = 0; // No longer using pages
+                    let total_recent_tracks: usize = state_read.track_cache.recent_tracks.len();
                     let artist_count = state_read.track_cache.artist_tracks.len();
                     let total_artist_tracks: usize = state_read.track_cache.artist_tracks.values().map(|v| v.len()).sum();
 
@@ -249,26 +249,10 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
                         }
                     } else {
                         rsx! {
-                            div { style: "display: flex; flex-direction: column; gap: 0.5rem;",
-                                for (page, tracks) in &state_read.track_cache.recent_tracks {
-                                    div {
-                                        key: "{page}",
-                                        style: "display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
-                                            span { style: "font-weight: 500; color: #374151;", "Page {page}" }
-                                            span { style: "font-size: 0.75rem; color: #6b7280;", "({tracks.len()} tracks)" }
-                                        }
-                                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
-                                            span { style: "font-size: 0.625rem; color: #059669; background: #d1fae5; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
-                                                "📂 cached"
-                                            }
-                                            if *page == state_read.current_page {
-                                                span { style: "font-size: 0.625rem; color: #2563eb; background: #dbeafe; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
-                                                    "current"
-                                                }
-                                            }
-                                        }
-                                    }
+                            div { style: "text-center; color: #6b7280; padding: 2rem;",
+                                p { "Page-based cache structure is no longer used." }
+                                p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
+                                    "Tracks are now stored as a single chronologically ordered list."
                                 }
                             }
                         }

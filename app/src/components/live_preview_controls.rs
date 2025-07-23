@@ -21,7 +21,7 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                 h2 { style: "font-size: 1.25rem; font-weight: bold;", "Live Preview" }
                 {
                     let state_read = state.read();
-                    let cached_pages_count = state_read.track_cache.recent_tracks.len();
+                    let cached_pages_count = if state_read.track_cache.recent_tracks.is_empty() { 0 } else { 1 }; // Single chronological list
                     if cached_pages_count > 0 {
                         rsx! {
                             p { style: "font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;",
@@ -179,13 +179,13 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                                 div { style: "display: flex; align-items: center; gap: 0.5rem;",
                                     span { style: "font-size: 0.75rem; color: #6b7280;",
                                         {
-                                            let total_tracks: usize = state_read.track_cache.recent_tracks.values().map(|v| v.len()).sum();
+                                            let total_tracks: usize = state_read.track_cache.recent_tracks.len();
                                             format!("{total_tracks} tracks")
                                         }
                                     }
                                     // Show cache indicator if recent tracks are cached
                                     {
-                                        if state_read.track_cache.recent_tracks.contains_key(&state_read.current_page) {
+                                        if !state_read.track_cache.recent_tracks.is_empty() {
                                             rsx! {
                                                 span { style: "font-size: 0.625rem; color: #059669; background: #d1fae5; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
                                                     "📂 cached"

@@ -171,7 +171,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                     h3 { style: "font-size: 1.25rem; font-weight: bold; margin: 0;", "Processing Anchor" }
                     {
                         let state_read = state.read();
-                        let total_tracks: usize = state_read.track_cache.recent_tracks.values().map(|v| v.len()).sum();
+                        let total_tracks: usize = state_read.track_cache.recent_tracks.len();
                         let recent_tracks_loaded = total_tracks > 0;
                         if recent_tracks_loaded {
                             rsx! {
@@ -230,7 +230,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
 
                 {
                     let state_read = state.read();
-                    let all_cached_tracks: Vec<_> = state_read.track_cache.recent_tracks.values().flatten().cloned().collect();
+                    let all_cached_tracks = state_read.track_cache.recent_tracks.clone();
 
                     if all_cached_tracks.is_empty() {
                         rsx! {
