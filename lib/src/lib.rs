@@ -1,4 +1,5 @@
 pub mod events;
+pub mod json_logger;
 pub mod rewrite;
 pub mod rewrite_processor;
 pub mod scrub_action_provider;

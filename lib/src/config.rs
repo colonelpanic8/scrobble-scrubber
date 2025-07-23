@@ -125,6 +125,8 @@ pub struct ScrubberConfig {
     pub enable_web_interface: bool,
     /// Port for web interface
     pub web_port: u16,
+    /// JSON logging configuration
+    pub json_logging: JsonLoggingConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -189,6 +191,14 @@ pub struct LastFmConfig {
     pub base_url: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsonLoggingConfig {
+    /// Enable JSON logging of track edit events
+    pub enabled: bool,
+    /// Path to JSON log file (defaults to XDG data dir)
+    pub log_file: Option<String>,
+}
+
 impl Default for ScrubberConfig {
     fn default() -> Self {
         Self {
@@ -199,6 +209,40 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             enable_web_interface: false,
             web_port: 8080,
+            json_logging: JsonLoggingConfig::default(),
+        }
+    }
+}
+
+impl JsonLoggingConfig {
+    /// Get the default JSON log file path using XDG Base Directory specification
+    /// Falls back to current directory if XDG data directory is not available
+    pub fn get_default_log_file_path() -> String {
+        if let Some(data_dir) = dirs::data_dir() {
+            let scrobble_data_dir = data_dir.join("scrobble-scrubber");
+            scrobble_data_dir
+                .join("track_edits.jsonl")
+                .to_string_lossy()
+                .to_string()
+        } else {
+            // Fallback to current directory if XDG data directory is not available
+            "track_edits.jsonl".to_string()
+        }
+    }
+
+    /// Get the configured log file path or the default
+    pub fn log_file_path(&self) -> String {
+        self.log_file
+            .clone()
+            .unwrap_or_else(Self::get_default_log_file_path)
+    }
+}
+
+impl Default for JsonLoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            log_file: None, // Will use XDG data dir default
         }
     }
 }
