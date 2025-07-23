@@ -1,8 +1,6 @@
 use crate::cache::TrackCache;
 use crate::components::{RuleEditor, RulePreview};
-use crate::server_functions::{
-    clear_cache, get_cache_stats, load_artist_tracks, load_recent_tracks_from_page,
-};
+use crate::server_functions::{load_artist_tracks, load_recent_tracks_from_page};
 use crate::types::{AppState, PreviewType, TrackSourceState};
 use crate::utils::get_current_tracks;
 use dioxus::prelude::*;
@@ -12,8 +10,6 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks = use_signal(|| false);
     let mut loading_artist_tracks = use_signal(|| false);
     let mut artist_name = use_signal(String::new);
-    let mut cache_stats = use_signal(String::new);
-    let mut show_cache_info = use_signal(|| false);
 
     rsx! {
         div {
@@ -210,72 +206,6 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                     }
                 }
 
-                // Cache management section
-                div { style: "border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem;",
-                    div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                        h3 { style: "font-weight: 600; color: #374151;", "Cache Management" }
-                        button {
-                            style: "background: #6b7280; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                            onclick: move |_| {
-                                let current_state = *show_cache_info.read();
-                                show_cache_info.set(!current_state);
-                                if !current_state {
-                                    spawn(async move {
-                                        match get_cache_stats().await {
-                                            Ok(stats) => cache_stats.set(stats),
-                                            Err(e) => cache_stats.set(format!("Error: {e}")),
-                                        }
-                                    });
-                                }
-                            },
-                            if *show_cache_info.read() { "Hide Info" } else { "Show Info" }
-                        }
-                    }
-
-                    if *show_cache_info.read() {
-                        div { style: "margin-bottom: 1rem;",
-                            if !cache_stats.read().is_empty() {
-                                div { style: "font-size: 0.875rem; color: #4b5563; margin-bottom: 1rem; padding: 0.5rem; background: #f9fafb; border-radius: 0.375rem;",
-                                    "{cache_stats}"
-                                }
-                            }
-
-                            div { style: "display: flex; gap: 0.5rem; flex-wrap: wrap;",
-                                button {
-                                    style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            match clear_cache().await {
-                                                Ok(msg) => {
-                                                    println!("✅ {msg}");
-                                                    cache_stats.set("Cache cleared".to_string());
-                                                }
-                                                Err(e) => {
-                                                    eprintln!("❌ Failed to clear cache: {e}");
-                                                    cache_stats.set(format!("Error: {e}"));
-                                                }
-                                            }
-                                        });
-                                    },
-                                    "Clear All Cache"
-                                }
-
-                                button {
-                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            match get_cache_stats().await {
-                                                Ok(stats) => cache_stats.set(stats),
-                                                Err(e) => cache_stats.set(format!("Error: {e}")),
-                                            }
-                                        });
-                                    },
-                                    "Refresh Stats"
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             // Responsive container for rule editor and preview

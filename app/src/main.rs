@@ -156,6 +156,7 @@ fn MainContent(state: Signal<AppState>) -> Element {
             Page::RewriteRules => rsx! { RewriteRulesPage { state } },
             Page::ScrobbleScrubber => rsx! { ScrobbleScrubberPage { state } },
             Page::PendingItems => rsx! { PendingItemsPage { state } },
+            Page::CacheManagement => rsx! { CacheManagementPage { state } },
         }
     }
 }

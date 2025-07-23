@@ -47,6 +47,7 @@ pub enum Page {
     RewriteRules,
     ScrobbleScrubber,
     PendingItems,
+    CacheManagement,
 }
 
 #[derive(Clone, Debug)]

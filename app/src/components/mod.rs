@@ -1,3 +1,4 @@
+pub mod cache_management;
 pub mod live_preview_controls;
 pub mod login;
 pub mod navigation;
@@ -8,6 +9,7 @@ pub mod rule_preview;
 pub mod rule_workshop;
 pub mod scrobble_scrubber;
 
+pub use cache_management::CacheManagementPage;
 // pub use live_preview_controls::LivePreviewControls; // TODO: Use this when refactoring rule_workshop and rewrite_rules
 pub use login::LoginPage;
 pub use navigation::Navigation;
