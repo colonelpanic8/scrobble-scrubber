@@ -41,6 +41,7 @@ pub struct ScrubberEvent {
     pub timestamp: DateTime<Utc>,
     pub event_type: ScrubberEventType,
     pub message: String,
+    pub anchor_timestamp: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -53,6 +54,7 @@ pub enum ScrubberEventType {
     RuleApplied,
     Error,
     Info,
+    AnchorUpdated,
 }
 
 #[derive(Clone, Debug)]
@@ -62,6 +64,7 @@ pub struct ScrubberState {
     pub processed_count: usize,
     pub rules_applied_count: usize,
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
+    pub current_anchor_timestamp: Option<u64>,
 }
 
 #[derive(Clone)]
@@ -102,6 +105,7 @@ impl Default for AppState {
                 processed_count: 0,
                 rules_applied_count: 0,
                 event_sender: None,
+                current_anchor_timestamp: None,
             },
             track_cache: TrackCache::load(), // Load cache from disk on startup
         }

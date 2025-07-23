@@ -7,6 +7,8 @@ pub struct ScrubberEvent {
     pub timestamp: DateTime<Utc>,
     pub event_type: ScrubberEventType,
     pub message: String,
+    /// For AnchorUpdated events, contains the anchor timestamp
+    pub anchor_timestamp: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -27,6 +29,8 @@ pub enum ScrubberEventType {
     CycleCompleted,
     /// Processing cycle started
     CycleStarted,
+    /// Processing anchor timestamp was updated
+    AnchorUpdated,
 }
 
 impl ScrubberEvent {
@@ -35,6 +39,20 @@ impl ScrubberEvent {
             timestamp: Utc::now(),
             event_type,
             message,
+            anchor_timestamp: None,
+        }
+    }
+
+    pub fn new_with_anchor(
+        event_type: ScrubberEventType,
+        message: String,
+        anchor_timestamp: u64,
+    ) -> Self {
+        Self {
+            timestamp: Utc::now(),
+            event_type,
+            message,
+            anchor_timestamp: Some(anchor_timestamp),
         }
     }
 
@@ -76,6 +94,14 @@ impl ScrubberEvent {
         Self::new(
             ScrubberEventType::CycleCompleted,
             format!("Processing cycle completed: {processed_count} tracks processed, {applied_count} rules applied"),
+        )
+    }
+
+    pub fn anchor_updated(anchor_timestamp: u64, track_name: &str, artist_name: &str) -> Self {
+        Self::new_with_anchor(
+            ScrubberEventType::AnchorUpdated,
+            format!("Processing anchor updated to '{track_name}' by '{artist_name}'"),
+            anchor_timestamp,
         )
     }
 }

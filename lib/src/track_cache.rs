@@ -39,6 +39,14 @@ impl From<SerializableTrack> for Track {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CacheMergeStats {
+    pub added: usize,
+    pub updated: usize,
+    pub duplicates: usize,
+    pub total_processed: usize,
+}
+
 /// Cache structure for storing track data on disk
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackCache {
@@ -231,6 +239,104 @@ impl TrackCache {
     pub fn get_recent_tracks_limited(&self, limit: usize) -> Vec<SerializableTrack> {
         let all_tracks = self.get_all_recent_tracks();
         all_tracks.into_iter().take(limit).collect()
+    }
+
+    /// Merge new tracks from API into the cache
+    pub fn merge_recent_tracks(&mut self, new_tracks: Vec<Track>) -> CacheMergeStats {
+        let mut stats = CacheMergeStats {
+            added: 0,
+            updated: 0,
+            duplicates: 0,
+            total_processed: new_tracks.len(),
+        };
+
+        // Convert existing tracks to timestamp-indexed map for efficient merging
+        let mut existing_tracks: std::collections::BTreeMap<u64, SerializableTrack> = self
+            .get_all_recent_tracks()
+            .into_iter()
+            .filter_map(|t| t.timestamp.map(|ts| (ts, t)))
+            .collect();
+
+        // Process new tracks
+        for track in new_tracks {
+            let Some(timestamp) = track.timestamp else {
+                continue; // Skip tracks without timestamps
+            };
+
+            let serializable_track = SerializableTrack::from(track);
+
+            match existing_tracks.entry(timestamp) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    // New track, add it
+                    entry.insert(serializable_track);
+                    stats.added += 1;
+                }
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    let existing = entry.get();
+                    // Check if it's the same track (same name and artist)
+                    if existing.name == serializable_track.name
+                        && existing.artist == serializable_track.artist
+                    {
+                        // Same track, check if we should update (e.g., higher playcount)
+                        if serializable_track.playcount > existing.playcount {
+                            entry.insert(serializable_track);
+                            stats.updated += 1;
+                        } else {
+                            stats.duplicates += 1;
+                        }
+                    } else {
+                        // Different track with same timestamp - rare but possible
+                        // Keep the one with higher playcount as tiebreaker
+                        if serializable_track.playcount > existing.playcount {
+                            entry.insert(serializable_track);
+                            stats.updated += 1;
+                        } else {
+                            stats.duplicates += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Rebuild the page-based cache structure from merged data
+        self.rebuild_from_timestamp_map(existing_tracks);
+        self.update_timestamp();
+
+        log::info!(
+            "Cache merge completed: {} added, {} updated, {} duplicates",
+            stats.added,
+            stats.updated,
+            stats.duplicates
+        );
+
+        stats
+    }
+
+    /// Rebuild page-based structure from timestamp-indexed tracks
+    fn rebuild_from_timestamp_map(
+        &mut self,
+        tracks: std::collections::BTreeMap<u64, SerializableTrack>,
+    ) {
+        // Clear existing recent tracks
+        self.recent_tracks.clear();
+
+        // Convert back to sorted vector (newest first)
+        let mut sorted_tracks: Vec<SerializableTrack> = tracks.into_values().collect();
+        sorted_tracks.sort_by(|a, b| {
+            match (a.timestamp, b.timestamp) {
+                (Some(a_ts), Some(b_ts)) => b_ts.cmp(&a_ts), // Reverse order for newest first
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
+
+        // Rebuild pages (50 tracks per page, matching API pagination)
+        const TRACKS_PER_PAGE: usize = 50;
+        for (page_index, chunk) in sorted_tracks.chunks(TRACKS_PER_PAGE).enumerate() {
+            let page_number = (page_index + 1) as u32;
+            self.recent_tracks.insert(page_number, chunk.to_vec());
+        }
     }
 }
 

@@ -145,6 +145,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                         ScrubberEventType::RuleApplied => ("✏️", "#059669"),
                                         ScrubberEventType::Error => ("❌", "#dc2626"),
                                         ScrubberEventType::Info => ("ℹ️", "#6b7280"),
+                                        ScrubberEventType::AnchorUpdated => ("📍", "#f59e0b"),
                                     };
                                     let formatted_time = event.timestamp.format("%H:%M:%S").to_string();
 
@@ -303,6 +304,7 @@ async fn start_scrubber(mut state: Signal<AppState>) {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Started,
         message: "Scrobble scrubber started".to_string(),
+        anchor_timestamp: None,
     };
 
     // Send event and update state
@@ -326,6 +328,7 @@ async fn stop_scrubber(mut state: Signal<AppState>) {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Stopped,
         message: "Scrobble scrubber stopped".to_string(),
+        anchor_timestamp: None,
     };
 
     state.with_mut(|s| {
@@ -340,6 +343,7 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Info,
         message: "Manual processing triggered".to_string(),
+        anchor_timestamp: None,
     };
 
     if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -368,6 +372,7 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
                     message: "Manual processing completed successfully".to_string(),
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(success_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
@@ -377,6 +382,7 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Error,
                     message: format!("Manual processing failed: {e}"),
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -387,6 +393,7 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: "Cannot process: missing session, storage, or event sender".to_string(),
+            anchor_timestamp: None,
         };
 
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -418,6 +425,7 @@ async fn run_scrubber_loop(
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: "Checking for new scrobbles...".to_string(),
+            anchor_timestamp: None,
         };
 
         let _ = sender.send(info_event.clone());
@@ -442,6 +450,7 @@ async fn run_scrubber_loop(
                         timestamp: Utc::now(),
                         event_type: ScrubberEventType::Info,
                         message: "Processing cycle completed successfully".to_string(),
+                        anchor_timestamp: None,
                     };
                     let _ = sender.send(success_event.clone());
                     state.with_mut(|s| s.scrubber_state.events.push(success_event));
@@ -451,6 +460,7 @@ async fn run_scrubber_loop(
                         timestamp: Utc::now(),
                         event_type: ScrubberEventType::Error,
                         message: format!("Error during processing: {e}"),
+                        anchor_timestamp: None,
                     };
                     let _ = sender.send(error_event.clone());
                     state.with_mut(|s| {
@@ -465,6 +475,7 @@ async fn run_scrubber_loop(
                 timestamp: Utc::now(),
                 event_type: ScrubberEventType::Info,
                 message: "No session or storage available - skipping processing".to_string(),
+                anchor_timestamp: None,
             };
             let _ = sender.send(warning_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(warning_event));
@@ -512,6 +523,7 @@ async fn process_scrobbles(
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: "Starting to process last 50 tracks...".to_string(),
+            anchor_timestamp: None,
         };
         let _ = sender.send(start_event.clone());
         state.with_mut(|s| s.scrubber_state.events.push(start_event));
@@ -546,6 +558,7 @@ async fn process_scrobbles(
                                     "{} (Total: {tracks_processed})",
                                     lib_event.message
                                 ),
+                                anchor_timestamp: lib_event.anchor_timestamp,
                             }
                         }
                         ::scrobble_scrubber::events::ScrubberEventType::RuleApplied => {
@@ -554,6 +567,7 @@ async fn process_scrobbles(
                                 timestamp: lib_event.timestamp,
                                 event_type: ScrubberEventType::RuleApplied,
                                 message: format!("{} (Total: {rules_applied})", lib_event.message),
+                                anchor_timestamp: lib_event.anchor_timestamp,
                             }
                         }
                         ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted => {
@@ -563,6 +577,7 @@ async fn process_scrobbles(
                                 timestamp: lib_event.timestamp,
                                 event_type: ScrubberEventType::Info,
                                 message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
                             }
                         }
                         ::scrobble_scrubber::events::ScrubberEventType::CycleStarted => {
@@ -570,22 +585,34 @@ async fn process_scrobbles(
                                 timestamp: lib_event.timestamp,
                                 event_type: ScrubberEventType::Info,
                                 message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
                             }
                         }
                         ::scrobble_scrubber::events::ScrubberEventType::Error => ScrubberEvent {
                             timestamp: lib_event.timestamp,
                             event_type: ScrubberEventType::Error,
                             message: lib_event.message,
+                            anchor_timestamp: lib_event.anchor_timestamp,
                         },
                         ::scrobble_scrubber::events::ScrubberEventType::Info => ScrubberEvent {
                             timestamp: lib_event.timestamp,
                             event_type: ScrubberEventType::Info,
                             message: lib_event.message,
+                            anchor_timestamp: lib_event.anchor_timestamp,
                         },
+                        ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated => {
+                            ScrubberEvent {
+                                timestamp: lib_event.timestamp,
+                                event_type: ScrubberEventType::AnchorUpdated,
+                                message: lib_event.message,
+                                anchor_timestamp: lib_event.anchor_timestamp,
+                            }
+                        }
                         _ => ScrubberEvent {
                             timestamp: lib_event.timestamp,
                             event_type: ScrubberEventType::Info,
                             message: lib_event.message,
+                            anchor_timestamp: lib_event.anchor_timestamp,
                         },
                     };
 
@@ -600,6 +627,11 @@ async fn process_scrobbles(
                             }
                             ScrubberEventType::RuleApplied => {
                                 s.scrubber_state.rules_applied_count += 1;
+                            }
+                            ScrubberEventType::AnchorUpdated => {
+                                // Update the current anchor timestamp in the state
+                                s.scrubber_state.current_anchor_timestamp =
+                                    web_event.anchor_timestamp;
                             }
                             _ => {}
                         }
@@ -621,6 +653,7 @@ async fn process_scrobbles(
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
                     message: final_message,
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(success_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
@@ -630,6 +663,7 @@ async fn process_scrobbles(
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Error,
                     message: format!("Scrubber processing failed: {e}"),
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -641,6 +675,7 @@ async fn process_scrobbles(
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Error,
             message: "No configuration available for scrubber".to_string(),
+            anchor_timestamp: None,
         };
         let _ = sender.send(config_error.clone());
         state.with_mut(|s| s.scrubber_state.events.push(config_error));
@@ -655,6 +690,7 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
         timestamp: Utc::now(),
         event_type: ScrubberEventType::Info,
         message: "Immediate processing cycle triggered".to_string(),
+        anchor_timestamp: None,
     };
 
     if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -691,6 +727,7 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
                     message: "Immediate processing trigger sent successfully".to_string(),
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(success_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
@@ -700,6 +737,7 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Error,
                     message: format!("Failed to trigger immediate processing: {e}"),
+                    anchor_timestamp: None,
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -712,6 +750,7 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
             message:
                 "Cannot trigger immediate processing: missing session, storage, or event sender"
                     .to_string(),
+            anchor_timestamp: None,
         };
 
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -760,6 +799,7 @@ async fn create_scrubber_and_trigger_immediate(
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: "Sent immediate processing trigger to running scrubber".to_string(),
+            anchor_timestamp: None,
         };
         let _ = sender.send(info_event.clone());
         state.with_mut(|s| s.scrubber_state.events.push(info_event));
@@ -778,6 +818,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTr
             "Setting timestamp anchor to '{}' by '{}'...",
             track.name, track.artist
         ),
+        anchor_timestamp: None,
     };
 
     // Always add to events, whether scrubber is running or not
@@ -800,6 +841,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTr
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Info,
                     message: "Successfully set timestamp anchor".to_string(),
+                    anchor_timestamp: None,
                 };
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(success_event.clone());
@@ -811,6 +853,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTr
                     timestamp: Utc::now(),
                     event_type: ScrubberEventType::Error,
                     message: format!("Failed to set timestamp anchor: {e}"),
+                    anchor_timestamp: None,
                 };
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(error_event.clone());
@@ -823,6 +866,7 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: SerializableTr
             timestamp: Utc::now(),
             event_type: ScrubberEventType::Info,
             message: "Cannot set timestamp anchor: missing storage".to_string(),
+            anchor_timestamp: None,
         };
 
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -875,6 +919,7 @@ async fn set_timestamp_anchor_direct(
                 lastfm_track.artist,
                 timestamp_dt.format("%Y-%m-%d %H:%M:%S")
             ),
+            anchor_timestamp: None,
         };
 
         state.with_mut(|s| s.scrubber_state.events.push(info_event));

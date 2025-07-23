@@ -6,6 +6,7 @@ use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
+use crate::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
@@ -18,6 +19,7 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     should_stop: Arc<RwLock<bool>>,
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<RwLock<bool>>,
+    track_cache: TrackCache,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
@@ -37,6 +39,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             should_stop: Arc::new(RwLock::new(false)),
             event_sender,
             trigger_immediate: Arc::new(RwLock::new(false)),
+            track_cache: TrackCache::load(),
         }
     }
 
@@ -83,6 +86,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Ensure timestamp state is initialized with the most recent track if not set
+    #[allow(dead_code)]
     async fn ensure_timestamp_initialized(
         &mut self,
         timestamp_state: TimestampState,
@@ -198,7 +202,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
-        // Load current timestamp state to know where to start reading
+        // Step 1: Update cache with latest tracks from API
+        info!("Updating track cache from Last.fm API...");
+        self.update_cache_from_api().await?;
+
+        // Step 2: Load current timestamp state to know where to start reading
         let timestamp_state = self
             .storage
             .lock()
@@ -211,81 +219,18 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        // Ensure timestamp state is initialized
-        let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
-
-        let mut recent_iterator = self.client.recent_tracks();
-
-        let mut examined = 0;
-
-        // Step 1: Collect all tracks newer than our anchor point
-        let mut tracks_to_process = Vec::new();
-        info!("Scanning recent tracks to find new tracks since last run...");
-
-        // Debug: Show anchor timestamp
-        if let Some(anchor) = timestamp_state.last_processed_timestamp {
-            trace!("Using anchor timestamp: {anchor}");
-        } else {
-            trace!("No anchor timestamp set (first run)");
-        }
-
-        while let Some(track) = recent_iterator.next().await? {
-            examined += 1;
-
-            // Check if we've reached our last processed track (anchor point)
-            if let Some(last_processed) = timestamp_state.last_processed_timestamp {
-                if let Some(track_ts) = track.timestamp {
-                    let track_time = DateTime::from_timestamp(track_ts as i64, 0);
-                    if let Some(track_time) = track_time {
-                        trace!(
-                            "Examining track '{}' by '{}' at {} vs anchor at {}",
-                            track.name,
-                            track.artist,
-                            track_time,
-                            last_processed
-                        );
-
-                        if track_time <= last_processed {
-                            info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
-                                  track.name, track.artist, track_time, tracks_to_process.len());
-                            break; // Stop here - we've caught up to where we left off
-                        }
-                        // Track is newer than our anchor, collect it for processing
-                        info!(
-                            "Found new track: '{}' by '{}' at {}",
-                            track.name, track.artist, track_time
-                        );
-                    }
-                } else {
-                    trace!(
-                        "Track '{}' by '{}' has no timestamp",
-                        track.name,
-                        track.artist
-                    );
-                }
-            } else {
-                // First run - no anchor timestamp, collect tracks up to limit
-                info!(
-                    "First run - found track: '{}' by '{}'",
-                    track.name, track.artist
-                );
-            }
-
-            tracks_to_process.push(track);
-        }
-
-        trace!("Track scanning complete: examined {examined} tracks from Last.fm API");
+        // Step 3: Find tracks to process from cache
+        let tracks_to_process = self
+            .find_tracks_to_process_from_cache(&timestamp_state)
+            .await?;
 
         info!(
-            "Scan complete: examined {} tracks, collected {} tracks to process",
-            examined,
+            "Found {} tracks to process from cache",
             tracks_to_process.len()
         );
 
-        // Step 2: Process all collected tracks (oldest first) with incremental timestamp updates
+        // Step 4: Process all collected tracks (oldest first) with incremental timestamp updates
         if !tracks_to_process.is_empty() {
-            // Reverse to process oldest first (tracks were collected newest first)
-            tracks_to_process.reverse();
             info!(
                 "Processing {} tracks in batches of {} (oldest first)...",
                 tracks_to_process.len(),
@@ -296,8 +241,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         info!(
-            "Processing complete: examined {} tracks, processed {} tracks",
-            examined,
+            "Processing complete: processed {} tracks from cache",
             tracks_to_process.len()
         );
 
@@ -306,6 +250,115 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             0, // We'll update this when we track rule applications
         ));
         Ok(())
+    }
+
+    /// Update cache with latest tracks from Last.fm API
+    async fn update_cache_from_api(&mut self) -> Result<()> {
+        let mut recent_iterator = self.client.recent_tracks();
+        let mut api_tracks = Vec::new();
+        let mut fetched = 0;
+
+        // Fetch first few pages of recent tracks to update cache
+        const MAX_TRACKS_TO_FETCH: usize = 200; // Fetch about 4 pages worth
+
+        info!("Fetching recent tracks from Last.fm API...");
+        while let Some(track) = recent_iterator.next().await? {
+            api_tracks.push(track);
+            fetched += 1;
+
+            if fetched >= MAX_TRACKS_TO_FETCH {
+                break;
+            }
+        }
+
+        info!(
+            "Fetched {} tracks from API, merging with cache...",
+            api_tracks.len()
+        );
+
+        // Merge with existing cache
+        self.track_cache.merge_recent_tracks(api_tracks);
+
+        // Save updated cache
+        if let Err(e) = self.track_cache.save() {
+            warn!("Failed to save updated cache: {e}");
+        } else {
+            info!("Cache updated and saved successfully");
+        }
+
+        Ok(())
+    }
+
+    /// Find tracks to process from cache based on timestamp state
+    async fn find_tracks_to_process_from_cache(
+        &self,
+        timestamp_state: &TimestampState,
+    ) -> Result<Vec<lastfm_edit::Track>> {
+        let mut tracks_to_process = Vec::new();
+
+        // Get all recent tracks from cache, sorted newest first
+        let cached_tracks = self.track_cache.get_all_recent_tracks();
+
+        info!(
+            "Scanning {} cached tracks to find new tracks since last run...",
+            cached_tracks.len()
+        );
+
+        // Debug: Show anchor timestamp
+        if let Some(anchor) = timestamp_state.last_processed_timestamp {
+            trace!("Using anchor timestamp: {anchor}");
+        } else {
+            trace!("No anchor timestamp set (first run)");
+        }
+
+        for cached_track in cached_tracks {
+            // Check if we've reached our last processed track (anchor point)
+            if let Some(last_processed) = timestamp_state.last_processed_timestamp {
+                if let Some(track_ts) = cached_track.timestamp {
+                    let track_time = DateTime::from_timestamp(track_ts as i64, 0);
+                    if let Some(track_time) = track_time {
+                        trace!(
+                            "Examining cached track '{}' by '{}' at {} vs anchor at {}",
+                            cached_track.name,
+                            cached_track.artist,
+                            track_time,
+                            last_processed
+                        );
+
+                        if track_time <= last_processed {
+                            info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
+                                  cached_track.name, cached_track.artist, track_time, tracks_to_process.len());
+                            break; // Stop here - we've caught up to where we left off
+                        }
+                        // Track is newer than our anchor, collect it for processing
+                        info!(
+                            "Found new track: '{}' by '{}' at {}",
+                            cached_track.name, cached_track.artist, track_time
+                        );
+                    }
+                } else {
+                    trace!(
+                        "Cached track '{}' by '{}' has no timestamp",
+                        cached_track.name,
+                        cached_track.artist
+                    );
+                }
+            } else {
+                // First run - no anchor timestamp, collect tracks up to limit
+                info!(
+                    "First run - found cached track: '{}' by '{}'",
+                    cached_track.name, cached_track.artist
+                );
+            }
+
+            // Convert SerializableTrack back to Track for processing
+            tracks_to_process.push(lastfm_edit::Track::from(cached_track));
+        }
+
+        // Reverse to process oldest first (tracks were collected newest first)
+        tracks_to_process.reverse();
+
+        Ok(tracks_to_process)
     }
 
     /// Process the last N tracks without updating timestamp state
@@ -495,6 +548,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 "Updated timestamp anchor to: {} (track: '{}' by '{}')",
                 track_time, track.name, track.artist
             );
+
+            // Emit anchor update event
+            self.emit_event(ScrubberEvent::anchor_updated(
+                ts,
+                &track.name,
+                &track.artist,
+            ));
         }
         Ok(())
     }
@@ -591,12 +651,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 track_time, track.name, track.artist
             );
 
-            self.emit_event(ScrubberEvent::info(format!(
-                "Set processing anchor to '{}' by '{}' at {}",
-                track.name,
-                track.artist,
-                track_time.format("%Y-%m-%d %H:%M:%S")
-            )));
+            // Emit anchor update event
+            self.emit_event(ScrubberEvent::anchor_updated(
+                ts,
+                &track.name,
+                &track.artist,
+            ));
         } else {
             return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
                 "Track has no timestamp",

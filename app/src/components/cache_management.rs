@@ -83,9 +83,158 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
                 }
             }
 
-            // Recent Tracks Cache Detail
+            // Processing Anchor Position
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Recent Tracks Cache" }
+                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Processing Anchor & Recent Tracks" }
+
+                {
+                    let state_read = state.read();
+                    let anchor_timestamp = state_read.scrubber_state.current_anchor_timestamp;
+                    let all_tracks = state_read.track_cache.get_all_recent_tracks();
+
+                    if all_tracks.is_empty() {
+                        rsx! {
+                            div { style: "text-center; color: #6b7280; padding: 2rem;",
+                                p { "No recent tracks cached yet." }
+                                p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
+                                    "Recent tracks will be cached automatically when you load them in the Rule Workshop or Rewrite Rules page."
+                                }
+                            }
+                        }
+                    } else {
+                        // Find anchor position in the track list
+                        let anchor_index = if let Some(anchor_ts) = anchor_timestamp {
+                            all_tracks.iter().position(|track| track.timestamp == Some(anchor_ts))
+                        } else {
+                            None
+                        };
+
+                        rsx! {
+                            div { style: "margin-bottom: 1rem;",
+                                if let Some(_anchor_ts) = anchor_timestamp {
+                                    if let Some(anchor_idx) = anchor_index {
+                                        div { style: "padding: 0.75rem; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 0.5rem; margin-bottom: 1rem;",
+                                            div { style: "font-weight: bold; color: #92400e; margin-bottom: 0.5rem;",
+                                                "📍 Processing Anchor Position"
+                                            }
+                                            div { style: "color: #92400e;",
+                                                "Track #{anchor_idx + 1} of {all_tracks.len()} • "
+                                                {
+                                                    if let Some(anchor_track) = all_tracks.get(anchor_idx) {
+                                                        format!("\"{}\" by \"{}\"", anchor_track.name, anchor_track.artist)
+                                                    } else {
+                                                        "Unknown track".to_string()
+                                                    }
+                                                }
+                                            }
+                                            if anchor_idx > 0 {
+                                                div { style: "font-size: 0.875rem; color: #92400e; margin-top: 0.25rem;",
+                                                    "⏳ {anchor_idx} tracks above anchor (pending processing)"
+                                                }
+                                            }
+                                            if anchor_idx < all_tracks.len() - 1 {
+                                                div { style: "font-size: 0.875rem; color: #92400e; margin-top: 0.25rem;",
+                                                    "✅ {all_tracks.len() - anchor_idx - 1} tracks below anchor (processed)"
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        div { style: "padding: 0.75rem; background: #fee2e2; border: 2px solid #f87171; border-radius: 0.5rem; margin-bottom: 1rem;",
+                                            div { style: "font-weight: bold; color: #dc2626; margin-bottom: 0.5rem;",
+                                                "⚠️ Anchor Not Found in Cache"
+                                            }
+                                            div { style: "color: #dc2626; font-size: 0.875rem;",
+                                                "Anchor timestamp set but corresponding track not found in current cache."
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    div { style: "padding: 0.75rem; background: #e5e7eb; border: 2px solid #9ca3af; border-radius: 0.5rem; margin-bottom: 1rem;",
+                                        div { style: "font-weight: bold; color: #4b5563; margin-bottom: 0.5rem;",
+                                            "📍 No Processing Anchor Set"
+                                        }
+                                        div { style: "color: #4b5563; font-size: 0.875rem;",
+                                            "The scrubber will process all tracks on first run."
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Show tracks with anchor highlighted
+                            div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
+                                for (index, track) in all_tracks.iter().take(50).enumerate() {
+                                    div {
+                                        key: "{track.name}_{track.artist}_{track.timestamp.unwrap_or(0)}",
+                                        style: format!(
+                                            "padding: 0.75rem; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; {}",
+                                            if Some(index) == anchor_index {
+                                                "background: #fef3c7; border-left: 4px solid #f59e0b;"
+                                            } else if let Some(anchor_idx) = anchor_index {
+                                                if index < anchor_idx {
+                                                    "background: #f0f9ff;" // Pending (above anchor)
+                                                } else {
+                                                    "background: #f0fdf4;" // Processed (below anchor)
+                                                }
+                                            } else {
+                                                ""
+                                            }
+                                        ),
+                                        div { style: "flex: 1;",
+                                            div { style: "font-weight: 500; color: #374151;",
+                                                "\"{track.name}\" by {track.artist}"
+                                            }
+                                            if let Some(album) = &track.album {
+                                                div { style: "font-size: 0.875rem; color: #6b7280;",
+                                                    "Album: {album}"
+                                                }
+                                            }
+                                            if let Some(timestamp) = track.timestamp {
+                                                div { style: "font-size: 0.75rem; color: #9ca3af;",
+                                                    {
+                                                        use chrono::DateTime;
+                                                        DateTime::from_timestamp(timestamp as i64, 0)
+                                                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                                                            .unwrap_or_else(|| "Invalid timestamp".to_string())
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        div { style: "display: flex; align-items: center; gap: 0.5rem;",
+                                            span { style: "font-size: 0.625rem; color: #6b7280; background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
+                                                "#{index + 1}"
+                                            }
+                                            if Some(index) == anchor_index {
+                                                span { style: "font-size: 0.625rem; color: #92400e; background: #fef3c7; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-weight: bold;",
+                                                    "📍 ANCHOR"
+                                                }
+                                            } else if let Some(anchor_idx) = anchor_index {
+                                                if index < anchor_idx {
+                                                    span { style: "font-size: 0.625rem; color: #1d4ed8; background: #dbeafe; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
+                                                        "⏳ pending"
+                                                    }
+                                                } else {
+                                                    span { style: "font-size: 0.625rem; color: #059669; background: #d1fae5; padding: 0.125rem 0.25rem; border-radius: 0.25rem;",
+                                                        "✅ processed"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if all_tracks.len() > 50 {
+                                    div { style: "padding: 1rem; text-align: center; color: #6b7280; font-size: 0.875rem;",
+                                        "... and {all_tracks.len() - 50} more tracks (showing first 50)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Recent Tracks Cache Pages Overview
+            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Cache Pages Overview" }
 
                 {
                     let state_read = state.read();
