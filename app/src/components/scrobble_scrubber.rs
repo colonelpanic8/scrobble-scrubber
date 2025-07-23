@@ -504,6 +504,86 @@ async fn process_scrobbles(
         let mut scrubber =
             ScrobbleScrubber::new(storage.clone(), client, action_provider, config.clone());
 
+        // Subscribe to detailed events from the scrubber library
+        let mut event_receiver = scrubber.subscribe_events();
+
+        // Spawn a task to forward detailed events from the scrubber library to the web app
+        let sender_clone = sender.clone();
+        let mut state_clone = *state;
+        spawn(async move {
+            let mut tracks_processed = 0;
+            let mut rules_applied = 0;
+
+            while let Ok(lib_event) = event_receiver.recv().await {
+                // Convert library event to web app event
+                let web_event = match lib_event.event_type {
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed => {
+                        tracks_processed += 1;
+                        ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::TrackProcessed,
+                            message: format!("{} (Total: {tracks_processed})", lib_event.message),
+                        }
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied => {
+                        rules_applied += 1;
+                        ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::RuleApplied,
+                            message: format!("{} (Total: {rules_applied})", lib_event.message),
+                        }
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted => {
+                        ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::Info,
+                            message: format!("Processing cycle completed: {tracks_processed} tracks processed, {rules_applied} rules applied"),
+                        }
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::CycleStarted => {
+                        tracks_processed = 0;
+                        rules_applied = 0;
+                        ScrubberEvent {
+                            timestamp: lib_event.timestamp,
+                            event_type: ScrubberEventType::Info,
+                            message: lib_event.message,
+                        }
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::Error => ScrubberEvent {
+                        timestamp: lib_event.timestamp,
+                        event_type: ScrubberEventType::Error,
+                        message: lib_event.message,
+                    },
+                    ::scrobble_scrubber::events::ScrubberEventType::Info => ScrubberEvent {
+                        timestamp: lib_event.timestamp,
+                        event_type: ScrubberEventType::Info,
+                        message: lib_event.message,
+                    },
+                    _ => ScrubberEvent {
+                        timestamp: lib_event.timestamp,
+                        event_type: ScrubberEventType::Info,
+                        message: lib_event.message,
+                    },
+                };
+
+                // Forward to web app event system
+                let _ = sender_clone.send(web_event.clone());
+                state_clone.with_mut(|s| {
+                    s.scrubber_state.events.push(web_event.clone());
+                    // Update counters based on event type
+                    match web_event.event_type {
+                        ScrubberEventType::TrackProcessed => {
+                            s.scrubber_state.processed_count += 1;
+                        }
+                        ScrubberEventType::RuleApplied => {
+                            s.scrubber_state.rules_applied_count += 1;
+                        }
+                        _ => {}
+                    }
+                });
+            }
+        });
+
         // Run a single processing cycle (process last 50 tracks)
         let processing_result = scrubber.process_last_n_tracks(50).await;
 

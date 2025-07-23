@@ -7,7 +7,7 @@ use crate::utils::get_current_tracks;
 use dioxus::prelude::*;
 
 #[component]
-pub fn LivePreviewControls(state: Signal<AppState>) -> Element {
+pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks = use_signal(|| false);
     let mut loading_artist_tracks = use_signal(|| false);
     let mut artist_name = use_signal(String::new);

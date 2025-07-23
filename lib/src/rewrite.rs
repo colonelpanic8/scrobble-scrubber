@@ -21,11 +21,24 @@ pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
 
 /// Check if any of the rewrite rules would apply to the given track
 pub fn any_rules_apply(rules: &[RewriteRule], track: &Track) -> Result<bool, RewriteError> {
-    for rule in rules {
+    use log::trace;
+
+    trace!("Checking {rules_len} rules against track '{track_name}' by '{track_artist}'", 
+           rules_len = rules.len(), track_name = track.name, track_artist = track.artist);
+
+    for (i, rule) in rules.iter().enumerate() {
+        let rule_name = rule.name.as_deref().unwrap_or("unnamed");
+        trace!("Checking rule {i} '{rule_name}' against track");
+
         if rule.applies_to(track)? {
+            trace!("Rule {i} '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
+                   track_name = track.name, track_artist = track.artist);
             return Ok(true);
         }
     }
+
+    trace!("No rules apply to track '{track_name}' by '{track_artist}'",
+           track_name = track.name, track_artist = track.artist);
     Ok(false)
 }
 
@@ -354,16 +367,32 @@ impl RewriteRule {
     /// - A rule with all None fields is treated as always matching (acts as a catch-all)
     /// - If any Some field doesn't match, the rule doesn't apply
     pub fn applies_to(&self, track: &Track) -> Result<bool, RewriteError> {
+        use log::trace;
+
+        let rule_name = self.name.as_deref().unwrap_or("unnamed");
+        trace!("Evaluating rule '{rule_name}' against track: '{track_name}' by '{track_artist}' (album: '{album_name}')",
+               track_name = track.name, track_artist = track.artist, album_name = track.album.as_deref().unwrap_or(""));
+
         // Check track name transformation if present
         if let Some(rule) = &self.track_name {
-            if !rule.would_modify(&track.name)? {
+            let would_modify = rule.would_modify(&track.name)?;
+            trace!("Rule '{rule_name}' track_name check: pattern='{find}' -> '{replace}', track_name='{track_name}', would_modify={would_modify}",
+                   find = rule.find, replace = rule.replace, track_name = track.name);
+            if !would_modify {
+                trace!("Rule '{rule_name}' does not apply: track name '{track_name}' would not be modified by pattern '{find}'",
+                       track_name = track.name, find = rule.find);
                 return Ok(false);
             }
         }
 
         // Check artist name transformation if present
         if let Some(rule) = &self.artist_name {
-            if !rule.would_modify(&track.artist)? {
+            let would_modify = rule.would_modify(&track.artist)?;
+            trace!("Rule '{rule_name}' artist_name check: pattern='{find}' -> '{replace}', artist_name='{artist_name}', would_modify={would_modify}",
+                   find = rule.find, replace = rule.replace, artist_name = track.artist);
+            if !would_modify {
+                trace!("Rule '{rule_name}' does not apply: artist name '{artist_name}' would not be modified by pattern '{find}'",
+                       artist_name = track.artist, find = rule.find);
                 return Ok(false);
             }
         }
@@ -371,20 +400,32 @@ impl RewriteRule {
         // Check album name transformation if present
         if let Some(rule) = &self.album_name {
             let album_name = track.album.as_deref().unwrap_or("");
-            if !rule.would_modify(album_name)? {
+            let would_modify = rule.would_modify(album_name)?;
+            trace!("Rule '{rule_name}' album_name check: pattern='{find}' -> '{replace}', album_name='{album_name}', would_modify={would_modify}",
+                   find = rule.find, replace = rule.replace);
+            if !would_modify {
+                trace!("Rule '{rule_name}' does not apply: album name '{album_name}' would not be modified by pattern '{find}'",
+                       find = rule.find);
                 return Ok(false);
             }
         }
 
         // Check album artist name transformation if present (always empty for Track)
         if let Some(rule) = &self.album_artist_name {
-            if !rule.would_modify("")? {
+            let would_modify = rule.would_modify("")?;
+            trace!("Rule '{rule_name}' album_artist_name check: pattern='{find}' -> '{replace}', album_artist_name='', would_modify={would_modify}",
+                   find = rule.find, replace = rule.replace);
+            if !would_modify {
+                trace!("Rule '{rule_name}' does not apply: album artist name '' would not be modified by pattern '{find}'",
+                       find = rule.find);
                 return Ok(false);
             }
         }
 
         // Rule applies if all present rules would modify their fields
         // Rules with all None fields are treated as always matching (catch-all)
+        trace!("Rule '{rule_name}' applies to track '{track_name}' by '{track_artist}'",
+               track_name = track.name, track_artist = track.artist);
         Ok(true)
     }
 
