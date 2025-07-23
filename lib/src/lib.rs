@@ -6,6 +6,8 @@ pub mod track_cache;
 
 #[cfg(feature = "cli")]
 pub mod config;
+#[cfg(feature = "musicbrainz")]
+pub mod musicbrainz_provider;
 #[cfg(feature = "openai")]
 pub mod openai_provider;
 pub mod persistence;

@@ -135,10 +135,14 @@ pub struct ProvidersConfig {
     pub enable_openai: bool,
     /// Enable HTTP provider
     pub enable_http: bool,
+    /// Enable MusicBrainz provider
+    pub enable_musicbrainz: bool,
     /// `OpenAI` configuration
     pub openai: Option<OpenAIProviderConfig>,
     /// HTTP provider configuration
     pub http: Option<HttpProviderConfig>,
+    /// MusicBrainz provider configuration
+    pub musicbrainz: Option<MusicBrainzProviderConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,6 +161,16 @@ pub struct HttpProviderConfig {
     pub endpoint_url: String,
     /// Request timeout in seconds
     pub timeout_seconds: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MusicBrainzProviderConfig {
+    /// Confidence threshold for accepting MusicBrainz matches (0.0-1.0)
+    pub confidence_threshold: f32,
+    /// Maximum number of search results to examine
+    pub max_results: usize,
+    /// Request delay in milliseconds to be respectful to MusicBrainz API
+    pub api_delay_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,8 +209,20 @@ impl Default for ProvidersConfig {
             enable_rewrite_rules: true,
             enable_openai: false,
             enable_http: false,
+            enable_musicbrainz: false,
             openai: None,
             http: None,
+            musicbrainz: None,
+        }
+    }
+}
+
+impl Default for MusicBrainzProviderConfig {
+    fn default() -> Self {
+        Self {
+            confidence_threshold: 0.8, // 80% confidence required
+            max_results: 5,            // Check top 5 results
+            api_delay_ms: 100,         // 100ms delay between requests
         }
     }
 }

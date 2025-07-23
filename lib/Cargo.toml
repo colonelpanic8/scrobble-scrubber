@@ -44,11 +44,15 @@ tower-http = { version = "0.5", features = ["fs", "cors"], optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 openai-api-rs = { version = "6.0.7", optional = true }
 
+# MusicBrainz dependencies
+musicbrainz_rs = { version = "0.12.0", optional = true }
+
 [features]
 default = ["tokio", "http-client/curl_client", "cli"]
-full = ["tokio", "web", "openai", "cli", "pickledb", "http-client/curl_client"]
+full = ["tokio", "web", "openai", "musicbrainz", "cli", "pickledb", "http-client/curl_client"]
 cli = ["config", "dirs"]
 pickledb = ["dep:pickledb"]
 wasm = ["http-client/wasm_client", "lastfm-edit/wasm", "chrono/wasm-bindgen"]  # WASM-compatible feature set
 web = ["axum", "tower", "tower-http"]
 openai = ["reqwest", "openai-api-rs"]
+musicbrainz = ["musicbrainz_rs", "reqwest"]

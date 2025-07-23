@@ -43,6 +43,10 @@ struct Args {
     #[arg(long)]
     openai_api_key: Option<String>,
 
+    /// Enable MusicBrainz provider for metadata corrections
+    #[arg(long)]
+    enable_musicbrainz: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -379,6 +383,9 @@ fn merge_args_into_config(
         } else {
             config.providers.openai.as_mut().unwrap().api_key = api_key.clone();
         }
+    }
+    if args.enable_musicbrainz {
+        config.providers.enable_musicbrainz = true;
     }
 
     config
@@ -787,6 +794,22 @@ async fn main() -> Result<()> {
                 }
             }
         }
+    }
+
+    // Add MusicBrainz provider if enabled and configured
+    if config.providers.enable_musicbrainz {
+        use scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
+
+        let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
+            MusicBrainzScrubActionProvider::new()
+                .with_confidence_threshold(mb_config.confidence_threshold)
+                .with_max_results(mb_config.max_results)
+        } else {
+            MusicBrainzScrubActionProvider::new()
+        };
+
+        action_provider = action_provider.add_provider(musicbrainz_provider);
+        info!("Enabled MusicBrainz provider for metadata corrections");
     }
 
     // Handle commands that don't need a scrubber instance first
