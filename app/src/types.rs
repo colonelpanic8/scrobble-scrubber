@@ -1,3 +1,4 @@
+use crate::cache::TrackCache;
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
@@ -110,6 +111,8 @@ pub struct AppState {
     pub storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
+    #[allow(dead_code)]
+    pub track_cache: TrackCache, // Disk cache for track data
 }
 
 impl Default for AppState {
@@ -136,6 +139,7 @@ impl Default for AppState {
                 rules_applied_count: 0,
                 event_sender: None,
             },
+            track_cache: TrackCache::load(), // Load cache from disk on startup
         }
     }
 }

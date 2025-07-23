@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+mod cache;
 mod components;
 mod server_functions;
 mod types;

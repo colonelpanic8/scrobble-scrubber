@@ -880,7 +880,7 @@ fn test_any_rules_match_vs_any_rules_apply() {
 fn test_dollar_zero_replacement_fix() {
     // This test verifies the fix for the user's specific issue:
     // Rules with $0 replacement should show as matching in UI
-    
+
     let track = Track {
         name: "Chris Thile".to_string(),
         artist: "Chris Thile".to_string(),
@@ -889,9 +889,8 @@ fn test_dollar_zero_replacement_fix() {
         playcount: 0,
     };
 
-    let rule = RewriteRule::new()
-        .with_artist_name(SdRule::new("Chris Thile", "$0"));
-    
+    let rule = RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "$0"));
+
     let rules = vec![rule];
 
     // The old behavior would have been:

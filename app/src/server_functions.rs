@@ -41,6 +41,14 @@ pub async fn load_artist_tracks(
     session_str: String,
     artist_name: String,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
+    use crate::cache::TrackCache;
+
+    // Try to load from cache first
+    let mut cache = TrackCache::load();
+    if let Some(cached_tracks) = cache.get_artist_tracks(&artist_name) {
+        println!("📂 Using cached tracks for artist '{artist_name}'");
+        return Ok(cached_tracks.clone());
+    }
     use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
 
     // Deserialize the session
@@ -104,6 +112,13 @@ pub async fn load_artist_tracks(
         )));
     }
 
+    // Cache the successfully fetched artist tracks
+    cache.cache_artist_tracks(artist_name.clone(), all_tracks.clone());
+    if let Err(e) = cache.save() {
+        eprintln!("⚠️ Failed to save cache: {}", e);
+    }
+    println!("💾 Cached tracks for artist '{artist_name}'");
+
     Ok(all_tracks)
 }
 
@@ -112,6 +127,14 @@ pub async fn load_recent_tracks_from_page(
     session_str: String,
     page: u32,
 ) -> Result<Vec<SerializableTrack>, ServerFnError> {
+    use crate::cache::TrackCache;
+
+    // Try to load from cache first
+    let mut cache = TrackCache::load();
+    if let Some(cached_tracks) = cache.get_recent_tracks(page) {
+        println!("📂 Using cached recent tracks for page {page}");
+        return Ok(cached_tracks.clone());
+    }
     use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, LastFmEditSession};
 
     // Deserialize the session
@@ -149,6 +172,12 @@ pub async fn load_recent_tracks_from_page(
     {
         Ok(Ok(_)) => {
             if !tracks.is_empty() {
+                // Cache the successfully fetched tracks
+                cache.cache_recent_tracks(page, tracks.clone());
+                if let Err(e) = cache.save() {
+                    eprintln!("⚠️ Failed to save cache: {}", e);
+                }
+                println!("💾 Cached recent tracks for page {page}");
                 return Ok(tracks);
             }
         }
@@ -160,30 +189,43 @@ pub async fn load_recent_tracks_from_page(
         }
     }
 
-    // Fall back to mock data if real fetch fails
-    let mock_tracks = vec![
-        SerializableTrack {
-            name: "Bohemian Rhapsody - 2011 Remaster".to_string(),
-            artist: "Queen ft. Someone".to_string(),
-            album: Some("A Night at the Opera (Deluxe Edition)".to_string()),
-            timestamp: Some(1234567890),
-            playcount: 150,
-        },
-        SerializableTrack {
-            name: "Stairway to Heaven (Remaster)".to_string(),
-            artist: "Led Zeppelin featuring Guest".to_string(),
-            album: Some("Led Zeppelin IV".to_string()),
-            timestamp: Some(1234567800),
-            playcount: 75,
-        },
-        SerializableTrack {
-            name: "Hotel California - Live".to_string(),
-            artist: "Eagles".to_string(),
-            album: Some("Hotel California (40th Anniversary)".to_string()),
-            timestamp: Some(1234567700),
-            playcount: 42,
-        },
-    ];
+    // Return error if no tracks could be fetched
+    Err(ServerFnError::new(format!(
+        "Failed to load recent tracks for page {page}"
+    )))
+}
 
-    Ok(mock_tracks)
+#[server(GetCacheStats)]
+pub async fn get_cache_stats() -> Result<String, ServerFnError> {
+    use crate::cache::TrackCache;
+
+    let cache = TrackCache::load();
+    let stats = cache.stats();
+    Ok(format!("{stats}"))
+}
+
+#[server(ClearCache)]
+pub async fn clear_cache() -> Result<String, ServerFnError> {
+    use crate::cache::TrackCache;
+
+    let mut cache = TrackCache::load();
+    cache.clear();
+    match cache.save() {
+        Ok(_) => Ok("Cache cleared successfully".to_string()),
+        Err(e) => Err(ServerFnError::new(format!("Failed to clear cache: {e}"))),
+    }
+}
+
+#[server(ClearArtistCache)]
+pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnError> {
+    use crate::cache::TrackCache;
+
+    let mut cache = TrackCache::load();
+    cache.clear_artist(&artist_name);
+    match cache.save() {
+        Ok(_) => Ok(format!("Cleared cache for artist '{artist_name}'")),
+        Err(e) => Err(ServerFnError::new(format!(
+            "Failed to clear artist cache: {e}"
+        ))),
+    }
 }
