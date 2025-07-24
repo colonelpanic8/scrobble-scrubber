@@ -132,11 +132,6 @@ fn App() -> Element {
             style: "min-height: 100vh; background: #f5f5f5; padding: 20px; font-family: Arial, sans-serif;",
             div {
                 style: "max-width: 1200px; margin: 0 auto;",
-                h1 {
-                    style: "font-size: 2.5rem; font-weight: bold; text-align: center; margin-bottom: 2rem; color: #333;",
-                    "Scrobble Scrubber"
-                }
-
                 if !state.read().logged_in {
                     LoginPage { state }
                 } else {

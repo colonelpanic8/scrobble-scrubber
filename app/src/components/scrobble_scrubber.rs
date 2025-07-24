@@ -16,8 +16,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
             // Header with controls
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    h2 { style: "font-size: 1.5rem; font-weight: bold; margin: 0;", "Scrobble Scrubber" }
+                div { style: "display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;",
                     div { style: "display: flex; align-items: center; gap: 1rem;",
                         // Status indicator
                         div {
@@ -532,10 +531,14 @@ async fn process_scrobbles(
         // Run a single processing cycle using cache-based processing
         let processing_result = scrubber.trigger_run().await;
 
-        // Process events after scrubbing completes to get the actual counts
+        // Process events after scrubbing completes to collect and compress them
         let mut tracks_processed = 0;
         let mut rules_applied = 0;
         let mut final_message = "Processing completed".to_string();
+        
+        // Track events per track to compress them
+        use std::collections::HashMap;
+        let mut track_events: HashMap<String, (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool)> = HashMap::new(); // (track, rule_descriptions, had_errors)
 
         // Process events with a timeout to collect statistics
         let mut has_cycle_completed = false;
@@ -548,36 +551,62 @@ async fn process_scrobbles(
             .await
             {
                 Ok(Ok(lib_event)) => {
-                    // Convert library event to web app event and track counts
+                    // Process events and group by track
                     match &lib_event.event_type {
-                        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { track, .. } => {
                             tracks_processed += 1;
+                            let track_key = format!("{}:{}", track.artist, track.name);
+                            let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                            track_events.entry(track_key).or_insert((log_track, Vec::new(), false));
                         }
-                        ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
+                        ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { track, description, .. } => {
                             rules_applied += 1;
+                            let track_key = format!("{}:{}", track.artist, track.name);
+                            let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                            track_events.entry(track_key.clone())
+                                .or_insert((log_track, Vec::new(), false))
+                                .1.push(description.clone());
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed { track, .. } => {
+                            let track_key = format!("{}:{}", track.artist, track.name);
+                            track_events.entry(track_key.clone())
+                                .or_insert((track.clone(), Vec::new(), false))
+                                .2 = true;
                         }
                         ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
                             has_cycle_completed = true;
-                            final_message = event_formatting::format_event_message(&lib_event);
+                            // Don't forward the library's cycle completed event - we'll create our own summary
                         }
-                        _ => {}
+                        ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated { anchor_timestamp, .. } => {
+                            // Forward anchor updates immediately as they're important
+                            let _ = sender.send(lib_event.clone());
+                            state.with_mut(|s| {
+                                s.scrubber_state.events.push(lib_event.clone());
+                                s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
+                            });
+                        }
+                        ::scrobble_scrubber::events::ScrubberEventType::Info(_) |
+                        ::scrobble_scrubber::events::ScrubberEventType::Error(_) |
+                        ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
+                            // Forward non-track events immediately
+                            let _ = sender.send(lib_event.clone());
+                            state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                        }
+                        _ => {
+                            // Forward other events as-is
+                            let _ = sender.send(lib_event.clone());
+                            state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                        }
                     }
 
-                    // Forward to web app event system immediately
-                    let _ = sender.send(lib_event.clone());
+                    // Update global counters
                     state.with_mut(|s| {
-                        s.scrubber_state.events.push(lib_event.clone());
-                        // Update counters based on event type
                         match &lib_event.event_type {
                             ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
                                 s.scrubber_state.processed_count += 1;
                             }
                             ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
                                 s.scrubber_state.rules_applied_count += 1;
-                            }
-                            ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated { anchor_timestamp, .. } => {
-                                // Update the current anchor timestamp in the state
-                                s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
                             }
                             _ => {}
                         }
@@ -588,12 +617,41 @@ async fn process_scrobbles(
             }
         }
 
+        // Now create compressed summary events for each track
+        for (track, rule_descriptions, had_errors) in track_events.values() {
+            let summary_message = if rule_descriptions.is_empty() {
+                if *had_errors {
+                    format!("'{}' by '{}' - processed with errors", track.name, track.artist)
+                } else {
+                    format!("'{}' by '{}' - no changes needed", track.name, track.artist)
+                }
+            } else {
+                let rules_text = if rule_descriptions.len() == 1 {
+                    format!("applied rule: {}", rule_descriptions[0])
+                } else {
+                    format!("applied {} rules: {}", rule_descriptions.len(), rule_descriptions.join(", "))
+                };
+                
+                if *had_errors {
+                    format!("'{}' by '{}' - {} (with errors)", track.name, track.artist, rules_text)
+                } else {
+                    format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
+                }
+            };
+
+            let summary_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
+            };
+
+            let _ = sender.send(summary_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(summary_event));
+        }
+
         match processing_result {
             Ok(()) => {
-                // Use the final message from the library if we got it, otherwise create a fallback
-                if !has_cycle_completed {
-                    final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
-                }
+                // Always use the local counts we tracked, as they're more reliable
+                final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
 
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
@@ -626,17 +684,6 @@ async fn process_scrobbles(
 }
 
 async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
-    let trigger_event = ScrubberEvent {
-        timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Immediate processing cycle triggered".to_string()),
-    };
-
-    if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-        let _ = sender.send(trigger_event.clone());
-    }
-
-    state.with_mut(|s| s.scrubber_state.events.push(trigger_event));
-
     // Get necessary data from state for triggering immediate processing
     let (session_json, storage, saved_rules, sender_opt) = {
         let state_read = state.read();
@@ -663,7 +710,7 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
             Ok(()) => {
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Immediate processing trigger sent successfully".to_string()),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Immediate processing triggered".to_string()),
                 };
                 let _ = sender.send(success_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(success_event));
@@ -697,7 +744,7 @@ async fn create_scrubber_and_trigger_immediate(
     session_json: String,
     storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
     saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
-    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    _sender: &Arc<broadcast::Sender<ScrubberEvent>>,
     state: &mut Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
@@ -731,13 +778,6 @@ async fn create_scrubber_and_trigger_immediate(
 
         // Trigger immediate processing
         scrubber.trigger_immediate_processing();
-
-        let info_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Sent immediate processing trigger to running scrubber".to_string()),
-        };
-        let _ = sender.send(info_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(info_event));
     } else {
         return Err("No configuration available".into());
     }
