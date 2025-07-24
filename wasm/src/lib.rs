@@ -140,7 +140,7 @@ pub fn test_rule_applies(rule_json: &str, track_json: &str) -> Result<bool, JsVa
     let internal_track = js_track_to_internal(&track);
 
     rewrite_rule
-        .applies_to(&internal_track)
+        .matches(&internal_track)
         .map_err(|e| JsValue::from_str(&format!("Rule application error: {e}")))
 }
 
@@ -335,7 +335,7 @@ pub fn process_tracks_with_rules(tracks_json: &str, rules_json: &str) -> Result<
         let mut track_results = Vec::new();
 
         for (rule_index, rule) in rewrite_rules.iter().enumerate() {
-            let applies = match rule.applies_to(&internal_track) {
+            let applies = match rule.matches(&internal_track) {
                 Ok(applies) => applies,
                 Err(_) => continue,
             };

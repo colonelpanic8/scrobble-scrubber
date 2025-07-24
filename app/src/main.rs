@@ -154,7 +154,7 @@ fn MainContent(state: Signal<AppState>) -> Element {
             Page::RuleWorkshop => rsx! { RuleWorkshop { state } },
             Page::RewriteRules => rsx! { RewriteRulesPage { state } },
             Page::ScrobbleScrubber => rsx! { ScrobbleScrubberPage { state } },
-            Page::PendingEdits => rsx! { PendingEditsPage { _state: state } },
+            Page::PendingEdits => rsx! { PendingEditsPage { state } },
             Page::PendingRules => rsx! { PendingRulesPage { _state: state } },
             Page::CacheManagement => rsx! { CacheManagementPage { state } },
         }

@@ -266,13 +266,39 @@ pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, Ser
 }
 
 #[server(ApprovePendingEdit)]
-pub async fn approve_pending_edit(edit_id: String) -> Result<String, ServerFnError> {
+pub async fn approve_pending_edit(
+    session_str: String,
+    edit_id: String,
+) -> Result<String, ServerFnError> {
     let storage = create_storage().await?;
-    let _approved_edit = remove_pending_edit(&storage, &edit_id).await?;
+    let approved_edit = remove_pending_edit(&storage, &edit_id).await?;
 
-    // TODO: Actually apply the edit to LastFM here
+    // Deserialize session and create client
+    let session = deserialize_session(&session_str)?;
+    let client = create_client_from_session(session);
 
-    Ok("Edit approved and applied".to_string())
+    // Convert PendingEdit to ScrobbleEdit
+    let edit = approved_edit.to_scrobble_edit();
+
+    // Apply the edit to Last.fm
+    let result = with_timeout(
+        std::time::Duration::from_secs(10),
+        async {
+            client
+                .edit_scrobble(&edit)
+                .await
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        },
+        "applying edit to Last.fm",
+    )
+    .await
+    .map_err(|e| {
+        eprintln!("Error applying edit to Last.fm: {}", e);
+        ServerFnError::new(format!("Failed to apply edit to Last.fm: {}", e))
+    })?;
+
+    log::info!("Successfully applied edit to Last.fm: {:?}", result);
+    Ok("Edit approved and applied to Last.fm".to_string())
 }
 
 #[server(RejectPendingEdit)]

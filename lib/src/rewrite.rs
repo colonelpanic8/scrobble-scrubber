@@ -377,7 +377,9 @@ impl RewriteRule {
             } else {
                 let artist_name = &track.artist;
                 let pattern = &rule.find;
-                failed_fields.push(format!("artist_name('{artist_name}' ≠ pattern '{pattern}')"));
+                failed_fields.push(format!(
+                    "artist_name('{artist_name}' ≠ pattern '{pattern}')"
+                ));
             }
         }
 

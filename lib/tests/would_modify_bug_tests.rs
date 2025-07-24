@@ -259,9 +259,9 @@ fn test_proposed_fix_with_matches_instead_of_would_modify() {
 #[test]
 fn test_exact_user_example_dot_star_constant_value() {
     // This is the EXACT example the user gave that would have failed previously:
-    // "A simple example, is where we have a .* for say album artist, and we set it to some 
+    // "A simple example, is where we have a .* for say album artist, and we set it to some
     // constant value, but some tracks already have that constant value."
-    
+
     // Track that doesn't have the constant value yet
     let track_without_constant = Track {
         name: "Song 1".to_string(),
@@ -284,8 +284,7 @@ fn test_exact_user_example_dot_star_constant_value() {
 
     // Rule with .* pattern that sets album_artist to "Some Constant"
     // This is the exact scenario from the user's example
-    let rule = RewriteRule::new()
-        .with_album_artist_name(SdRule::new(".*", "Some Constant"));
+    let rule = RewriteRule::new().with_album_artist_name(SdRule::new(".*", "Some Constant"));
 
     // Both tracks should match because the pattern ".*" matches both empty string and "Some Constant"
     assert!(
@@ -306,7 +305,7 @@ fn test_exact_user_example_dot_star_constant_value() {
         any_rules_apply(&rules, &track_without_constant).unwrap(),
         "any_rules_apply should return true for track without constant"
     );
-    
+
     assert!(
         any_rules_apply(&rules, &track_with_constant).unwrap(),
         "any_rules_apply should return true for track with constant (this was the bug!)"

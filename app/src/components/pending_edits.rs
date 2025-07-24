@@ -32,7 +32,7 @@ where
 }
 
 #[component]
-pub fn PendingEditsPage(_state: Signal<AppState>) -> Element {
+pub fn PendingEditsPage(state: Signal<AppState>) -> Element {
     let mut pending_edits = use_signal(Vec::<PendingEdit>::new);
     let mut loading = use_signal(|| false);
     let mut error_message = use_signal(String::new);
@@ -121,7 +121,17 @@ pub fn PendingEditsPage(_state: Signal<AppState>) -> Element {
                                 on_approve: {
                                     let edit_id = edit.id.clone();
                                     let handler = create_operation_handler(
-                                        move || approve_pending_edit(edit_id.clone()),
+                                        move || {
+                                            let session_str = state.read().session.clone();
+                                            let edit_id = edit_id.clone();
+                                            async move {
+                                                if let Some(session_str) = session_str {
+                                                    approve_pending_edit(session_str, edit_id).await
+                                                } else {
+                                                    Err(dioxus::prelude::ServerFnError::new("No session available"))
+                                                }
+                                            }
+                                        },
                                         success_message,
                                         error_message,
                                         reload_data,

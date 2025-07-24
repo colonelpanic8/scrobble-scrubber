@@ -72,6 +72,34 @@ impl PendingEdit {
             timestamp,
         }
     }
+
+    /// Convert this PendingEdit to a ScrobbleEdit for applying to Last.fm
+    pub fn to_scrobble_edit(&self) -> lastfm_edit::ScrobbleEdit {
+        lastfm_edit::ScrobbleEdit {
+            track_name_original: Some(self.original_track_name.clone()),
+            album_name_original: self.original_album_name.clone(),
+            artist_name_original: self.original_artist_name.clone(),
+            album_artist_name_original: self.original_album_artist_name.clone(),
+            track_name: self
+                .new_track_name
+                .clone()
+                .or_else(|| Some(self.original_track_name.clone())),
+            album_name: self
+                .new_album_name
+                .clone()
+                .or(self.original_album_name.clone()),
+            artist_name: self
+                .new_artist_name
+                .clone()
+                .unwrap_or_else(|| self.original_artist_name.clone()),
+            album_artist_name: self
+                .new_album_artist_name
+                .clone()
+                .or(self.original_album_artist_name.clone()),
+            timestamp: self.timestamp,
+            edit_all: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -947,11 +947,7 @@ async fn main() -> Result<()> {
         }
         Commands::Artist { name, album, .. } => {
             if let Some(album_name) = album {
-                log::info!(
-                    "Processing tracks for album '{}' by artist '{}'",
-                    album_name,
-                    name
-                );
+                log::info!("Processing tracks for album '{album_name}' by artist '{name}'");
                 scrubber_guard.process_album(name, album_name).await?;
             } else {
                 log::info!("Processing all tracks for artist '{name}'");
