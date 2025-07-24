@@ -43,9 +43,9 @@ fn test_rewrite_rule_application() {
     let changed = rule.apply(&mut edit).unwrap();
 
     assert!(changed);
-    assert_eq!(edit.track_name, "Clean Song"); // Entire string replaced
+    assert_eq!(edit.track_name, Some("Clean Song".to_string())); // Entire string replaced
     assert_eq!(edit.artist_name, "Clean Artist"); // Entire string replaced
-    assert_eq!(edit.timestamp, 1234567890);
+    assert_eq!(edit.timestamp, Some(1234567890));
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn test_multiple_rules_application() {
     let changed = apply_all_rules(&rules, &mut edit).unwrap();
 
     assert!(changed);
-    assert_eq!(edit.track_name, "Song"); // Entire string replaced
+    assert_eq!(edit.track_name, Some("Song".to_string())); // Entire string replaced
     assert_eq!(edit.artist_name, "Artist feat. Someone"); // Entire string replaced
 }
 
@@ -718,9 +718,9 @@ fn test_ui_preview_logic_simulation() {
     );
 
     // UI logic: has_changes check (from RulePreview component line 28-30)
-    let has_changes = edit.track_name != track.name
+    let has_changes = edit.track_name != Some(track.name.clone())
         || edit.artist_name != track.artist
-        || edit.album_name != track.album.clone().unwrap_or_default();
+        || edit.album_name != track.album;
 
     assert!(
         !has_changes,
@@ -739,9 +739,9 @@ fn test_ui_preview_logic_simulation() {
         "Rule with actual changes should return true"
     );
 
-    let has_changes_real = edit_changed.track_name != track.name
+    let has_changes_real = edit_changed.track_name != Some(track.name.clone())
         || edit_changed.artist_name != track.artist
-        || edit_changed.album_name != track.album.clone().unwrap_or_default();
+        || edit_changed.album_name != track.album;
 
     assert!(
         has_changes_real,

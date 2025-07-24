@@ -97,13 +97,13 @@ impl From<&ScrobbleEdit> for LogEditInfo {
     fn from(edit: &ScrobbleEdit) -> Self {
         Self {
             original_track_name: edit.track_name_original.clone(),
-            original_artist_name: edit.artist_name_original.clone(),
+            original_artist_name: Some(edit.artist_name_original.clone()),
             original_album_name: edit.album_name_original.clone(),
             original_album_artist_name: edit.album_artist_name_original.clone(),
-            new_track_name: Some(edit.track_name.clone()),
+            new_track_name: edit.track_name.clone(),
             new_artist_name: Some(edit.artist_name.clone()),
-            new_album_name: Some(edit.album_name.clone()),
-            new_album_artist_name: Some(edit.album_artist_name.clone()),
+            new_album_name: edit.album_name.clone(),
+            new_album_artist_name: edit.album_artist_name.clone(),
         }
     }
 }

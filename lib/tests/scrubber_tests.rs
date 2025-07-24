@@ -148,8 +148,7 @@ async fn test_scrubber_processes_tracks_in_chronological_order() {
         }
 
         Ok(EditResponse {
-            success: true,
-            message: Some("Edit successful".to_string()),
+            individual_results: vec![],
         })
     });
 
@@ -311,8 +310,7 @@ async fn test_scrubber_track_processing_order_with_cache() {
         }
 
         Ok(EditResponse {
-            success: true,
-            message: Some("Edit successful".to_string()),
+            individual_results: vec![],
         })
     });
 

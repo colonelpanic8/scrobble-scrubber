@@ -4,22 +4,19 @@ use serde::{Deserialize, Serialize};
 /// Create a no-op `ScrobbleEdit` from a Track (no changes, just a baseline)
 #[must_use]
 pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
-    let album_name = track.album.clone().unwrap_or_default();
-    let album_artist_name = track
-        .album_artist
-        .clone()
-        .unwrap_or_else(|| track.artist.clone());
-
     ScrobbleEdit {
         track_name_original: Some(track.name.clone()),
         album_name_original: track.album.clone(),
-        artist_name_original: Some(track.artist.clone()),
+        artist_name_original: track.artist.clone(),
         album_artist_name_original: track.album_artist.clone(),
-        track_name: track.name.clone(),
-        album_name,
+        track_name: Some(track.name.clone()),
+        album_name: track.album.clone(),
         artist_name: track.artist.clone(),
-        album_artist_name,
-        timestamp: track.timestamp.unwrap_or(0),
+        album_artist_name: track
+            .album_artist
+            .clone()
+            .or_else(|| Some(track.artist.clone())),
+        timestamp: track.timestamp,
         edit_all: false,
     }
 }
@@ -82,7 +79,7 @@ pub fn apply_all_rules(
                 "Applied rewrite rule '{}' to track '{}' by '{}'",
                 rule_name,
                 edit.track_name_original.as_deref().unwrap_or("unknown"),
-                edit.artist_name_original.as_deref().unwrap_or("unknown")
+                &edit.artist_name_original
             );
         }
     }
@@ -496,11 +493,12 @@ impl RewriteRule {
 
         // Apply track name transformation if present
         if let Some(rule) = &self.track_name {
-            let current_value = &edit.track_name;
-            let new_value = rule.apply(current_value)?;
-            if new_value != *current_value {
-                edit.track_name = new_value;
-                has_changes = true;
+            if let Some(current_value) = &edit.track_name {
+                let new_value = rule.apply(current_value)?;
+                if new_value != *current_value {
+                    edit.track_name = Some(new_value);
+                    has_changes = true;
+                }
             }
         }
 
@@ -516,21 +514,23 @@ impl RewriteRule {
 
         // Apply album name transformation if present
         if let Some(rule) = &self.album_name {
-            let current_value = &edit.album_name;
-            let new_value = rule.apply(current_value)?;
-            if new_value != *current_value {
-                edit.album_name = new_value;
-                has_changes = true;
+            if let Some(current_value) = &edit.album_name {
+                let new_value = rule.apply(current_value)?;
+                if new_value != *current_value {
+                    edit.album_name = Some(new_value);
+                    has_changes = true;
+                }
             }
         }
 
         // Apply album artist name transformation if present
         if let Some(rule) = &self.album_artist_name {
-            let current_value = &edit.album_artist_name;
-            let new_value = rule.apply(current_value)?;
-            if new_value != *current_value {
-                edit.album_artist_name = new_value;
-                has_changes = true;
+            if let Some(current_value) = &edit.album_artist_name {
+                let new_value = rule.apply(current_value)?;
+                if new_value != *current_value {
+                    edit.album_artist_name = Some(new_value);
+                    has_changes = true;
+                }
             }
         }
 

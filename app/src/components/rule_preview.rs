@@ -98,10 +98,10 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                             div {
                                                 h4 { style: "font-size: 0.875rem; font-weight: 500; color: #059669; margin-top: 0; margin-bottom: 0.5rem;", "After Rule Applied ✓" }
                                                 div { style: "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem;",
-                                                    div { style: "font-weight: 500;", "{edit.track_name}" }
+                                                    div { style: "font-weight: 500;", "{edit.track_name.as_deref().unwrap_or(\"unknown\")}" }
                                                     div { style: "color: #4b5563;", "{edit.artist_name}" }
-                                                    if !edit.album_name.is_empty() {
-                                                        div { style: "color: #6b7280;", "{edit.album_name}" }
+                                                    if edit.album_name.as_ref().is_some_and(|name| !name.is_empty()) {
+                                                        div { style: "color: #6b7280;", "{edit.album_name.as_deref().unwrap_or(\"\")}" }
                                                     }
                                                 }
                                             }

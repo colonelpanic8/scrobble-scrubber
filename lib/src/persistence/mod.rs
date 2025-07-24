@@ -158,29 +158,33 @@ impl PendingRewriteRule {
                     original_artist_name: original_artist_name.clone(),
                     original_album_name: original_album_name.clone(),
                     original_album_artist_name: original_album_artist_name.clone(),
-                    transformed_track_name: if edit.track_name != original_track_name {
-                        Some(edit.track_name)
+                    transformed_track_name: if edit.track_name.as_ref()
+                        != Some(&original_track_name)
+                    {
+                        edit.track_name
                     } else {
                         None
                     },
-                    transformed_artist_name: if edit.artist_name != original_artist_name {
+                    transformed_artist_name: if Some(&edit.artist_name)
+                        != Some(&original_artist_name)
+                    {
                         Some(edit.artist_name)
                     } else {
                         None
                     },
                     transformed_album_name: if original_album_name
                         .as_ref()
-                        .is_some_and(|orig| edit.album_name != *orig)
+                        .is_some_and(|orig| edit.album_name.as_ref() != Some(orig))
                     {
-                        Some(edit.album_name)
+                        edit.album_name
                     } else {
                         None
                     },
                     transformed_album_artist_name: if original_album_artist_name
                         .as_ref()
-                        .is_some_and(|orig| edit.album_artist_name != *orig)
+                        .is_some_and(|orig| edit.album_artist_name.as_ref() != Some(orig))
                     {
-                        Some(edit.album_artist_name)
+                        edit.album_artist_name
                     } else {
                         None
                     },

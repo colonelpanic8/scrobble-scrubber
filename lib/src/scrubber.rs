@@ -1031,29 +1031,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         track: &lastfm_edit::Track,
         edit: &ScrobbleEdit,
     ) -> Result<()> {
-        let new_track_name = if Some(&edit.track_name) == edit.track_name_original.as_ref() {
+        let new_track_name = if edit.track_name.as_ref() == edit.track_name_original.as_ref() {
             None
         } else {
-            Some(edit.track_name.clone())
+            edit.track_name.clone()
         };
 
-        let new_artist_name = if Some(&edit.artist_name) == edit.artist_name_original.as_ref() {
+        let new_artist_name = if Some(&edit.artist_name) == Some(&edit.artist_name_original) {
             None
         } else {
             Some(edit.artist_name.clone())
         };
 
-        let new_album_name = if Some(&edit.album_name) == edit.album_name_original.as_ref() {
+        let new_album_name = if edit.album_name.as_ref() == edit.album_name_original.as_ref() {
             None
         } else {
-            Some(edit.album_name.clone())
+            edit.album_name.clone()
         };
 
         let new_album_artist_name =
-            if Some(&edit.album_artist_name) == edit.album_artist_name_original.as_ref() {
+            if edit.album_artist_name.as_ref() == edit.album_artist_name_original.as_ref() {
                 None
             } else {
-                Some(edit.album_artist_name.clone())
+                edit.album_artist_name.clone()
             };
 
         let pending_edit = PendingEdit::new(
@@ -1115,34 +1115,33 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Check what changes are being made and log them
         let mut changes = Vec::new();
 
-        if Some(&edit.track_name) != edit.track_name_original.as_ref() {
+        if edit.track_name.as_ref() != edit.track_name_original.as_ref() {
             changes.push(format!(
                 "track: '{}' -> '{}'",
                 edit.track_name_original.as_deref().unwrap_or("unknown"),
-                edit.track_name
+                edit.track_name.as_deref().unwrap_or("unknown")
             ));
         }
-        if Some(&edit.artist_name) != edit.artist_name_original.as_ref() {
+        if Some(&edit.artist_name) != Some(&edit.artist_name_original) {
             changes.push(format!(
                 "artist: '{}' -> '{}'",
-                edit.artist_name_original.as_deref().unwrap_or("unknown"),
-                edit.artist_name
+                &edit.artist_name_original, edit.artist_name
             ));
         }
-        if Some(&edit.album_name) != edit.album_name_original.as_ref() {
+        if edit.album_name.as_ref() != edit.album_name_original.as_ref() {
             changes.push(format!(
                 "album: '{}' -> '{}'",
                 edit.album_name_original.as_deref().unwrap_or("unknown"),
-                edit.album_name
+                edit.album_name.as_deref().unwrap_or("unknown")
             ));
         }
-        if Some(&edit.album_artist_name) != edit.album_artist_name_original.as_ref() {
+        if edit.album_artist_name.as_ref() != edit.album_artist_name_original.as_ref() {
             changes.push(format!(
                 "album artist: '{}' -> '{}'",
                 edit.album_artist_name_original
                     .as_deref()
                     .unwrap_or("unknown"),
-                edit.album_artist_name
+                edit.album_artist_name.as_deref().unwrap_or("unknown")
             ));
         }
 
@@ -1150,7 +1149,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             log::info!(
                 "Applying edit to track '{}' by '{}': {}",
                 edit.track_name_original.as_deref().unwrap_or("unknown"),
-                edit.artist_name_original.as_deref().unwrap_or("unknown"),
+                &edit.artist_name_original,
                 changes.join(", ")
             );
 

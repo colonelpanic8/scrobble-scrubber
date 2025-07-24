@@ -476,16 +476,16 @@ impl OpenAIScrubActionProvider {
         let mut edit = crate::rewrite::create_no_op_edit(track);
 
         if let Some(track_name) = args.track_name {
-            edit.track_name = track_name;
+            edit.track_name = Some(track_name);
         }
         if let Some(artist_name) = args.artist_name {
             edit.artist_name = artist_name;
         }
         if let Some(album_name) = args.album_name {
-            edit.album_name = album_name;
+            edit.album_name = Some(album_name);
         }
         if let Some(album_artist_name) = args.album_artist_name {
-            edit.album_artist_name = album_artist_name;
+            edit.album_artist_name = Some(album_artist_name);
         }
 
         Ok((args.track_index, ScrubActionSuggestion::Edit(edit)))
