@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
@@ -11,6 +11,14 @@ use scrobble_scrubber::scrubber::ScrobbleScrubber;
 use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+#[derive(ValueEnum, Clone, Debug)]
+enum ProviderType {
+    /// MusicBrainz metadata correction provider
+    Musicbrainz,
+    /// OpenAI-powered suggestion provider
+    Openai,
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "scrobble-scrubber")]
@@ -40,9 +48,9 @@ struct Args {
     #[arg(long)]
     openai_api_key: Option<String>,
 
-    /// Enable MusicBrainz provider for metadata corrections
-    #[arg(long)]
-    enable_musicbrainz: bool,
+    /// Select which suggestion provider to use (can be used multiple times)
+    #[arg(long = "provider", value_enum)]
+    providers: Vec<ProviderType>,
 
     #[command(subcommand)]
     command: Commands,
@@ -376,8 +384,20 @@ fn merge_args_into_config(
             config.providers.openai.as_mut().unwrap().api_key = api_key.clone();
         }
     }
-    if args.enable_musicbrainz {
-        config.providers.enable_musicbrainz = true;
+    // Update provider configuration based on CLI flags
+    for provider in &args.providers {
+        match provider {
+            ProviderType::Musicbrainz => {
+                config.providers.enable_musicbrainz = true;
+            }
+            ProviderType::Openai => {
+                if args.enable_openai {
+                    // OpenAI was enabled by both flags - this is fine
+                } else {
+                    config.providers.enable_openai = true;
+                }
+            }
+        }
     }
 
     config
@@ -791,14 +811,12 @@ async fn main() -> Result<()> {
 
     // Add MusicBrainz provider if enabled and configured
     if config.providers.enable_musicbrainz {
-        use scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
-
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
-            MusicBrainzScrubActionProvider::new()
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new()
                 .with_confidence_threshold(mb_config.confidence_threshold)
                 .with_max_results(mb_config.max_results)
         } else {
-            MusicBrainzScrubActionProvider::new()
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new()
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);

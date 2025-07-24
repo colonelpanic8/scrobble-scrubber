@@ -6,9 +6,7 @@ use log::{trace, warn};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-#[cfg(feature = "musicbrainz")]
 use musicbrainz_rs::entity::recording::Recording;
-#[cfg(feature = "musicbrainz")]
 use musicbrainz_rs::Search;
 
 /// MusicBrainz-based scrub action provider that suggests corrections using the MusicBrainz database
@@ -47,7 +45,6 @@ impl MusicBrainzScrubActionProvider {
     }
 
     /// Search MusicBrainz for a track and return the best match
-    #[cfg(feature = "musicbrainz")]
     async fn search_musicbrainz(&self, track: &Track) -> Option<MusicBrainzMatch> {
         let search_key = format!("{}:{}", track.artist, track.name);
 
@@ -163,12 +160,6 @@ impl MusicBrainzScrubActionProvider {
         }
 
         best_match
-    }
-
-    #[cfg(not(feature = "musicbrainz"))]
-    async fn search_musicbrainz(&self, _track: &Track) -> Option<MusicBrainzMatch> {
-        warn!("MusicBrainz feature not enabled, cannot search for corrections");
-        None
     }
 
     /// Calculate string similarity between two strings (simple Levenshtein-based approach)

@@ -100,7 +100,8 @@
       "Bash(RUST_LOG=debug dx build 2 >& 1)",
       "Bash(RUST_BACKTRACE=1 cargo build --features=desktop 2 >& 1)",
       "Bash(RUST_BACKTRACE=1 RUST_LOG=debug dx build --verbose 2 >& 1)",
-      "Bash(/tmp:*)"
+      "Bash(/tmp:*)",
+      "Bash(true)"
     ],
     "deny": [
       "Bash(dx serve:*)"
