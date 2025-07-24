@@ -86,9 +86,9 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                             h4 { style: "font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem;", "Original" }
                                             div { style: "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem;",
                                                 div { style: "font-weight: 500;", "{track.name}" }
-                                                div { style: "color: #4b5563;", "by {track.artist}" }
+                                                div { style: "color: #4b5563;", "{track.artist}" }
                                                 if let Some(album) = &track.album {
-                                                    div { style: "color: #6b7280;", "from {album}" }
+                                                    div { style: "color: #6b7280;", "{album}" }
                                                 }
                                             }
                                         }
@@ -99,12 +99,9 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                                 h4 { style: "font-size: 0.875rem; font-weight: 500; color: #059669; margin-bottom: 0.5rem;", "After Rule Applied ✓" }
                                                 div { style: "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem;",
                                                     div { style: "font-weight: 500;", "{edit.track_name}" }
-                                                    div { style: "color: #4b5563;", "by {edit.artist_name}" }
+                                                    div { style: "color: #4b5563;", "{edit.artist_name}" }
                                                     if !edit.album_name.is_empty() {
-                                                        div { style: "color: #6b7280;", "from {edit.album_name}" }
-                                                    }
-                                                    if !edit.album_artist_name.is_empty() {
-                                                        div { style: "color: #6b7280;", "album artist: {edit.album_artist_name}" }
+                                                        div { style: "color: #6b7280;", "{edit.album_name}" }
                                                     }
                                                 }
                                             }
