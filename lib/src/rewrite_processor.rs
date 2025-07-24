@@ -23,7 +23,7 @@ pub enum RewriteProcessorError {
 pub struct TransformRule {
     /// The regex pattern - should match entire input with captures
     pub pattern: String,
-    /// The replacement - reconstructs entire output using captures  
+    /// The replacement - reconstructs entire output using captures
     pub replacement: String,
     /// Optional regex flags
     pub flags: Option<String>,
@@ -74,12 +74,6 @@ impl RewriteProcessor {
         let mut compiled_rules = HashMap::new();
 
         for rule in rules {
-            // Validate that regex patterns use anchors for full string matching
-            if !rule.pattern.starts_with('^') || !rule.pattern.ends_with('$') {
-                return Err(RewriteProcessorError::MissingAnchorsError(
-                    rule.pattern.clone(),
-                ));
-            }
             let (pattern, replacement) = (rule.pattern.clone(), rule.replacement.clone());
 
             let mut regex_builder = regex::RegexBuilder::new(&pattern);
@@ -164,7 +158,7 @@ impl RewriteProcessor {
 pub struct MetadataRewriteRule {
     /// Optional rule for track names
     pub track_name: Option<TransformRule>,
-    /// Optional rule for artist names  
+    /// Optional rule for artist names
     pub artist_name: Option<TransformRule>,
     /// Optional rule for album names
     pub album_name: Option<TransformRule>,
@@ -226,7 +220,7 @@ impl MetadataRewriteProcessor {
         }
     }
 
-    /// Apply rules to artist metadata  
+    /// Apply rules to artist metadata
     pub fn process_artist_name(&self, artist_name: &str) -> Result<String, RewriteProcessorError> {
         if let Some(processor) = &self.artist_processor {
             processor.process(artist_name)

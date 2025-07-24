@@ -148,11 +148,15 @@ enum Commands {
         #[arg(long)]
         web_port: Option<u16>,
     },
-    /// Process all tracks for a specific artist
+    /// Process tracks for a specific artist or album
     Artist {
         /// Artist name to process
         #[arg(short, long)]
         name: String,
+
+        /// Album name to process (optional - if specified, only process tracks from this album)
+        #[arg(short, long)]
+        album: Option<String>,
 
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
@@ -313,6 +317,7 @@ fn merge_args_into_config(
         }
         Commands::Artist {
             name: _,
+            album: _,
             dry_run,
             require_confirmation,
             require_proposed_rule_confirmation,
@@ -334,7 +339,7 @@ fn merge_args_into_config(
             if let Some(web_port) = web_port {
                 config.scrubber.web_port = *web_port;
             }
-            // Note: artist name is handled in main.rs, not stored in config
+            // Note: artist name and album are handled in main.rs, not stored in config
         }
         Commands::Web { port } => {
             // Enable web interface for web-only mode
@@ -940,9 +945,18 @@ async fn main() -> Result<()> {
             log::info!("Processing last {tracks} tracks{mode_info}{batch_info}");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
-        Commands::Artist { name, .. } => {
-            log::info!("Processing all tracks for artist '{name}'");
-            scrubber_guard.process_artist(name).await?;
+        Commands::Artist { name, album, .. } => {
+            if let Some(album_name) = album {
+                log::info!(
+                    "Processing tracks for album '{}' by artist '{}'",
+                    album_name,
+                    name
+                );
+                scrubber_guard.process_album(name, album_name).await?;
+            } else {
+                log::info!("Processing all tracks for artist '{name}'");
+                scrubber_guard.process_artist(name).await?;
+            }
         }
         Commands::Web { .. } => {
             log::info!(

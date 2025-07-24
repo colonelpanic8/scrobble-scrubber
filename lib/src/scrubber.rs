@@ -529,7 +529,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
             log::info!(
-                "Processing batch {} of {} (batch size: {}) - no timestamp updates",
+                "Processing batch {} of {} (batch size: {})",
                 batch_num + 1,
                 tracks.len().div_ceil(batch_size),
                 batch.len()
@@ -556,13 +556,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Process each track individually and emit detailed events
         for (track_index, track) in tracks.iter().enumerate() {
-            log::info!(
-                "Processing track: {} - {} (index {})",
-                track.artist,
-                track.name,
-                track_index
-            );
-
             // Find suggestions for this track
             let empty_suggestions = vec![];
             let track_suggestions = batch_suggestions
@@ -580,6 +573,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     n => format!("{n} rules applied"),
                 }
             };
+
+            log::info!(
+                "Processed track: {} - {} (index {}) - {}",
+                track.artist,
+                track.name,
+                track_index,
+                result
+            );
 
             // Emit detailed track processed event
             self.emit_event(ScrubberEvent::track_processed(
@@ -697,6 +698,34 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         log::info!("Processed {processed} tracks for artist '{artist}'");
+        Ok(())
+    }
+
+    /// Process all tracks for a specific album by a specific artist
+    pub async fn process_album(&mut self, artist: &str, album: &str) -> Result<()> {
+        log::info!("Starting album track processing for: '{album}' by '{artist}'");
+
+        // Get tracks for the specific album
+        let tracks_to_process = self.client.get_album_tracks(album, artist).await?;
+
+        log::info!(
+            "Found {} tracks for album '{album}' by '{artist}'",
+            tracks_to_process.len()
+        );
+
+        // Process collected tracks in batch with artist processing context
+        if !tracks_to_process.is_empty() {
+            self.process_tracks_in_batches_no_timestamp_update_with_context(
+                &tracks_to_process,
+                true,
+            )
+            .await?;
+        }
+
+        log::info!(
+            "Processed {} tracks for album '{album}' by '{artist}'",
+            tracks_to_process.len()
+        );
         Ok(())
     }
 
@@ -946,7 +975,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 // Check if any applicable rule requires individual confirmation
                 let individual_rule_confirmation = rules_state.rewrite_rules.iter().any(|rule| {
-                    let applies = rule.applies_to(track).unwrap_or(false);
+                    let applies = rule.matches(track).unwrap_or(false);
                     let requires_conf = rule.requires_confirmation;
                     trace!(
                         "Rule '{}' applies: {}, requires confirmation: {}",

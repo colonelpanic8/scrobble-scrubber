@@ -148,7 +148,7 @@ impl PendingRewriteRule {
         let original_album_artist_name = self.example_album_artist_name.clone();
 
         // Apply the rule to see the transformation
-        if self.rule.applies_to(&track)? {
+        if self.rule.matches(&track)? {
             let mut edit = crate::rewrite::create_no_op_edit(&track);
             let changed = self.rule.apply(&mut edit)?;
 

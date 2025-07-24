@@ -71,7 +71,7 @@ fn test_no_changes() {
 
     let rule = RewriteRule::new().with_track_name(SdRule::new(r" - \d{4} Remaster", ""));
 
-    assert!(!rule.applies_to(&track).unwrap());
+    assert!(!rule.matches(&track).unwrap());
 
     let mut edit = create_no_op_edit(&track);
     let changed = rule.apply(&mut edit).unwrap();
@@ -125,8 +125,8 @@ fn test_applies_to_check() {
     let rule_that_doesnt_apply =
         RewriteRule::new().with_track_name(SdRule::new(r"Nonexistent", ""));
 
-    assert!(rule_that_applies.applies_to(&track).unwrap());
-    assert!(!rule_that_doesnt_apply.applies_to(&track).unwrap());
+    assert!(rule_that_applies.matches(&track).unwrap());
+    assert!(!rule_that_doesnt_apply.matches(&track).unwrap());
 }
 
 #[test]
@@ -166,23 +166,23 @@ fn test_applies_to_requires_all_non_empty_rules_to_match() {
     // No artist_name rule - this empty field should be ignored
 
     assert!(
-        rule_all_match.applies_to(&track).unwrap(),
+        rule_all_match.matches(&track).unwrap(),
         "Rule should apply when all non-empty regexes match"
     );
     assert!(
-        !rule_partial_match.applies_to(&track).unwrap(),
+        !rule_partial_match.matches(&track).unwrap(),
         "Rule should NOT apply when only some regexes match"
     );
     assert!(
-        !rule_partial_match_2.applies_to(&track).unwrap(),
+        !rule_partial_match_2.matches(&track).unwrap(),
         "Rule should NOT apply when only some regexes match"
     );
     assert!(
-        !rule_no_match.applies_to(&track).unwrap(),
+        !rule_no_match.matches(&track).unwrap(),
         "Rule should NOT apply when no regexes match"
     );
     assert!(
-        rule_with_empty_field.applies_to(&track).unwrap(),
+        rule_with_empty_field.matches(&track).unwrap(),
         "Rule should apply when all present (non-None) regexes match"
     );
 }
@@ -209,11 +209,11 @@ fn test_applies_to_with_album_fields() {
         .with_album_name(SdRule::new(r"Nonexistent", "New Album"));
 
     assert!(
-        rule_both_match.applies_to(&track).unwrap(),
+        rule_both_match.matches(&track).unwrap(),
         "Rule should apply when all non-empty regexes match including album"
     );
     assert!(
-        !rule_partial.applies_to(&track).unwrap(),
+        !rule_partial.matches(&track).unwrap(),
         "Rule should NOT apply when album regex doesn't match"
     );
 }
@@ -251,17 +251,17 @@ fn test_chris_thile_multiple_conditions_must_all_match() {
     )); // This does NOT match
 
     assert!(
-        !rule_both_conditions.applies_to(&track).unwrap(),
+        !rule_both_conditions.matches(&track).unwrap(),
         "Rule should NOT apply when artist matches but album doesn't - ALL conditions must match"
     );
 
     assert!(
-        rule_artist_only.applies_to(&track).unwrap(),
+        rule_artist_only.matches(&track).unwrap(),
         "Rule should apply when only artist condition is present and it matches"
     );
 
     assert!(
-        !rule_album_only.applies_to(&track).unwrap(),
+        !rule_album_only.matches(&track).unwrap(),
         "Rule should NOT apply when only album condition is present and it doesn't match"
     );
 }
@@ -286,7 +286,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_artist_name(SdRule::new(r"^The Beatles$", "Beatles, The"));
 
     assert!(
-        rule_both_match.applies_to(&track).unwrap(),
+        rule_both_match.matches(&track).unwrap(),
         "Rule should apply when both track name and artist match"
     );
 
@@ -296,7 +296,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_artist_name(SdRule::new(r"^Pink Floyd$", "Floyd, Pink")); // doesn't match
 
     assert!(
-        !rule_first_only.applies_to(&track).unwrap(),
+        !rule_first_only.matches(&track).unwrap(),
         "Rule should NOT apply when only track name matches but artist doesn't"
     );
 
@@ -306,7 +306,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_artist_name(SdRule::new(r"^The Beatles$", "Beatles, The")); // matches
 
     assert!(
-        !rule_second_only.applies_to(&track).unwrap(),
+        !rule_second_only.matches(&track).unwrap(),
         "Rule should NOT apply when only artist matches but track name doesn't"
     );
 
@@ -317,7 +317,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_album_name(SdRule::new(r"^Help!$", "Help! (Remastered)"));
 
     assert!(
-        rule_three_match.applies_to(&track).unwrap(),
+        rule_three_match.matches(&track).unwrap(),
         "Rule should apply when track name, artist, and album all match"
     );
 
@@ -328,7 +328,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_album_name(SdRule::new(r"^Abbey Road$", "Abbey Road (Remastered)")); // doesn't match
 
     assert!(
-        !rule_third_fails.applies_to(&track).unwrap(),
+        !rule_third_fails.matches(&track).unwrap(),
         "Rule should NOT apply when track name and artist match but album doesn't"
     );
 
@@ -339,7 +339,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_album_name(SdRule::new(r"^Help!$", "Help! (Remastered)")); // matches
 
     assert!(
-        !rule_middle_fails.applies_to(&track).unwrap(),
+        !rule_middle_fails.matches(&track).unwrap(),
         "Rule should NOT apply when track name and album match but artist doesn't"
     );
 
@@ -351,7 +351,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_album_artist_name(SdRule::new(r"^$", "The Beatles")); // matches empty string
 
     assert!(
-        rule_four_match.applies_to(&track).unwrap(),
+        rule_four_match.matches(&track).unwrap(),
         "Rule should apply when all four conditions match (including album_artist on empty string)"
     );
 
@@ -363,7 +363,7 @@ fn test_all_conditions_must_match_comprehensive() {
         .with_album_artist_name(SdRule::new(r"^Various Artists$", "V.A.")); // doesn't match empty string
 
     assert!(
-        !rule_album_artist_fails.applies_to(&track).unwrap(),
+        !rule_album_artist_fails.matches(&track).unwrap(),
         "Rule should NOT apply when first three match but album_artist condition fails"
     );
 }
@@ -387,7 +387,7 @@ fn test_partial_regex_matches_still_require_all_conditions() {
         .with_artist_name(SdRule::new(r"Que", "Q")); // would match part of artist name
 
     assert!(
-        rule_partial_matches.applies_to(&track).unwrap(),
+        rule_partial_matches.matches(&track).unwrap(),
         "Rule should apply when both partial matches occur (whole-string replacement behavior)"
     );
 
@@ -397,7 +397,7 @@ fn test_partial_regex_matches_still_require_all_conditions() {
         .with_artist_name(SdRule::new(r"Beatles", "The Beatles")); // doesn't match anything in artist
 
     assert!(
-        !rule_mixed.applies_to(&track).unwrap(),
+        !rule_mixed.matches(&track).unwrap(),
         "Rule should NOT apply when only one condition has a match"
     );
 
@@ -407,7 +407,7 @@ fn test_partial_regex_matches_still_require_all_conditions() {
         .with_artist_name(SdRule::new(r"queen", "QUEEN")); // wrong case, won't match
 
     assert!(
-        !rule_case_sensitive.applies_to(&track).unwrap(),
+        !rule_case_sensitive.matches(&track).unwrap(),
         "Rule should NOT apply when case doesn't match for any condition"
     );
 
@@ -417,7 +417,7 @@ fn test_partial_regex_matches_still_require_all_conditions() {
         .with_artist_name(SdRule::new(r"queen", "QUEEN")); // wrong case, doesn't match
 
     assert!(
-        !rule_mixed_case.applies_to(&track).unwrap(),
+        !rule_mixed_case.matches(&track).unwrap(),
         "Rule should NOT apply when only one condition matches case correctly"
     );
 }
@@ -441,7 +441,7 @@ fn test_edge_cases_all_conditions_must_match() {
         .with_artist_name(SdRule::new(r"^Unknown Artist$", "Various Artists")); // matches
 
     assert!(
-        rule_empty_track.applies_to(&track).unwrap(),
+        rule_empty_track.matches(&track).unwrap(),
         "Rule should apply when both empty track name and artist conditions match"
     );
 
@@ -451,7 +451,7 @@ fn test_edge_cases_all_conditions_must_match() {
         .with_artist_name(SdRule::new(r"^Unknown Artist$", "Various Artists")); // matches
 
     assert!(
-        !rule_non_empty_track.applies_to(&track).unwrap(),
+        !rule_non_empty_track.matches(&track).unwrap(),
         "Rule should NOT apply when track name condition fails even if artist matches"
     );
 
@@ -461,7 +461,7 @@ fn test_edge_cases_all_conditions_must_match() {
         .with_album_name(SdRule::new(r"^$", "Unknown Album")); // matches empty string (None album)
 
     assert!(
-        rule_empty_album.applies_to(&track).unwrap(),
+        rule_empty_album.matches(&track).unwrap(),
         "Rule should apply when artist matches and album condition matches empty string"
     );
 
@@ -471,7 +471,7 @@ fn test_edge_cases_all_conditions_must_match() {
         .with_album_name(SdRule::new(r"^Some Album$", "Another Album")); // doesn't match empty string
 
     assert!(
-        !rule_non_empty_album.applies_to(&track).unwrap(),
+        !rule_non_empty_album.matches(&track).unwrap(),
         "Rule should NOT apply when artist matches but album condition fails on None/empty"
     );
 }
@@ -496,7 +496,7 @@ fn test_complex_regex_patterns_all_must_match() {
         .with_album_name(SdRule::new(r".+ \[.+\] \(\d{4}\)", "Album Name")); // matches deluxe edition pattern
 
     assert!(
-        rule_complex_all_match.applies_to(&track).unwrap(),
+        rule_complex_all_match.matches(&track).unwrap(),
         "Rule should apply when all complex regex patterns match"
     );
 
@@ -507,7 +507,7 @@ fn test_complex_regex_patterns_all_must_match() {
         .with_album_name(SdRule::new(r".+ \[.+\] \(\d{3}\)", "Album Name")); // doesn't match (wrong year pattern)
 
     assert!(
-        !rule_complex_partial.applies_to(&track).unwrap(),
+        !rule_complex_partial.matches(&track).unwrap(),
         "Rule should NOT apply when only some complex patterns match"
     );
 
@@ -518,7 +518,7 @@ fn test_complex_regex_patterns_all_must_match() {
         .with_album_name(SdRule::new(r"(.+) \[(.+)\] \((\d{4})\)", "$1 ($3)")); // matches and captures
 
     assert!(
-        rule_with_captures.applies_to(&track).unwrap(),
+        rule_with_captures.matches(&track).unwrap(),
         "Rule should apply when all capture group patterns match"
     );
 
@@ -529,7 +529,7 @@ fn test_complex_regex_patterns_all_must_match() {
         .with_album_name(SdRule::new(r"(.+) \[(.+)\] \((\d{2})\)", "$1 ($3)")); // doesn't match (2-digit year)
 
     assert!(
-        !rule_capture_fails.applies_to(&track).unwrap(),
+        !rule_capture_fails.matches(&track).unwrap(),
         "Rule should NOT apply when one capture pattern fails even if others match"
     );
 }
@@ -554,7 +554,7 @@ fn test_chris_thile_exact_match_behavior() {
         RewriteRule::new().with_artist_name(SdRule::new("Chris Thil", "Chris Thile (Modified)"));
 
     assert!(
-        rule_partial_end.applies_to(&track).unwrap(),
+        rule_partial_end.matches(&track).unwrap(),
         "Rule with pattern 'Chris Thil' should match artist 'Chris Thile' (partial match)"
     );
 
@@ -563,7 +563,7 @@ fn test_chris_thile_exact_match_behavior() {
         RewriteRule::new().with_artist_name(SdRule::new("hris Thile", "Chris Thile (Modified)"));
 
     assert!(
-        rule_partial_start.applies_to(&track).unwrap(),
+        rule_partial_start.matches(&track).unwrap(),
         "Rule with pattern 'hris Thile' should match artist 'Chris Thile' (partial match)"
     );
 
@@ -572,7 +572,7 @@ fn test_chris_thile_exact_match_behavior() {
         RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "Chris Thile (Modified)"));
 
     assert!(
-        rule_exact.applies_to(&track).unwrap(),
+        rule_exact.matches(&track).unwrap(),
         "Rule with pattern 'Chris Thile' should match artist 'Chris Thile' (exact match) - CORE ISSUE"
     );
 
@@ -581,7 +581,7 @@ fn test_chris_thile_exact_match_behavior() {
         RewriteRule::new().with_artist_name(SdRule::new("^Chris Thile$", "Chris Thile (Modified)"));
 
     assert!(
-        rule_anchored.applies_to(&track).unwrap(),
+        rule_anchored.matches(&track).unwrap(),
         "Rule with pattern '^Chris Thile$' should match artist 'Chris Thile' (anchored exact match)"
     );
 
@@ -590,7 +590,7 @@ fn test_chris_thile_exact_match_behavior() {
         RewriteRule::new().with_artist_name(SdRule::new("John Doe", "John Doe (Modified)"));
 
     assert!(
-        !rule_no_match.applies_to(&track).unwrap(),
+        !rule_no_match.matches(&track).unwrap(),
         "Rule with pattern 'John Doe' should NOT match artist 'Chris Thile'"
     );
 }
@@ -613,7 +613,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         .with_artist_name(SdRule::new("^Chris Thile$", "Chris Thile (Exact Match)"));
 
     assert!(
-        rule_exact_anchored.applies_to(&track).unwrap(),
+        rule_exact_anchored.matches(&track).unwrap(),
         "Anchored pattern '^Chris Thile$' should match artist 'Chris Thile' exactly"
     );
 
@@ -622,7 +622,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         RewriteRule::new().with_artist_name(SdRule::new("^Chris Thil$", "Chris Thile (Modified)"));
 
     assert!(
-        !rule_partial_anchored.applies_to(&track).unwrap(),
+        !rule_partial_anchored.matches(&track).unwrap(),
         "Anchored pattern '^Chris Thil$' should NOT match artist 'Chris Thile' (missing 'e')"
     );
 
@@ -631,7 +631,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         RewriteRule::new().with_artist_name(SdRule::new("^hris Thile$", "Chris Thile (Modified)"));
 
     assert!(
-        !rule_partial_start_anchored.applies_to(&track).unwrap(),
+        !rule_partial_start_anchored.matches(&track).unwrap(),
         "Anchored pattern '^hris Thile$' should NOT match artist 'Chris Thile' (missing 'C')"
     );
 
@@ -640,7 +640,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         .with_artist_name(SdRule::new("^Chris Thile", "Chris Thile (Start Anchored)"));
 
     assert!(
-        rule_start_anchor.applies_to(&track).unwrap(),
+        rule_start_anchor.matches(&track).unwrap(),
         "Start-anchored pattern '^Chris Thile' should match artist 'Chris Thile'"
     );
 
@@ -649,7 +649,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         .with_artist_name(SdRule::new("Chris Thile$", "Chris Thile (End Anchored)"));
 
     assert!(
-        rule_end_anchor.applies_to(&track).unwrap(),
+        rule_end_anchor.matches(&track).unwrap(),
         "End-anchored pattern 'Chris Thile$' should match artist 'Chris Thile'"
     );
 
@@ -667,9 +667,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         RewriteRule::new().with_artist_name(SdRule::new("^Chris Thile$", "Chris Thile (Exact)"));
 
     assert!(
-        !rule_exact_anchored_longer
-            .applies_to(&track_longer)
-            .unwrap(),
+        !rule_exact_anchored_longer.matches(&track_longer).unwrap(),
         "Anchored pattern '^Chris Thile$' should NOT match 'Chris Thile and Friends' (super exact)"
     );
 
@@ -678,7 +676,7 @@ fn test_anchored_regex_for_super_exact_matching() {
         RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "Chris Thile (Modified)"));
 
     assert!(
-        rule_non_anchored_longer.applies_to(&track_longer).unwrap(),
+        rule_non_anchored_longer.matches(&track_longer).unwrap(),
         "Non-anchored pattern 'Chris Thile' should match 'Chris Thile and Friends'"
     );
 }
@@ -703,7 +701,7 @@ fn test_ui_preview_logic_simulation() {
 
     // This rule should NOT apply because it makes no changes (correct behavior!)
     assert!(
-        !rule_no_change.applies_to(&track).unwrap(),
+        !rule_no_change.matches(&track).unwrap(),
         "Rule should NOT apply - pattern matches but produces no changes"
     );
 
@@ -774,7 +772,7 @@ fn test_pattern_matching_vs_change_detection() {
 
     // But applies_to should return false (old behavior still valid for actual application)
     assert!(
-        !rule_no_change.applies_to(&track).unwrap(),
+        !rule_no_change.matches(&track).unwrap(),
         "applies_to() should return false when no actual changes would occur"
     );
 
@@ -789,7 +787,7 @@ fn test_pattern_matching_vs_change_detection() {
     );
 
     assert!(
-        rule_with_change.applies_to(&track).unwrap(),
+        rule_with_change.matches(&track).unwrap(),
         "applies_to() should return true when pattern matches and changes occur"
     );
 
@@ -803,7 +801,7 @@ fn test_pattern_matching_vs_change_detection() {
     );
 
     assert!(
-        !rule_no_match.applies_to(&track).unwrap(),
+        !rule_no_match.matches(&track).unwrap(),
         "applies_to() should return false when pattern doesn't match"
     );
 }
@@ -840,7 +838,7 @@ fn test_ui_matching_with_dollar_zero_replacement() {
 
         // But shouldn't apply for actual processing (no changes)
         assert!(
-            !rule.applies_to(&track).unwrap(),
+            !rule.matches(&track).unwrap(),
             "Pattern '{pattern}' with replacement '{replacement}' should not apply for processing (no changes)"
         );
     }
