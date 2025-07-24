@@ -33,7 +33,9 @@ pub enum ScrubberStatus {
     Stopped,
     Starting,
     Running,
-    Sleeping { remaining_seconds: u64 },
+    Sleeping {
+        until_timestamp: chrono::DateTime<chrono::Utc>,
+    },
     Stopping,
     Error(String),
 }

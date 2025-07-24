@@ -12,53 +12,15 @@ use tokio::sync::broadcast;
 pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
     let scrubber_state = state.read().scrubber_state.clone();
 
-    // Countdown timer effect for sleeping state and activity log updates
-    use_effect(move || {
-        spawn(async move {
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    // Create a timer that ticks every second - following dioxus-timer pattern
+    let mut timer_tick = use_signal(chrono::Utc::now);
 
-                // Update countdown if in sleeping state or if we have sleeping events
-                let should_continue = {
-                    let current_status = state.read().scrubber_state.status.clone();
-                    let has_sleeping_events =
-                        state.read().scrubber_state.events.iter().any(|event| {
-                            matches!(
-                                event.event_type,
-                                ::scrobble_scrubber::events::ScrubberEventType::Sleeping { .. }
-                            )
-                        });
-
-                    match current_status {
-                        ScrubberStatus::Sleeping { remaining_seconds } if remaining_seconds > 0 => {
-                            state.with_mut(|s| {
-                                if let ScrubberStatus::Sleeping { remaining_seconds } =
-                                    &mut s.scrubber_state.status
-                                {
-                                    *remaining_seconds = remaining_seconds.saturating_sub(1);
-                                }
-                            });
-                            true
-                        }
-                        ScrubberStatus::Sleeping { .. } => true, // Still sleeping but countdown finished
-                        _ => has_sleeping_events, // Keep updating if we have sleeping events in the log
-                    }
-                };
-
-                // Force a re-render to update activity log countdowns
-                if should_continue {
-                    state.with_mut(|s| {
-                        // Touch the events to trigger a re-render
-                        let events = s.scrubber_state.events.clone();
-                        s.scrubber_state.events = events;
-                    });
-                }
-
-                if !should_continue {
-                    break;
-                }
-            }
-        });
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            // Always update the tick - let the component decide if it needs the current time
+            timer_tick.set(chrono::Utc::now());
+        }
     });
 
     rsx! {
@@ -84,8 +46,13 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                 ScrubberStatus::Stopped => "Stopped".to_string(),
                                 ScrubberStatus::Starting => "Starting...".to_string(),
                                 ScrubberStatus::Running => "Running".to_string(),
-                                ScrubberStatus::Sleeping { remaining_seconds } => {
-                                    if *remaining_seconds > 0 {
+                                ScrubberStatus::Sleeping { until_timestamp } => {
+                                    // Read timer_tick to ensure re-renders happen during countdown
+                                    let _tick = timer_tick.read();
+                                    let now = chrono::Utc::now();
+                                    let remaining_seconds = (*until_timestamp - now).num_seconds().max(0);
+
+                                    if remaining_seconds > 0 {
                                         format!("💤 Sleeping ({remaining_seconds}s)")
                                     } else {
                                         "💤 Sleeping".to_string()
@@ -737,17 +704,11 @@ async fn run_scrubber_with_instance(
             }
         }
 
-        // Send sleeping event and update status
-        let sleeping_event = ScrubberEvent::sleeping(interval_seconds);
-
-        let _ = sender.send(sleeping_event.clone());
+        // Update status to sleeping (don't add sleeping events to activity log)
         state.with_mut(|s| {
-            s.scrubber_state.events.push(sleeping_event);
-            s.scrubber_state.status = ScrubberStatus::Sleeping {
-                remaining_seconds: interval_seconds,
-            };
-            s.scrubber_state.next_cycle_timestamp =
-                Some(Utc::now() + chrono::Duration::seconds(interval_seconds as i64));
+            let until_timestamp = Utc::now() + chrono::Duration::seconds(interval_seconds as i64);
+            s.scrubber_state.status = ScrubberStatus::Sleeping { until_timestamp };
+            s.scrubber_state.next_cycle_timestamp = Some(until_timestamp);
         });
 
         // Wait for the interval
