@@ -99,6 +99,8 @@ pub async fn remove_pending_edit(
 ) -> Result<scrobble_scrubber::persistence::PendingEdit, ServerFnError> {
     use scrobble_scrubber::persistence::StateStorage;
 
+    log::info!("Removing pending edit with ID: {edit_id}");
+
     let mut pending_edits_state = storage
         .lock()
         .await
@@ -106,13 +108,30 @@ pub async fn remove_pending_edit(
         .await
         .to_server_error("Failed to load pending edits")?;
 
+    log::debug!(
+        "Loaded {} pending edits from storage",
+        pending_edits_state.pending_edits.len()
+    );
+
     let edit_index = pending_edits_state
         .pending_edits
         .iter()
         .position(|e| e.id == edit_id)
-        .ok_or_else(|| ServerFnError::new("Edit not found"))?;
+        .ok_or_else(|| {
+            log::warn!(
+                "Edit with ID '{}' not found in {} pending edits",
+                edit_id,
+                pending_edits_state.pending_edits.len()
+            );
+            ServerFnError::new("Edit not found")
+        })?;
 
     let removed_edit = pending_edits_state.pending_edits.remove(edit_index);
+    log::info!(
+        "Removed edit for track '{}', {} edits remaining",
+        removed_edit.original_track_name,
+        pending_edits_state.pending_edits.len()
+    );
 
     storage
         .lock()
@@ -121,16 +140,19 @@ pub async fn remove_pending_edit(
         .await
         .to_server_error("Failed to save pending edits")?;
 
+    log::info!("Saved pending edits state to disk");
+
     Ok(removed_edit)
 }
 
 /// Helper to find and remove a rule by ID
-#[allow(dead_code)] // Used in #[server] macro-generated code
 pub async fn remove_pending_rule(
     storage: &std::sync::Arc<tokio::sync::Mutex<scrobble_scrubber::persistence::FileStorage>>,
     rule_id: &str,
 ) -> Result<scrobble_scrubber::persistence::PendingRewriteRule, ServerFnError> {
     use scrobble_scrubber::persistence::StateStorage;
+
+    log::info!("Removing pending rule with ID: {rule_id}");
 
     let mut pending_rules_state = storage
         .lock()
@@ -139,13 +161,30 @@ pub async fn remove_pending_rule(
         .await
         .to_server_error("Failed to load pending rules")?;
 
+    log::debug!(
+        "Loaded {} pending rules from storage",
+        pending_rules_state.pending_rules.len()
+    );
+
     let rule_index = pending_rules_state
         .pending_rules
         .iter()
         .position(|r| r.id == rule_id)
-        .ok_or_else(|| ServerFnError::new("Rule not found"))?;
+        .ok_or_else(|| {
+            log::warn!(
+                "Rule with ID '{}' not found in {} pending rules",
+                rule_id,
+                pending_rules_state.pending_rules.len()
+            );
+            ServerFnError::new("Rule not found")
+        })?;
 
     let removed_rule = pending_rules_state.pending_rules.remove(rule_index);
+    log::info!(
+        "Removed rule '{}', {} rules remaining",
+        removed_rule.rule.name.as_deref().unwrap_or("Unnamed"),
+        pending_rules_state.pending_rules.len()
+    );
 
     storage
         .lock()
@@ -153,6 +192,8 @@ pub async fn remove_pending_rule(
         .save_pending_rewrite_rules_state(&pending_rules_state)
         .await
         .to_server_error("Failed to save pending rules")?;
+
+    log::info!("Saved pending rules state to disk");
 
     Ok(removed_rule)
 }

@@ -57,8 +57,14 @@ pub fn PendingEditsPage(_state: Signal<AppState>) -> Element {
 
     let reload_data = move || {
         spawn(async move {
-            if let Ok(edits) = load_pending_edits().await {
-                pending_edits.set(edits);
+            match load_pending_edits().await {
+                Ok(edits) => {
+                    pending_edits.set(edits);
+                    error_message.set(String::new()); // Clear any previous errors
+                }
+                Err(e) => {
+                    error_message.set(format!("Failed to reload pending edits: {e}"));
+                }
             }
         });
     };
@@ -179,8 +185,8 @@ fn PendingEditCard(
                             div {
                                 span { style: "color: #dc2626;", "{original_album}" }
                                 " → "
-                                span { 
-                                    style: "color: #059669;", 
+                                span {
+                                    style: "color: #059669;",
                                     {new_album_name.as_deref().unwrap_or("(empty)")}
                                 }
                             }

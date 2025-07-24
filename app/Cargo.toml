@@ -18,6 +18,7 @@ thiserror = "1.0"
 config = "0.14"
 dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
 
 [features]
 default = ["desktop"]

@@ -83,8 +83,14 @@ pub fn PendingRulesPage(_state: Signal<AppState>) -> Element {
 
     let reload_data = move || {
         spawn(async move {
-            if let Ok(rules) = load_pending_rewrite_rules().await {
-                pending_rules.set(rules);
+            match load_pending_rewrite_rules().await {
+                Ok(rules) => {
+                    pending_rules.set(rules);
+                    error_message.set(String::new()); // Clear any previous errors
+                }
+                Err(e) => {
+                    error_message.set(format!("Failed to reload pending rules: {e}"));
+                }
             }
         });
     };
