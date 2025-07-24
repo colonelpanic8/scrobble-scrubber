@@ -673,7 +673,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Process collected tracks in batch
         if !tracks_to_process.is_empty() {
-            self.process_track_batch(&tracks_to_process).await?;
+            self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process)
+                .await?;
         }
 
         log::info!("Processed {processed} tracks for artist '{artist}'");
