@@ -62,16 +62,32 @@ pub fn Navigation(mut state: Signal<AppState>) -> Element {
                     button {
                         style: format!(
                             "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::PendingItems {
+                            if active_page == Page::PendingEdits {
                                 "background: #2563eb; color: white;"
                             } else {
                                 "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
                             }
                         ),
                         onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::PendingItems);
+                            state.with_mut(|s| s.active_page = Page::PendingEdits);
                         },
-                        "Pending Items"
+                        "Pending Edits"
+                    }
+                }
+                li {
+                    button {
+                        style: format!(
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
+                            if active_page == Page::PendingRules {
+                                "background: #2563eb; color: white;"
+                            } else {
+                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                            }
+                        ),
+                        onclick: move |_| {
+                            state.with_mut(|s| s.active_page = Page::PendingRules);
+                        },
+                        "Pending Rules"
                     }
                 }
                 li {

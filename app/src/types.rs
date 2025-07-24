@@ -11,7 +11,8 @@ pub enum Page {
     ScrobbleScrubber,
     RuleWorkshop,
     RewriteRules,
-    PendingItems,
+    PendingEdits,
+    PendingRules,
     CacheManagement,
 }
 

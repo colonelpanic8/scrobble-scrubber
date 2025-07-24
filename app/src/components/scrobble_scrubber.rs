@@ -1058,7 +1058,9 @@ async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: Str
         match create_scrubber_instance(session_json, storage, saved_rules, config).await {
             Ok(mut scrubber) => {
                 // Use the same event processing pattern as process_with_scrubber
-                match process_artist_with_events(&mut scrubber, &sender, &mut state, &artist_name).await {
+                match process_artist_with_events(&mut scrubber, &sender, &mut state, &artist_name)
+                    .await
+                {
                     Ok(()) => {
                         let success_event = ScrubberEvent {
                             timestamp: Utc::now(),
@@ -1123,9 +1125,9 @@ async fn process_artist_with_events(
     // Start logging before processing
     let start_event = ScrubberEvent {
         timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-            format!("Starting artist track processing for '{artist_name}'..."),
-        ),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
+            "Starting artist track processing for '{artist_name}'..."
+        )),
     };
     let _ = sender.send(start_event.clone());
     state.with_mut(|s| s.scrubber_state.events.push(start_event));

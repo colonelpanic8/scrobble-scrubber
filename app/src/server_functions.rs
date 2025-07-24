@@ -235,11 +235,6 @@ pub async fn clear_artist_cache(artist_name: String) -> Result<String, ServerFnE
 
 #[server(LoadPendingEdits)]
 pub async fn load_pending_edits() -> Result<Vec<PendingEdit>, ServerFnError> {
-    load_pending_edits_from_page(1).await
-}
-
-#[server(LoadPendingEditsFromPage)]
-pub async fn load_pending_edits_from_page(page: u32) -> Result<Vec<PendingEdit>, ServerFnError> {
     use scrobble_scrubber::persistence::StateStorage;
 
     let storage = create_storage().await?;
@@ -251,26 +246,11 @@ pub async fn load_pending_edits_from_page(page: u32) -> Result<Vec<PendingEdit>,
         .await
         .to_server_error("Failed to load pending edits")?;
 
-    const ITEMS_PER_PAGE: usize = 10;
-    let page_items = pending_edits_state
-        .pending_edits
-        .into_iter()
-        .skip(((page - 1) as usize) * ITEMS_PER_PAGE)
-        .take(ITEMS_PER_PAGE)
-        .collect();
-
-    Ok(page_items)
+    Ok(pending_edits_state.pending_edits)
 }
 
 #[server(LoadPendingRewriteRules)]
 pub async fn load_pending_rewrite_rules() -> Result<Vec<PendingRewriteRule>, ServerFnError> {
-    load_pending_rewrite_rules_from_page(1).await
-}
-
-#[server(LoadPendingRewriteRulesFromPage)]
-pub async fn load_pending_rewrite_rules_from_page(
-    page: u32,
-) -> Result<Vec<PendingRewriteRule>, ServerFnError> {
     use scrobble_scrubber::persistence::StateStorage;
 
     let storage = create_storage().await?;
@@ -282,15 +262,7 @@ pub async fn load_pending_rewrite_rules_from_page(
         .await
         .to_server_error("Failed to load pending rules")?;
 
-    const ITEMS_PER_PAGE: usize = 10;
-    let page_items = pending_rules_state
-        .pending_rules
-        .into_iter()
-        .skip(((page - 1) as usize) * ITEMS_PER_PAGE)
-        .take(ITEMS_PER_PAGE)
-        .collect();
-
-    Ok(page_items)
+    Ok(pending_rules_state.pending_rules)
 }
 
 #[server(ApprovePendingEdit)]
