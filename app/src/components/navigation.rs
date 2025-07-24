@@ -14,6 +14,22 @@ pub fn Navigation(mut state: Signal<AppState>) -> Element {
                     button {
                         style: format!(
                             "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
+                            if active_page == Page::ScrobbleScrubber {
+                                "background: #2563eb; color: white;"
+                            } else {
+                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                            }
+                        ),
+                        onclick: move |_| {
+                            state.with_mut(|s| s.active_page = Page::ScrobbleScrubber);
+                        },
+                        "Scrubber"
+                    }
+                }
+                li {
+                    button {
+                        style: format!(
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
                             if active_page == Page::RuleWorkshop {
                                 "background: #2563eb; color: white;"
                             } else {
@@ -40,22 +56,6 @@ pub fn Navigation(mut state: Signal<AppState>) -> Element {
                             state.with_mut(|s| s.active_page = Page::RewriteRules);
                         },
                         "Rewrite Rules"
-                    }
-                }
-                li {
-                    button {
-                        style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::ScrobbleScrubber {
-                                "background: #2563eb; color: white;"
-                            } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
-                            }
-                        ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::ScrobbleScrubber);
-                        },
-                        "Scrobble Scrubber"
                     }
                 }
                 li {

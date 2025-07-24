@@ -8,9 +8,9 @@ use tokio::sync::{broadcast, Mutex};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Page {
+    ScrobbleScrubber,
     RuleWorkshop,
     RewriteRules,
-    ScrobbleScrubber,
     PendingItems,
     CacheManagement,
 }
@@ -185,7 +185,7 @@ impl Default for AppState {
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks
             current_page: 1,       // Start at page 1
-            active_page: Page::RuleWorkshop,
+            active_page: Page::ScrobbleScrubber,
             config: None,
             storage: None,
             saved_rules: Vec::new(),
