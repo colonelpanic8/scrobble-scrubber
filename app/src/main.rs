@@ -161,6 +161,7 @@ fn MainContent(state: Signal<AppState>) -> Element {
             Page::ScrobbleScrubber => rsx! { ScrobbleScrubberPage { state } },
             Page::PendingItems => rsx! { PendingItemsPage { state } },
             Page::CacheManagement => rsx! { CacheManagementPage { state } },
+            Page::Settings => rsx! { SettingsPage { state } },
         }
     }
 }

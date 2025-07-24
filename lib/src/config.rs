@@ -157,6 +157,16 @@ pub struct OpenAIProviderConfig {
     pub system_prompt: Option<String>,
 }
 
+impl Default for OpenAIProviderConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model: Some("gpt-4o".to_string()),
+            system_prompt: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpProviderConfig {
     /// HTTP endpoint URL

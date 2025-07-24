@@ -8,6 +8,7 @@ pub mod rule_editor;
 pub mod rule_preview;
 pub mod rule_workshop;
 pub mod scrobble_scrubber;
+pub mod settings;
 
 pub use cache_management::CacheManagementPage;
 // pub use live_preview_controls::LivePreviewControls; // TODO: Use this when refactoring rule_workshop and rewrite_rules
@@ -19,3 +20,4 @@ pub use rule_editor::RuleEditor;
 pub use rule_preview::RulePreview;
 pub use rule_workshop::RuleWorkshop;
 pub use scrobble_scrubber::ScrobbleScrubberPage;
+pub use settings::SettingsPage;

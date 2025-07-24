@@ -13,6 +13,7 @@ pub enum Page {
     ScrobbleScrubber,
     PendingItems,
     CacheManagement,
+    Settings,
 }
 
 #[derive(Clone, Debug)]
@@ -141,6 +142,23 @@ pub struct ScrubberState {
     pub current_anchor_timestamp: Option<u64>,
 }
 
+#[derive(Clone, Debug)]
+pub struct LLMSettings {
+    pub api_key: String,
+    pub model: String,
+    pub system_prompt: Option<String>,
+}
+
+impl Default for LLMSettings {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model: "gpt-4o".to_string(),
+            system_prompt: None,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub logged_in: bool,
@@ -157,6 +175,7 @@ pub struct AppState {
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
     #[allow(dead_code)]
     pub track_cache: TrackCache, // Disk cache for track data
+    pub llm_settings: LLMSettings, // LLM configuration for rule generation
 }
 
 impl Default for AppState {
@@ -182,6 +201,7 @@ impl Default for AppState {
                 current_anchor_timestamp: None,
             },
             track_cache: TrackCache::load(), // Load cache from disk on startup
+            llm_settings: LLMSettings::default(),
         }
     }
 }

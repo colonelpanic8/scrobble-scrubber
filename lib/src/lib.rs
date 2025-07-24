@@ -10,7 +10,6 @@ pub mod track_provider;
 pub mod config;
 #[cfg(feature = "musicbrainz")]
 pub mod musicbrainz_provider;
-#[cfg(feature = "openai")]
 pub mod openai_provider;
 pub mod persistence;
 #[cfg(feature = "tokio")]
