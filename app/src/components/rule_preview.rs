@@ -83,7 +83,7 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                     div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;",
                                         // Before
                                         div {
-                                            h4 { style: "font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem;", "Original" }
+                                            h4 { style: "font-size: 0.875rem; font-weight: 500; color: #374151; margin-top: 0; margin-bottom: 0.5rem;", "Original" }
                                             div { style: "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem;",
                                                 div { style: "font-weight: 500;", "{track.name}" }
                                                 div { style: "color: #4b5563;", "{track.artist}" }
@@ -96,7 +96,7 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                         // After
                                         if has_changes {
                                             div {
-                                                h4 { style: "font-size: 0.875rem; font-weight: 500; color: #059669; margin-bottom: 0.5rem;", "After Rule Applied ✓" }
+                                                h4 { style: "font-size: 0.875rem; font-weight: 500; color: #059669; margin-top: 0; margin-bottom: 0.5rem;", "After Rule Applied ✓" }
                                                 div { style: "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem;",
                                                     div { style: "font-weight: 500;", "{edit.track_name}" }
                                                     div { style: "color: #4b5563;", "{edit.artist_name}" }
@@ -107,7 +107,7 @@ pub fn RulePreview(state: Signal<AppState>, rules_type: PreviewType) -> Element 
                                             }
                                         } else {
                                             div {
-                                                h4 { style: "font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-bottom: 0.5rem;", "No Changes" }
+                                                h4 { style: "font-size: 0.875rem; font-weight: 500; color: #6b7280; margin-top: 0; margin-bottom: 0.5rem;", "No Changes" }
                                                 div { style: "font-size: 0.875rem; color: #9ca3af;", "Rule does not apply to this track" }
                                             }
                                         }
