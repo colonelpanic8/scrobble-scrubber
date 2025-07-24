@@ -3,6 +3,7 @@ use crate::types::{event_formatting, AppState, ScrubberStatus};
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use chrono::Utc;
+use dioxus::html::input_data::keyboard_types::Key;
 use dioxus::prelude::*;
 use lastfm_edit::Track;
 use std::sync::Arc;
@@ -136,6 +137,109 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                     div { style: "padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
                         div { style: "font-size: 1.5rem; font-weight: bold; color: #dc2626;", "{scrubber_state.events.len()}" }
                         div { style: "font-size: 0.875rem; color: #6b7280;", "Total Events" }
+                    }
+                }
+            }
+
+            // Artist-Specific Processing
+            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Process Specific Artist" }
+                p { style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
+                    "Enter an artist name to process only tracks by that artist. This will apply your saved rules to all tracks by the specified artist in your cache."
+                }
+
+                {
+                    let mut artist_input = use_signal(String::new);
+
+                    rsx! {
+                        div { style: "display: flex; gap: 0.75rem; align-items: flex-end;",
+                            div { style: "flex: 1;",
+                                label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;",
+                                    "Artist Name"
+                                }
+                                input {
+                                    r#type: "text",
+                                    placeholder: "Enter artist name...",
+                                    value: "{artist_input.read()}",
+                                    style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; focus:outline-none; focus:ring-2; focus:ring-blue-500; focus:border-transparent;",
+                                    oninput: move |event| {
+                                        artist_input.set(event.value());
+                                    },
+                                    onkeypress: move |event| {
+                                        if event.key() == Key::Enter {
+                                            let artist_name = artist_input.read().trim().to_string();
+                                            if !artist_name.is_empty() {
+                                                spawn(async move {
+                                                    trigger_artist_processing(state, artist_name).await;
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            button {
+                                style: format!(
+                                    "padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; {}",
+                                    if artist_input.read().trim().is_empty() {
+                                        "background: #9ca3af; color: white; cursor: not-allowed;"
+                                    } else {
+                                        "background: #7c3aed; color: white; cursor: pointer; hover:background: #6d28d9;"
+                                    }
+                                ),
+                                disabled: artist_input.read().trim().is_empty(),
+                                onclick: move |_| {
+                                    let artist_name = artist_input.read().trim().to_string();
+                                    if !artist_name.is_empty() {
+                                        spawn(async move {
+                                            trigger_artist_processing(state, artist_name).await;
+                                        });
+                                    }
+                                },
+                                "Process Artist"
+                            }
+                        }
+
+                        // Show helpful info about cached artists
+                        {
+                            let state_read = state.read();
+                            let artist_tracks = &state_read.track_cache.recent_tracks;
+                            let mut artist_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+                            for track in artist_tracks {
+                                *artist_counts.entry(track.artist.clone()).or_insert(0) += 1;
+                            }
+
+                            let mut sorted_artists: Vec<_> = artist_counts.into_iter().collect();
+                            sorted_artists.sort_by(|a, b| b.1.cmp(&a.1));
+
+                            if !sorted_artists.is_empty() {
+                                rsx! {
+                                    div { style: "margin-top: 1rem; border-top: 1px solid #e5e7eb; padding-top: 1rem;",
+                                        p { style: "font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;",
+                                            "Top artists in cache (click to auto-fill):"
+                                        }
+                                        div { style: "display: flex; flex-wrap: wrap; gap: 0.5rem;",
+                                            for (artist, count) in sorted_artists.iter().take(8) {
+                                                {
+                                                    let artist_name = artist.clone();
+                                                    rsx! {
+                                                        button {
+                                                            style: "background: #f3f4f6; color: #374151; padding: 0.25rem 0.5rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; hover:background: #e5e7eb;",
+                                                            onclick: move |_| {
+                                                                artist_input.set(artist_name.clone());
+                                                            },
+                                                            "{artist} ({count})"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                rsx! { div {} }
+                            }
+                        }
                     }
                 }
             }
@@ -909,6 +1013,288 @@ async fn process_with_scrubber(
                 timestamp: Utc::now(),
                 event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
                     "Scrubber processing failed: {e}"
+                )),
+            };
+            let _ = sender.send(error_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(error_event));
+            return Err(e.into());
+        }
+    }
+
+    Ok(())
+}
+
+async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: String) {
+    let start_event = ScrubberEvent {
+        timestamp: Utc::now(),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
+            "Starting artist processing for '{artist_name}'..."
+        )),
+    };
+
+    // Create a temporary sender for this operation if we don't have one
+    let sender = if let Some(existing_sender) = state.read().scrubber_state.event_sender.clone() {
+        existing_sender
+    } else {
+        let (new_sender, _) = broadcast::channel(1000);
+        Arc::new(new_sender)
+    };
+
+    let _ = sender.send(start_event.clone());
+    state.with_mut(|s| s.scrubber_state.events.push(start_event));
+
+    // Get necessary data from state for artist processing
+    let (session_json, storage, saved_rules, config) = {
+        let state_read = state.read();
+        (
+            state_read.session.clone(),
+            state_read.storage.clone(),
+            state_read.saved_rules.clone(),
+            state_read.config.clone(),
+        )
+    };
+
+    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
+        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
+            Ok(mut scrubber) => {
+                // Use the same event processing pattern as process_with_scrubber
+                match process_artist_with_events(&mut scrubber, &sender, &mut state, &artist_name).await {
+                    Ok(()) => {
+                        let success_event = ScrubberEvent {
+                            timestamp: Utc::now(),
+                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                                format!(
+                                    "Artist processing completed successfully for '{artist_name}'"
+                                ),
+                            ),
+                        };
+                        let _ = sender.send(success_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(success_event));
+                    }
+                    Err(e) => {
+                        let error_event = ScrubberEvent {
+                            timestamp: Utc::now(),
+                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                                format!("Artist processing failed for '{artist_name}': {e}"),
+                            ),
+                        };
+                        let _ = sender.send(error_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(error_event));
+                    }
+                }
+            }
+            Err(e) => {
+                let error_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Failed to create scrubber for artist processing: {e}"
+                    )),
+                };
+                let _ = sender.send(error_event.clone());
+                state.with_mut(|s| s.scrubber_state.events.push(error_event));
+            }
+        }
+    } else {
+        let warning_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                "Cannot process artist: missing session, storage, or config".to_string(),
+            ),
+        };
+
+        let _ = sender.send(warning_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(warning_event));
+    }
+}
+
+// Process artist with detailed event handling similar to process_with_scrubber
+async fn process_artist_with_events(
+    scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
+        ::scrobble_scrubber::persistence::FileStorage,
+        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+    >,
+    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    state: &mut Signal<AppState>,
+    artist_name: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Subscribe to detailed events from the scrubber library
+    let mut event_receiver = scrubber.subscribe_events();
+
+    // Start logging before processing
+    let start_event = ScrubberEvent {
+        timestamp: Utc::now(),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+            format!("Starting artist track processing for '{artist_name}'..."),
+        ),
+    };
+    let _ = sender.send(start_event.clone());
+    state.with_mut(|s| s.scrubber_state.events.push(start_event));
+
+    // Run artist processing
+    let processing_result = scrubber.process_artist(artist_name).await;
+
+    // Process events after scrubbing completes to collect and compress them
+    let mut tracks_processed = 0;
+    let mut rules_applied = 0;
+
+    // Track events per track to compress them
+    use std::collections::HashMap;
+    let mut track_events: HashMap<
+        String,
+        (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool),
+    > = HashMap::new(); // (track, rule_descriptions, had_errors)
+
+    // Process events with a timeout to collect statistics
+    let mut has_cycle_completed = false;
+
+    while !has_cycle_completed {
+        match tokio::time::timeout(
+            tokio::time::Duration::from_millis(500),
+            event_receiver.recv(),
+        )
+        .await
+        {
+            Ok(Ok(lib_event)) => {
+                // Process events and group by track
+                match &lib_event.event_type {
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed {
+                        track,
+                        ..
+                    } => {
+                        tracks_processed += 1;
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        track_events
+                            .entry(track_key)
+                            .or_insert((log_track, Vec::new(), false));
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied {
+                        track,
+                        description,
+                        ..
+                    } => {
+                        rules_applied += 1;
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        track_events
+                            .entry(track_key.clone())
+                            .or_insert((log_track, Vec::new(), false))
+                            .1
+                            .push(description.clone());
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed {
+                        track,
+                        ..
+                    } => {
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        track_events
+                            .entry(track_key.clone())
+                            .or_insert((track.clone(), Vec::new(), false))
+                            .2 = true;
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
+                        has_cycle_completed = true;
+                        // Don't forward the library's cycle completed event - we'll create our own summary
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
+                        anchor_timestamp,
+                        ..
+                    } => {
+                        // Forward anchor updates immediately as they're important
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::Info(_)
+                    | ::scrobble_scrubber::events::ScrubberEventType::Error(_)
+                    | ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
+                        // Forward non-track events immediately
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    }
+                    _ => {
+                        // Forward other events as-is
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    }
+                }
+
+                // Update global counters
+                state.with_mut(|s| match &lib_event.event_type {
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
+                        s.scrubber_state.processed_count += 1;
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
+                        s.scrubber_state.rules_applied_count += 1;
+                    }
+                    _ => {}
+                });
+            }
+            Ok(Err(_)) => break, // Channel closed
+            Err(_) => break,     // Timeout - stop waiting
+        }
+    }
+
+    // Now create compressed summary events for each track
+    for (track, rule_descriptions, had_errors) in track_events.values() {
+        let summary_message = if rule_descriptions.is_empty() {
+            if *had_errors {
+                format!(
+                    "'{}' by '{}' - processed with errors",
+                    track.name, track.artist
+                )
+            } else {
+                format!("'{}' by '{}' - no changes needed", track.name, track.artist)
+            }
+        } else {
+            let rules_text = if rule_descriptions.len() == 1 {
+                format!("applied rule: {}", rule_descriptions[0])
+            } else {
+                format!(
+                    "applied {} rules: {}",
+                    rule_descriptions.len(),
+                    rule_descriptions.join(", ")
+                )
+            };
+
+            if *had_errors {
+                format!(
+                    "'{}' by '{}' - {} (with errors)",
+                    track.name, track.artist, rules_text
+                )
+            } else {
+                format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
+            }
+        };
+
+        let summary_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
+        };
+
+        let _ = sender.send(summary_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(summary_event));
+    }
+
+    match processing_result {
+        Ok(()) => {
+            // Always use the local counts we tracked, as they're more reliable
+            let final_message = format!("Artist processing completed for '{artist_name}': {tracks_processed} tracks processed, {rules_applied} rules applied");
+
+            let success_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(final_message),
+            };
+            let _ = sender.send(success_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(success_event));
+        }
+        Err(e) => {
+            let error_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                    "Artist processing failed for '{artist_name}': {e}"
                 )),
             };
             let _ = sender.send(error_event.clone());
