@@ -33,6 +33,7 @@ pub enum ScrubberStatus {
     Stopped,
     Starting,
     Running,
+    Sleeping { remaining_seconds: u64 },
     Stopping,
     Error(String),
 }
@@ -47,6 +48,19 @@ pub mod event_formatting {
         match &event.event_type {
             ScrubberEventType::Started(msg) => msg.clone(),
             ScrubberEventType::Stopped(msg) => msg.clone(),
+            ScrubberEventType::Sleeping {
+                until_next_cycle_seconds,
+                sleep_until_timestamp,
+            } => {
+                let now = chrono::Utc::now();
+                let remaining_seconds = (*sleep_until_timestamp - now).num_seconds().max(0) as u64;
+
+                if remaining_seconds > 0 {
+                    format!("💤 Sleeping ({remaining_seconds}s remaining)")
+                } else {
+                    format!("Sleeping for {until_next_cycle_seconds} seconds until next processing cycle")
+                }
+            }
             ScrubberEventType::TrackProcessed { track, result, .. } => {
                 format!("'{}' by '{}' - {}", track.name, track.artist, result)
             }
@@ -113,6 +127,7 @@ pub mod event_formatting {
         match &event.event_type {
             ScrubberEventType::Started(_) => "started",
             ScrubberEventType::Stopped(_) => "stopped",
+            ScrubberEventType::Sleeping { .. } => "sleeping",
             ScrubberEventType::TrackProcessed { .. } => "track_processed",
             ScrubberEventType::RuleApplied { .. } => "rule_applied",
             ScrubberEventType::Error(_) => "error",
@@ -139,6 +154,7 @@ pub struct ScrubberState {
     #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
     pub current_anchor_timestamp: Option<u64>,
+    pub next_cycle_timestamp: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Clone)]
@@ -180,6 +196,7 @@ impl Default for AppState {
                 rules_applied_count: 0,
                 event_sender: None,
                 current_anchor_timestamp: None,
+                next_cycle_timestamp: None,
             },
             track_cache: TrackCache::load(), // Load cache from disk on startup
         }

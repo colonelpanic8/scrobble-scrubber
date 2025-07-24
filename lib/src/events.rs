@@ -19,6 +19,11 @@ pub enum ScrubberEventType {
     Started(String),
     /// Scrubber has stopped
     Stopped(String),
+    /// Scrubber is sleeping until next cycle
+    Sleeping {
+        until_next_cycle_seconds: u64,
+        sleep_until_timestamp: DateTime<Utc>,
+    },
     /// A track has been processed with suggestions applied
     TrackProcessed {
         track: Track,
@@ -81,6 +86,15 @@ impl ScrubberEvent {
 
     pub fn stopped(message: String) -> Self {
         Self::new(ScrubberEventType::Stopped(message))
+    }
+
+    pub fn sleeping(until_next_cycle_seconds: u64) -> Self {
+        let sleep_until_timestamp =
+            Utc::now() + chrono::Duration::seconds(until_next_cycle_seconds as i64);
+        Self::new(ScrubberEventType::Sleeping {
+            until_next_cycle_seconds,
+            sleep_until_timestamp,
+        })
     }
 
     pub fn track_processed(

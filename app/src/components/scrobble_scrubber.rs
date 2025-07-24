@@ -12,6 +12,55 @@ use tokio::sync::broadcast;
 pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
     let scrubber_state = state.read().scrubber_state.clone();
 
+    // Countdown timer effect for sleeping state and activity log updates
+    use_effect(move || {
+        spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+                // Update countdown if in sleeping state or if we have sleeping events
+                let should_continue = {
+                    let current_status = state.read().scrubber_state.status.clone();
+                    let has_sleeping_events =
+                        state.read().scrubber_state.events.iter().any(|event| {
+                            matches!(
+                                event.event_type,
+                                ::scrobble_scrubber::events::ScrubberEventType::Sleeping { .. }
+                            )
+                        });
+
+                    match current_status {
+                        ScrubberStatus::Sleeping { remaining_seconds } if remaining_seconds > 0 => {
+                            state.with_mut(|s| {
+                                if let ScrubberStatus::Sleeping { remaining_seconds } =
+                                    &mut s.scrubber_state.status
+                                {
+                                    *remaining_seconds = remaining_seconds.saturating_sub(1);
+                                }
+                            });
+                            true
+                        }
+                        ScrubberStatus::Sleeping { .. } => true, // Still sleeping but countdown finished
+                        _ => has_sleeping_events, // Keep updating if we have sleeping events in the log
+                    }
+                };
+
+                // Force a re-render to update activity log countdowns
+                if should_continue {
+                    state.with_mut(|s| {
+                        // Touch the events to trigger a re-render
+                        let events = s.scrubber_state.events.clone();
+                        s.scrubber_state.events = events;
+                    });
+                }
+
+                if !should_continue {
+                    break;
+                }
+            }
+        });
+    });
+
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
             // Header with controls
@@ -26,6 +75,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                     ScrubberStatus::Stopped => "background: #fee2e2; color: #991b1b;",
                                     ScrubberStatus::Starting => "background: #fef3c7; color: #92400e;",
                                     ScrubberStatus::Running => "background: #dcfce7; color: #166534;",
+                                    ScrubberStatus::Sleeping { .. } => "background: #e0e7ff; color: #3730a3;",
                                     ScrubberStatus::Stopping => "background: #fef3c7; color: #92400e;",
                                     ScrubberStatus::Error(_) => "background: #fecaca; color: #dc2626;",
                                 }
@@ -34,6 +84,13 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                 ScrubberStatus::Stopped => "Stopped".to_string(),
                                 ScrubberStatus::Starting => "Starting...".to_string(),
                                 ScrubberStatus::Running => "Running".to_string(),
+                                ScrubberStatus::Sleeping { remaining_seconds } => {
+                                    if *remaining_seconds > 0 {
+                                        format!("💤 Sleeping ({remaining_seconds}s)")
+                                    } else {
+                                        "💤 Sleeping".to_string()
+                                    }
+                                },
                                 ScrubberStatus::Stopping => "Stopping...".to_string(),
                                 ScrubberStatus::Error(err) => format!("Error: {err}"),
                             }}
@@ -61,7 +118,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                     "Process Now"
                                 }
                             },
-                            ScrubberStatus::Running => rsx! {
+                            ScrubberStatus::Running | ScrubberStatus::Sleeping { .. } => rsx! {
                                 button {
                                     style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-right: 0.5rem;",
                                     onclick: move |_| {
@@ -75,10 +132,10 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                     style: "background: #7c3aed; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
                                     onclick: move |_| {
                                         spawn(async move {
-                                            trigger_immediate_cycle(state).await;
+                                            trigger_manual_processing(state).await;
                                         });
                                     },
-                                    "Trigger Now"
+                                    "Process Now"
                                 }
                             },
                             ScrubberStatus::Starting | ScrubberStatus::Stopping => rsx! {
@@ -143,6 +200,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                     let (icon, color) = match event_category {
                                         "started" => ("🟢", "#059669"),
                                         "stopped" => ("🔴", "#dc2626"),
+                                        "sleeping" => ("💤", "#3730a3"),
                                         "track_processed" => ("🎵", "#2563eb"),
                                         "rule_applied" => ("✏️", "#059669"),
                                         "error" => ("❌", "#dc2626"),
@@ -162,10 +220,10 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                     rsx! {
                                         div {
                                             key: "{index}",
-                                            style: "display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; hover:background: #f9fafb;",
-                                            span { style: "font-size: 1rem;", "{icon}" }
-                                            span { style: "color: {color}; font-weight: 500; min-width: 16ch;", "{formatted_time}" }
-                                            span { style: "color: #374151;", "{message}" }
+                                            style: "display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; hover:background: #f9fafb;",
+                                            span { style: "color: {color}; font-weight: 500; min-width: 16ch; text-align: right;", "{formatted_time}" }
+                                            span { style: "font-size: 1rem; min-width: 1.5rem; text-align: center;", "{icon}" }
+                                            span { style: "color: #374151; flex: 1;", "{message}" }
                                         }
                                     }
                                 }
@@ -270,9 +328,9 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                                 style: "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #f3f4f6; hover:background: #f9fafb;",
                                                 div { style: "flex-grow: 1;",
                                                     div { style: "font-weight: 500; color: #1f2937;", "{track.name}" }
-                                                    div { style: "font-size: 0.875rem; color: #6b7280;", "by {track.artist}" }
+                                                    div { style: "font-size: 0.875rem; color: #6b7280;", "{track.artist}" }
                                                     if let Some(album) = &track.album {
-                                                        div { style: "font-size: 0.75rem; color: #9ca3af;", "from {album}" }
+                                                        div { style: "font-size: 0.75rem; color: #9ca3af;", "{album}" }
                                                     }
                                                 }
                                                 div { style: "text-align: right; margin-right: 1rem;",
@@ -305,28 +363,69 @@ async fn start_scrubber(mut state: Signal<AppState>) {
     // Set status to starting
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Starting);
 
-    // Create event channel
-    let (sender, _receiver) = broadcast::channel(1000);
-    let sender_arc = Arc::new(sender);
-
-    // Create initial event using the library event system
-    let start_event = ScrubberEvent {
-        timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Started("Scrobble scrubber started".to_string()),
+    // Get necessary data from state
+    let (session_json, storage, saved_rules, config) = {
+        let state_read = state.read();
+        (
+            state_read.session.clone(),
+            state_read.storage.clone(),
+            state_read.saved_rules.clone(),
+            state_read.config.clone(),
+        )
     };
 
-    // Send event and update state
-    let _ = sender_arc.send(start_event.clone());
+    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
+        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
+            Ok(scrubber) => {
+                // Create event channel for UI updates
+                let (sender, _receiver) = broadcast::channel(1000);
+                let sender_arc = Arc::new(sender);
 
-    state.with_mut(|s| {
-        s.scrubber_state.status = ScrubberStatus::Running;
-        s.scrubber_state.events.push(start_event);
-        s.scrubber_state.event_sender = Some(sender_arc.clone());
-    });
+                let start_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Started(
+                        "Scrobble scrubber started".to_string(),
+                    ),
+                };
 
-    // Start the scrubber background task
-    let sender_for_task = sender_arc.clone();
-    spawn(run_scrubber_loop(state, sender_for_task));
+                let _ = sender_arc.send(start_event.clone());
+
+                state.with_mut(|s| {
+                    s.scrubber_state.status = ScrubberStatus::Running;
+                    s.scrubber_state.events.push(start_event);
+                    s.scrubber_state.event_sender = Some(sender_arc.clone());
+                });
+
+                // Start the scrubber background task
+                spawn(run_scrubber_with_instance(state, scrubber, sender_arc));
+            }
+            Err(e) => {
+                let error_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Failed to start scrubber: {e}"
+                    )),
+                };
+
+                state.with_mut(|s| {
+                    s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
+                    s.scrubber_state.events.push(error_event);
+                });
+            }
+        }
+    } else {
+        let error_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                "Cannot start scrubber: missing session, storage, or config".to_string(),
+            ),
+        };
+
+        state.with_mut(|s| {
+            s.scrubber_state.status = ScrubberStatus::Error("Missing configuration".to_string());
+            s.scrubber_state.events.push(error_event);
+        });
+    }
 }
 
 async fn stop_scrubber(mut state: Signal<AppState>) {
@@ -334,7 +433,9 @@ async fn stop_scrubber(mut state: Signal<AppState>) {
 
     let stop_event = ScrubberEvent {
         timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Stopped("Scrobble scrubber stopped".to_string()),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Stopped(
+            "Scrobble scrubber stopped".to_string(),
+        ),
     };
 
     state.with_mut(|s| {
@@ -347,378 +448,65 @@ async fn stop_scrubber(mut state: Signal<AppState>) {
 async fn trigger_manual_processing(mut state: Signal<AppState>) {
     let process_event = ScrubberEvent {
         timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Manual processing triggered".to_string()),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+            "Manual processing triggered".to_string(),
+        ),
     };
 
-    if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-        let _ = sender.send(process_event.clone());
-    }
+    // Create a temporary sender for this operation if we don't have one
+    let sender = if let Some(existing_sender) = state.read().scrubber_state.event_sender.clone() {
+        existing_sender
+    } else {
+        let (new_sender, _) = broadcast::channel(1000);
+        Arc::new(new_sender)
+    };
 
+    let _ = sender.send(process_event.clone());
     state.with_mut(|s| s.scrubber_state.events.push(process_event));
 
     // Get necessary data from state for manual processing
-    let (session_json, storage, saved_rules, sender_opt) = {
+    let (session_json, storage, saved_rules, config) = {
         let state_read = state.read();
         (
             state_read.session.clone(),
             state_read.storage.clone(),
             state_read.saved_rules.clone(),
-            state_read.scrubber_state.event_sender.clone(),
+            state_read.config.clone(),
         )
     };
 
-    // Only proceed if we have a session, storage, and event sender
-    if let (Some(session_json), Some(storage), Some(sender)) = (session_json, storage, sender_opt) {
-        // Run manual processing
-        match process_scrobbles(session_json, storage, saved_rules, &sender, &mut state).await {
-            Ok(()) => {
-                let success_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Manual processing completed successfully".to_string()),
-                };
-                let _ = sender.send(success_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(success_event));
-            }
-            Err(e) => {
-                let error_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!("Manual processing failed: {e}")),
-                };
-                let _ = sender.send(error_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(error_event));
-            }
-        }
-    } else {
-        let warning_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Cannot process: missing session, storage, or event sender".to_string()),
-        };
-
-        if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-            let _ = sender.send(warning_event.clone());
-        }
-        state.with_mut(|s| s.scrubber_state.events.push(warning_event));
-    }
-}
-
-async fn run_scrubber_loop(
-    mut state: Signal<AppState>,
-    sender: Arc<broadcast::Sender<ScrubberEvent>>,
-) {
-    // Get interval from config, default to 30 seconds if not available
-    let interval_seconds = state
-        .read()
-        .config
-        .as_ref()
-        .map(|c| c.scrubber.interval)
-        .unwrap_or(30);
-
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_seconds));
-
-    loop {
-        // Check if we should stop
-        {
-            let current_status = state.read().scrubber_state.status.clone();
-            if !matches!(current_status, ScrubberStatus::Running) {
-                break;
-            }
-        }
-
-        interval.tick().await;
-
-        // Log that we're checking for scrobbles
-        let info_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Checking for new scrobbles...".to_string()),
-        };
-
-        let _ = sender.send(info_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(info_event));
-
-        // Get session, storage, and rules from state
-        let (session_json, storage, saved_rules) = {
-            let state_read = state.read();
-            (
-                state_read.session.clone(),
-                state_read.storage.clone(),
-                state_read.saved_rules.clone(),
-            )
-        };
-
-        // Only proceed if we have a session and storage
-        if let (Some(session_json), Some(storage)) = (session_json, storage) {
-            // Attempt to recreate session and process scrobbles
-            match process_scrobbles(session_json, storage, saved_rules, &sender, &mut state).await {
-                Ok(()) => {
-                    let success_event = ScrubberEvent {
-                        timestamp: Utc::now(),
-                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Processing cycle completed successfully".to_string()),
-                    };
-                    let _ = sender.send(success_event.clone());
-                    state.with_mut(|s| s.scrubber_state.events.push(success_event));
-                }
-                Err(e) => {
-                    let error_event = ScrubberEvent {
-                        timestamp: Utc::now(),
-                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!("Error during processing: {e}")),
-                    };
-                    let _ = sender.send(error_event.clone());
-                    state.with_mut(|s| {
-                        s.scrubber_state.events.push(error_event);
-                        s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
-                    });
-                    break;
-                }
-            }
-        } else {
-            let warning_event = ScrubberEvent {
-                timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("No session or storage available - skipping processing".to_string()),
-            };
-            let _ = sender.send(warning_event.clone());
-            state.with_mut(|s| s.scrubber_state.events.push(warning_event));
-        }
-    }
-}
-
-async fn process_scrobbles(
-    session_json: String,
-    storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
-    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
-    state: &mut Signal<AppState>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
-    use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
-
-    // Deserialize the session
-    let session: LastFmEditSession = serde_json::from_str(&session_json)?;
-
-    // Create a client with the restored session
-    let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
-
-    // Get the config from state
-    let config = {
-        let state_read = state.read();
-        state_read.config.clone()
-    };
-
-    if let Some(config) = config {
-        // Create action provider with current rules
-        let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
-
-        // Create scrubber instance
-        let mut scrubber = ScrobbleScrubber::new(
-            storage.clone(),
-            Box::new(client),
-            action_provider,
-            config.clone(),
-        );
-
-        // Subscribe to detailed events from the scrubber library
-        let mut event_receiver = scrubber.subscribe_events();
-
-        // Start logging before processing
-        let start_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Starting cache-based track processing...".to_string()),
-        };
-        let _ = sender.send(start_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(start_event));
-
-        // Run a single processing cycle using cache-based processing
-        let processing_result = scrubber.trigger_run().await;
-
-        // Process events after scrubbing completes to collect and compress them
-        let mut tracks_processed = 0;
-        let mut rules_applied = 0;
-        let mut final_message = "Processing completed".to_string();
-        
-        // Track events per track to compress them
-        use std::collections::HashMap;
-        let mut track_events: HashMap<String, (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool)> = HashMap::new(); // (track, rule_descriptions, had_errors)
-
-        // Process events with a timeout to collect statistics
-        let mut has_cycle_completed = false;
-
-        while !has_cycle_completed {
-            match tokio::time::timeout(
-                tokio::time::Duration::from_millis(500),
-                event_receiver.recv(),
-            )
-            .await
-            {
-                Ok(Ok(lib_event)) => {
-                    // Process events and group by track
-                    match &lib_event.event_type {
-                        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { track, .. } => {
-                            tracks_processed += 1;
-                            let track_key = format!("{}:{}", track.artist, track.name);
-                            let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
-                            track_events.entry(track_key).or_insert((log_track, Vec::new(), false));
-                        }
-                        ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { track, description, .. } => {
-                            rules_applied += 1;
-                            let track_key = format!("{}:{}", track.artist, track.name);
-                            let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
-                            track_events.entry(track_key.clone())
-                                .or_insert((log_track, Vec::new(), false))
-                                .1.push(description.clone());
-                        }
-                        ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed { track, .. } => {
-                            let track_key = format!("{}:{}", track.artist, track.name);
-                            track_events.entry(track_key.clone())
-                                .or_insert((track.clone(), Vec::new(), false))
-                                .2 = true;
-                        }
-                        ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
-                            has_cycle_completed = true;
-                            // Don't forward the library's cycle completed event - we'll create our own summary
-                        }
-                        ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated { anchor_timestamp, .. } => {
-                            // Forward anchor updates immediately as they're important
-                            let _ = sender.send(lib_event.clone());
-                            state.with_mut(|s| {
-                                s.scrubber_state.events.push(lib_event.clone());
-                                s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
-                            });
-                        }
-                        ::scrobble_scrubber::events::ScrubberEventType::Info(_) |
-                        ::scrobble_scrubber::events::ScrubberEventType::Error(_) |
-                        ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
-                            // Forward non-track events immediately
-                            let _ = sender.send(lib_event.clone());
-                            state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
-                        }
-                        _ => {
-                            // Forward other events as-is
-                            let _ = sender.send(lib_event.clone());
-                            state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
-                        }
+    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
+        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
+            Ok(mut scrubber) => {
+                match process_with_scrubber(&mut scrubber, &sender, &mut state).await {
+                    Ok(()) => {
+                        let success_event = ScrubberEvent {
+                            timestamp: Utc::now(),
+                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                                "Manual processing completed successfully".to_string(),
+                            ),
+                        };
+                        let _ = sender.send(success_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(success_event));
                     }
-
-                    // Update global counters
-                    state.with_mut(|s| {
-                        match &lib_event.event_type {
-                            ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
-                                s.scrubber_state.processed_count += 1;
-                            }
-                            ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
-                                s.scrubber_state.rules_applied_count += 1;
-                            }
-                            _ => {}
-                        }
-                    });
+                    Err(e) => {
+                        let error_event = ScrubberEvent {
+                            timestamp: Utc::now(),
+                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                                format!("Manual processing failed: {e}"),
+                            ),
+                        };
+                        let _ = sender.send(error_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(error_event));
+                    }
                 }
-                Ok(Err(_)) => break, // Channel closed
-                Err(_) => break,     // Timeout - stop waiting
-            }
-        }
-
-        // Now create compressed summary events for each track
-        for (track, rule_descriptions, had_errors) in track_events.values() {
-            let summary_message = if rule_descriptions.is_empty() {
-                if *had_errors {
-                    format!("'{}' by '{}' - processed with errors", track.name, track.artist)
-                } else {
-                    format!("'{}' by '{}' - no changes needed", track.name, track.artist)
-                }
-            } else {
-                let rules_text = if rule_descriptions.len() == 1 {
-                    format!("applied rule: {}", rule_descriptions[0])
-                } else {
-                    format!("applied {} rules: {}", rule_descriptions.len(), rule_descriptions.join(", "))
-                };
-                
-                if *had_errors {
-                    format!("'{}' by '{}' - {} (with errors)", track.name, track.artist, rules_text)
-                } else {
-                    format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
-                }
-            };
-
-            let summary_event = ScrubberEvent {
-                timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
-            };
-
-            let _ = sender.send(summary_event.clone());
-            state.with_mut(|s| s.scrubber_state.events.push(summary_event));
-        }
-
-        match processing_result {
-            Ok(()) => {
-                // Always use the local counts we tracked, as they're more reliable
-                final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
-
-                let success_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(final_message),
-                };
-                let _ = sender.send(success_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(success_event));
             }
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!("Scrubber processing failed: {e}")),
-                };
-                let _ = sender.send(error_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(error_event));
-                return Err(e.into());
-            }
-        }
-    } else {
-        let config_error = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error("No configuration available for scrubber".to_string()),
-        };
-        let _ = sender.send(config_error.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(config_error));
-        return Err("No configuration available".into());
-    }
-
-    Ok(())
-}
-
-async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
-    // Get necessary data from state for triggering immediate processing
-    let (session_json, storage, saved_rules, sender_opt) = {
-        let state_read = state.read();
-        (
-            state_read.session.clone(),
-            state_read.storage.clone(),
-            state_read.saved_rules.clone(),
-            state_read.scrubber_state.event_sender.clone(),
-        )
-    };
-
-    // Only proceed if we have a session, storage, and event sender
-    if let (Some(session_json), Some(storage), Some(sender)) = (session_json, storage, sender_opt) {
-        // Create scrubber to trigger immediate processing
-        match create_scrubber_and_trigger_immediate(
-            session_json,
-            storage,
-            saved_rules,
-            &sender,
-            &mut state,
-        )
-        .await
-        {
-            Ok(()) => {
-                let success_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Immediate processing triggered".to_string()),
-                };
-                let _ = sender.send(success_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(success_event));
-            }
-            Err(e) => {
-                let error_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!("Failed to trigger immediate processing: {e}")),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Failed to create scrubber: {e}"
+                    )),
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -728,61 +516,13 @@ async fn trigger_immediate_cycle(mut state: Signal<AppState>) {
         let warning_event = ScrubberEvent {
             timestamp: Utc::now(),
             event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                "Cannot trigger immediate processing: missing session, storage, or event sender"
-                    .to_string(),
+                "Cannot process: missing session, storage, or config".to_string(),
             ),
         };
 
-        if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
-            let _ = sender.send(warning_event.clone());
-        }
+        let _ = sender.send(warning_event.clone());
         state.with_mut(|s| s.scrubber_state.events.push(warning_event));
     }
-}
-
-async fn create_scrubber_and_trigger_immediate(
-    session_json: String,
-    storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
-    _sender: &Arc<broadcast::Sender<ScrubberEvent>>,
-    state: &mut Signal<AppState>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
-    use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
-
-    // Deserialize the session
-    let session: LastFmEditSession = serde_json::from_str(&session_json)?;
-
-    // Create a client with the restored session
-    let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
-
-    // Get the config from state
-    let config = {
-        let state_read = state.read();
-        state_read.config.clone()
-    };
-
-    if let Some(config) = config {
-        // Create action provider with current rules
-        let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
-
-        // Create scrubber instance
-        let scrubber = ScrobbleScrubber::new(
-            storage.clone(),
-            Box::new(client),
-            action_provider,
-            config.clone(),
-        );
-
-        // Trigger immediate processing
-        scrubber.trigger_immediate_processing();
-    } else {
-        return Err("No configuration available".into());
-    }
-
-    Ok(())
 }
 
 async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
@@ -812,7 +552,9 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
             Ok(()) => {
                 let success_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Successfully set timestamp anchor".to_string()),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                        "Successfully set timestamp anchor".to_string(),
+                    ),
                 };
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(success_event.clone());
@@ -822,7 +564,9 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!("Failed to set timestamp anchor: {e}")),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Failed to set timestamp anchor: {e}"
+                    )),
                 };
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(error_event.clone());
@@ -833,7 +577,9 @@ async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
     } else {
         let warning_event = ScrubberEvent {
             timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info("Cannot set timestamp anchor: missing storage".to_string()),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                "Cannot set timestamp anchor: missing storage".to_string(),
+            ),
         };
 
         if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
@@ -883,6 +629,331 @@ async fn set_timestamp_anchor_direct(
         state.with_mut(|s| s.scrubber_state.events.push(info_event));
     } else {
         return Err("Track has no timestamp - cannot set as anchor".into());
+    }
+
+    Ok(())
+}
+
+// Helper function to create a scrubber instance
+async fn create_scrubber_instance(
+    session_json: String,
+    storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
+    saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
+    config: ::scrobble_scrubber::config::ScrobbleScrubberConfig,
+) -> Result<
+    ::scrobble_scrubber::scrubber::ScrobbleScrubber<
+        ::scrobble_scrubber::persistence::FileStorage,
+        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+    >,
+    Box<dyn std::error::Error + Send + Sync>,
+> {
+    use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
+    use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
+    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
+
+    // Deserialize the session
+    let session: LastFmEditSession = serde_json::from_str(&session_json)?;
+
+    // Create a client with the restored session
+    let http_client = http_client::native::NativeClient::new();
+    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
+
+    // Create action provider with current rules
+    let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
+
+    // Create scrubber instance
+    let scrubber = ScrobbleScrubber::new(storage, Box::new(client), action_provider, config);
+
+    Ok(scrubber)
+}
+
+// Helper function to run the scrubber loop with a single instance
+async fn run_scrubber_with_instance(
+    mut state: Signal<AppState>,
+    mut scrubber: ::scrobble_scrubber::scrubber::ScrobbleScrubber<
+        ::scrobble_scrubber::persistence::FileStorage,
+        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+    >,
+    sender: Arc<broadcast::Sender<ScrubberEvent>>,
+) {
+    // Get interval from config
+    let interval_seconds = state
+        .read()
+        .config
+        .as_ref()
+        .map(|c| c.scrubber.interval)
+        .unwrap_or(30);
+
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_seconds));
+
+    loop {
+        // Check if we should stop
+        {
+            let current_status = state.read().scrubber_state.status.clone();
+            if !matches!(
+                current_status,
+                ScrubberStatus::Running | ScrubberStatus::Sleeping { .. }
+            ) {
+                break;
+            }
+        }
+
+        // Log that we're checking for scrobbles
+        let info_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                "Checking for new scrobbles...".to_string(),
+            ),
+        };
+
+        let _ = sender.send(info_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(info_event));
+
+        // Process with the single scrubber instance
+        match process_with_scrubber(&mut scrubber, &sender, &mut state).await {
+            Ok(()) => {
+                let success_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                        "Processing cycle completed successfully".to_string(),
+                    ),
+                };
+                let _ = sender.send(success_event.clone());
+                state.with_mut(|s| s.scrubber_state.events.push(success_event));
+            }
+            Err(e) => {
+                let error_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Error during processing: {e}"
+                    )),
+                };
+                let _ = sender.send(error_event.clone());
+                state.with_mut(|s| {
+                    s.scrubber_state.events.push(error_event);
+                    s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
+                });
+                break;
+            }
+        }
+
+        // Send sleeping event and update status
+        let sleeping_event = ScrubberEvent::sleeping(interval_seconds);
+
+        let _ = sender.send(sleeping_event.clone());
+        state.with_mut(|s| {
+            s.scrubber_state.events.push(sleeping_event);
+            s.scrubber_state.status = ScrubberStatus::Sleeping {
+                remaining_seconds: interval_seconds,
+            };
+            s.scrubber_state.next_cycle_timestamp =
+                Some(Utc::now() + chrono::Duration::seconds(interval_seconds as i64));
+        });
+
+        // Wait for the interval
+        interval.tick().await;
+
+        // Set back to running state when we wake up
+        state.with_mut(|s| {
+            s.scrubber_state.status = ScrubberStatus::Running;
+        });
+    }
+}
+
+// Renamed from process_scrobbles - now works with a single scrubber instance
+async fn process_with_scrubber(
+    scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
+        ::scrobble_scrubber::persistence::FileStorage,
+        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+    >,
+    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    state: &mut Signal<AppState>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Subscribe to detailed events from the scrubber library
+    let mut event_receiver = scrubber.subscribe_events();
+
+    // Start logging before processing
+    let start_event = ScrubberEvent {
+        timestamp: Utc::now(),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+            "Starting cache-based track processing...".to_string(),
+        ),
+    };
+    let _ = sender.send(start_event.clone());
+    state.with_mut(|s| s.scrubber_state.events.push(start_event));
+
+    // Run a single processing cycle using cache-based processing
+    let processing_result = scrubber.trigger_run().await;
+
+    // Process events after scrubbing completes to collect and compress them
+    let mut tracks_processed = 0;
+    let mut rules_applied = 0;
+    let final_message;
+
+    // Track events per track to compress them
+    use std::collections::HashMap;
+    let mut track_events: HashMap<
+        String,
+        (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool),
+    > = HashMap::new(); // (track, rule_descriptions, had_errors)
+
+    // Process events with a timeout to collect statistics
+    let mut has_cycle_completed = false;
+
+    while !has_cycle_completed {
+        match tokio::time::timeout(
+            tokio::time::Duration::from_millis(500),
+            event_receiver.recv(),
+        )
+        .await
+        {
+            Ok(Ok(lib_event)) => {
+                // Process events and group by track
+                match &lib_event.event_type {
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed {
+                        track,
+                        ..
+                    } => {
+                        tracks_processed += 1;
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        track_events
+                            .entry(track_key)
+                            .or_insert((log_track, Vec::new(), false));
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied {
+                        track,
+                        description,
+                        ..
+                    } => {
+                        rules_applied += 1;
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        track_events
+                            .entry(track_key.clone())
+                            .or_insert((log_track, Vec::new(), false))
+                            .1
+                            .push(description.clone());
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed {
+                        track,
+                        ..
+                    } => {
+                        let track_key = format!("{}:{}", track.artist, track.name);
+                        track_events
+                            .entry(track_key.clone())
+                            .or_insert((track.clone(), Vec::new(), false))
+                            .2 = true;
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
+                        has_cycle_completed = true;
+                        // Don't forward the library's cycle completed event - we'll create our own summary
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
+                        anchor_timestamp,
+                        ..
+                    } => {
+                        // Forward anchor updates immediately as they're important
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::Info(_)
+                    | ::scrobble_scrubber::events::ScrubberEventType::Error(_)
+                    | ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
+                        // Forward non-track events immediately
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    }
+                    _ => {
+                        // Forward other events as-is
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    }
+                }
+
+                // Update global counters
+                state.with_mut(|s| match &lib_event.event_type {
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
+                        s.scrubber_state.processed_count += 1;
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
+                        s.scrubber_state.rules_applied_count += 1;
+                    }
+                    _ => {}
+                });
+            }
+            Ok(Err(_)) => break, // Channel closed
+            Err(_) => break,     // Timeout - stop waiting
+        }
+    }
+
+    // Now create compressed summary events for each track
+    for (track, rule_descriptions, had_errors) in track_events.values() {
+        let summary_message = if rule_descriptions.is_empty() {
+            if *had_errors {
+                format!(
+                    "'{}' by '{}' - processed with errors",
+                    track.name, track.artist
+                )
+            } else {
+                format!("'{}' by '{}' - no changes needed", track.name, track.artist)
+            }
+        } else {
+            let rules_text = if rule_descriptions.len() == 1 {
+                format!("applied rule: {}", rule_descriptions[0])
+            } else {
+                format!(
+                    "applied {} rules: {}",
+                    rule_descriptions.len(),
+                    rule_descriptions.join(", ")
+                )
+            };
+
+            if *had_errors {
+                format!(
+                    "'{}' by '{}' - {} (with errors)",
+                    track.name, track.artist, rules_text
+                )
+            } else {
+                format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
+            }
+        };
+
+        let summary_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
+        };
+
+        let _ = sender.send(summary_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(summary_event));
+    }
+
+    match processing_result {
+        Ok(()) => {
+            // Always use the local counts we tracked, as they're more reliable
+            final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
+
+            let success_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(final_message),
+            };
+            let _ = sender.send(success_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(success_event));
+        }
+        Err(e) => {
+            let error_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                    "Scrubber processing failed: {e}"
+                )),
+            };
+            let _ = sender.send(error_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(error_event));
+            return Err(e.into());
+        }
     }
 
     Ok(())
