@@ -1,7 +1,7 @@
 use crate::components::RulePreview;
 use crate::server_functions::{load_artist_tracks, load_recent_tracks_from_page};
 use crate::types::{AppState, PreviewType, TrackSourceState};
-use crate::utils::{clear_all_rules, get_current_tracks};
+use crate::utils::{clear_all_rules, get_current_tracks, remove_rule_at_index};
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
 
@@ -297,6 +297,20 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
                                                             }
                                                         }
                                                     }
+                                                }
+                                                button {
+                                                    style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-top: 0.5rem;",
+                                                    onclick: {
+                                                        let rule_index = idx;
+                                                        move |_| {
+                                                            spawn(async move {
+                                                                if let Err(e) = remove_rule_at_index(state, rule_index).await {
+                                                                    eprintln!("Failed to remove rule: {e}");
+                                                                }
+                                                            });
+                                                        }
+                                                    },
+                                                    "Remove Rule"
                                                 }
                                             }
                                         }

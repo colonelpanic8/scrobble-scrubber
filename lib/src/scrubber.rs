@@ -515,6 +515,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         &mut self,
         tracks: &[lastfm_edit::Track],
     ) -> Result<()> {
+        self.process_tracks_in_batches_no_timestamp_update_with_context(tracks, false)
+            .await
+    }
+
+    /// Process tracks in configurable batches without timestamp updates, with artist processing context
+    async fn process_tracks_in_batches_no_timestamp_update_with_context(
+        &mut self,
+        tracks: &[lastfm_edit::Track],
+        is_artist_processing: bool,
+    ) -> Result<()> {
         let batch_size = self.config.scrubber.processing_batch_size as usize;
 
         for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
@@ -526,14 +536,19 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             // Process this batch without timestamp updates
-            self.process_track_batch(batch).await?;
+            self.process_track_batch_with_context(batch, is_artist_processing)
+                .await?;
         }
 
         Ok(())
     }
 
-    /// Process a single batch of tracks with their suggestions
-    async fn process_track_batch(&mut self, tracks: &[lastfm_edit::Track]) -> Result<()> {
+    /// Process a single batch of tracks with their suggestions and artist processing context
+    async fn process_track_batch_with_context(
+        &mut self,
+        tracks: &[lastfm_edit::Track],
+        is_artist_processing: bool,
+    ) -> Result<()> {
         trace!("Starting batch analysis for {} tracks", tracks.len());
 
         let batch_suggestions = self.analyze_tracks(tracks).await;
@@ -618,6 +633,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     batch_id: Some(format!("batch_{}", chrono::Utc::now().timestamp())),
                     track_index: Some(track_index),
                     batch_size: Some(tracks.len()),
+                    is_artist_processing,
                 };
                 self.apply_suggestion_with_context(track, suggestion, Some(suggestion_context))
                     .await?;
@@ -671,10 +687,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             artist
         );
 
-        // Process collected tracks in batch
+        // Process collected tracks in batch with artist processing context
         if !tracks_to_process.is_empty() {
-            self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process)
-                .await?;
+            self.process_tracks_in_batches_no_timestamp_update_with_context(
+                &tracks_to_process,
+                true,
+            )
+            .await?;
         }
 
         log::info!("Processed {processed} tracks for artist '{artist}'");
@@ -907,6 +926,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         match suggestion {
             ScrubActionSuggestion::Edit(edit) => {
+                // Clone edit and set edit_all to true if this is artist processing
+                let mut edit = edit.clone();
+                if context.as_ref().is_some_and(|c| c.is_artist_processing) {
+                    edit.edit_all = true;
+                }
                 // Load rewrite rules to check individual rule confirmation requirements
                 let rules_state = self
                     .storage
@@ -949,7 +973,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 if requires_confirmation {
                     trace!("Edit requires confirmation, creating pending edit");
-                    self.create_pending_edit(track, edit).await?;
+                    self.create_pending_edit(track, &edit).await?;
 
                     // Emit event for pending edit skip
                     let default_context = ProcessingContext {
@@ -957,6 +981,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         batch_id: None,
                         track_index: None,
                         batch_size: None,
+                        is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
                     let track_info = LogTrackInfo::from(track);
@@ -988,6 +1013,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         batch_id: None,
                         track_index: None,
                         batch_size: None,
+                        is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
                     let track_info = LogTrackInfo::from(track);
@@ -999,7 +1025,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     ));
                 } else {
                     trace!("Applying edit directly to track");
-                    self.apply_edit_with_context(track, edit, context).await?;
+                    self.apply_edit_with_context(track, &edit, context).await?;
                 }
             }
             ScrubActionSuggestion::ProposeRule { rule, motivation } => {
@@ -1159,6 +1185,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 batch_id: None,
                 track_index: None,
                 batch_size: None,
+                is_artist_processing: false,
             };
             let log_context = context.unwrap_or(default_context);
 

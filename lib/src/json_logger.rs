@@ -78,6 +78,8 @@ pub struct ProcessingContext {
     pub track_index: Option<usize>,
     /// Total tracks in batch
     pub batch_size: Option<usize>,
+    /// Whether this is artist processing (edit_all should be true)
+    pub is_artist_processing: bool,
 }
 
 impl From<&Track> for LogTrackInfo {

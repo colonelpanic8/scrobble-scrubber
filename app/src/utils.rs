@@ -63,7 +63,6 @@ pub async fn save_current_rule(
     Ok(())
 }
 
-#[allow(dead_code)]
 pub async fn remove_rule_at_index(
     mut state: Signal<AppState>,
     index: usize,
