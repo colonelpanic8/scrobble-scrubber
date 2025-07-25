@@ -79,28 +79,28 @@ impl JsonLogger {
             duration_ms,
         }) = &event.event_type
         {
-                let log_entry = EditLogEntry {
-                    timestamp: event.timestamp,
-                    success: *success,
-                    error_message: error_message.clone(),
-                    duration_ms: *duration_ms,
-                    edit: EditDetails {
-                        timestamp: edit.timestamp,
-                        edit_all: edit.edit_all,
-                        original: TrackMetadata {
-                            track_name: edit.track_name_original.clone(),
-                            artist_name: edit.artist_name_original.clone(),
-                            album_name: edit.album_name_original.clone(),
-                            album_artist_name: edit.album_artist_name_original.clone(),
-                        },
-                        new: TrackMetadata {
-                            track_name: edit.track_name.clone(),
-                            artist_name: edit.artist_name.clone(),
-                            album_name: edit.album_name.clone(),
-                            album_artist_name: edit.album_artist_name.clone(),
-                        },
+            let log_entry = EditLogEntry {
+                timestamp: event.timestamp,
+                success: *success,
+                error_message: error_message.clone(),
+                duration_ms: *duration_ms,
+                edit: EditDetails {
+                    timestamp: edit.timestamp,
+                    edit_all: edit.edit_all,
+                    original: TrackMetadata {
+                        track_name: edit.track_name_original.clone(),
+                        artist_name: edit.artist_name_original.clone(),
+                        album_name: edit.album_name_original.clone(),
+                        album_artist_name: edit.album_artist_name_original.clone(),
                     },
-                };
+                    new: TrackMetadata {
+                        track_name: edit.track_name.clone(),
+                        artist_name: edit.artist_name.clone(),
+                        album_name: edit.album_name.clone(),
+                        album_artist_name: edit.album_artist_name.clone(),
+                    },
+                },
+            };
 
             self.write_log_entry(&log_entry)?;
         }

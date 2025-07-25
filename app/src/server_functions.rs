@@ -96,7 +96,7 @@ pub async fn load_artist_tracks(
 
     // Create separate client for track fetching
     let session_for_tracks = deserialize_session(&session_str)?;
-    let client_for_tracks = create_client_from_session(session_for_tracks);
+    let _client_for_tracks = create_client_from_session(session_for_tracks);
 
     // Fetch tracks from each album
     let mut all_tracks = Vec::new();

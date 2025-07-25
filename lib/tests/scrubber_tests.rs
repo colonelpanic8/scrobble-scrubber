@@ -83,6 +83,12 @@ async fn test_scrubber_with_mock_client() {
         .expect_username()
         .returning(|| "test_user".to_string());
 
+    // Mock the subscribe method for client event forwarding
+    mock_client.expect_subscribe().returning(|| {
+        let (_, receiver) = tokio::sync::broadcast::channel(100);
+        receiver
+    });
+
     // Set up storage and action provider
     let storage = Arc::new(Mutex::new(MemoryStorage::new()));
     let rules_state = scrobble_scrubber::persistence::RewriteRulesState {
@@ -130,6 +136,12 @@ async fn test_scrubber_processes_tracks_in_chronological_order() {
 
     // Create mock client
     let mut mock_client = MockLastFmEditClient::new();
+
+    // Mock the subscribe method for client event forwarding
+    mock_client.expect_subscribe().returning(|| {
+        let (_, receiver) = tokio::sync::broadcast::channel(100);
+        receiver
+    });
 
     // Mock the pagination method that the iterator uses internally
     // Return tracks in reverse chronological order (newest first, as API does)
@@ -316,6 +328,12 @@ async fn test_scrubber_track_processing_order_with_cache() {
     let mut mock_client = MockLastFmEditClient::new();
     let edit_order = Arc::new(StdMutex::new(Vec::new()));
     let edit_order_clone = edit_order.clone();
+
+    // Mock the subscribe method for client event forwarding
+    mock_client.expect_subscribe().returning(|| {
+        let (_, receiver) = tokio::sync::broadcast::channel(100);
+        receiver
+    });
 
     mock_client.expect_edit_scrobble().returning(move |edit| {
         let mut order = edit_order_clone.lock().unwrap();
