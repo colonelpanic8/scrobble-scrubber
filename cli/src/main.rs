@@ -9,6 +9,7 @@ use scrobble_scrubber::scrub_action_provider::{
     OrScrubActionProvider, RewriteRulesScrubActionProvider,
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
+use scrobble_scrubber::session_manager::SessionManager;
 use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -181,6 +182,8 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
+    /// Clear saved session data (forces fresh login on next run)
+    ClearSession,
     /// Show recent tracks cache state (track names, artists, timestamps)
     ShowCache {
         /// Limit the number of tracks to show (default: 50)
@@ -355,6 +358,9 @@ fn merge_args_into_config(
         }
         Commands::ShowRecentTracks { .. } => {
             // No specific configuration needed for showing recent tracks
+        }
+        Commands::ClearSession => {
+            // No specific configuration needed for clearing session
         }
     }
 
@@ -695,6 +701,54 @@ async fn show_recent_tracks_from_api(client: &LastFmEditClientImpl, limit: usize
     Ok(())
 }
 
+/// Create an authenticated Last.fm client, using saved session if available
+async fn create_authenticated_client(
+    config: &ScrobbleScrubberConfig,
+) -> Result<LastFmEditClientImpl> {
+    let session_manager = SessionManager::new(&config.lastfm.username);
+
+    // Try to restore an existing session first
+    if let Some(persisted_session) = session_manager.try_restore_session().await {
+        log::info!(
+            "Using existing session for user: {}",
+            persisted_session.username
+        );
+        let http_client = http_client::native::NativeClient::new();
+        return Ok(LastFmEditClientImpl::from_session(
+            Box::new(http_client),
+            persisted_session.session,
+        ));
+    }
+
+    // No valid session found, need to login with credentials
+    log::info!("No valid session found, logging in to Last.fm...");
+
+    if config.lastfm.username.is_empty() || config.lastfm.password.is_empty() {
+        return Err(LastFmError::Io(std::io::Error::other(
+            "Username and password are required for login. Please check your configuration.",
+        )));
+    }
+
+    // Create new session and save it
+    match session_manager
+        .create_and_save_session(&config.lastfm.username, &config.lastfm.password)
+        .await
+    {
+        Ok(persisted_session) => {
+            log::info!("Successfully logged in and saved session for future use");
+            let http_client = http_client::native::NativeClient::new();
+            Ok(LastFmEditClientImpl::from_session(
+                Box::new(http_client),
+                persisted_session.session,
+            ))
+        }
+        Err(e) => {
+            log::error!("Login failed: {e}");
+            Err(e)
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize env_logger from environment variables (RUST_LOG), fallback to Info level
@@ -713,17 +767,8 @@ async fn main() -> Result<()> {
         config.scrubber.interval
     );
 
-    // Create and login to LastFM client
-    let http_client = http_client::native::NativeClient::new();
-
-    log::info!("Logging in to Last.fm...");
-    let client = LastFmEditClientImpl::login_with_credentials(
-        Box::new(http_client),
-        &config.lastfm.username,
-        &config.lastfm.password,
-    )
-    .await?;
-    log::info!("Successfully logged in to Last.fm");
+    // Create and login to LastFM client (using session if available)
+    let client = create_authenticated_client(&config).await?;
 
     // Create storage wrapped in Arc<Mutex<>>
     log::info!("Using state file: {}", config.storage.state_file);
@@ -878,6 +923,16 @@ async fn main() -> Result<()> {
             show_recent_tracks_from_api(&client, *limit).await?;
             return Ok(());
         }
+        Commands::ClearSession => {
+            let session_manager = SessionManager::new(&config.lastfm.username);
+            if let Err(e) = session_manager.clear_session() {
+                log::error!("Failed to clear session: {e}");
+                return Err(LastFmError::Io(e));
+            }
+            println!("✅ Session cleared successfully");
+            println!("Next run will require username/password login");
+            return Ok(());
+        }
         _ => {
             // Continue to create scrubber for other commands
         }
@@ -941,6 +996,10 @@ async fn main() -> Result<()> {
         Commands::ShowRecentTracks { .. } => {
             // This case is handled above
             unreachable!("ShowRecentTracks command should have been handled earlier");
+        }
+        Commands::ClearSession => {
+            // This case is handled above
+            unreachable!("ClearSession command should have been handled earlier");
         }
         _ => {
             // For other commands, we need to acquire the lock
@@ -1027,6 +1086,10 @@ async fn main() -> Result<()> {
         Commands::ShowRecentTracks { .. } => {
             // This case is handled above
             unreachable!("ShowRecentTracks command should have been handled earlier");
+        }
+        Commands::ClearSession => {
+            // This case is handled above
+            unreachable!("ClearSession command should have been handled earlier");
         }
     }
 
