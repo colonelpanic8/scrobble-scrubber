@@ -108,6 +108,9 @@ pub mod event_formatting {
             ScrubberEventType::TrackSkipped { track, reason, .. } => {
                 format!("Skipped '{}' by '{}': {}", track.artist, track.name, reason)
             }
+            ScrubberEventType::ClientEvent(client_event) => {
+                format!("Client: {client_event:?}")
+            }
         }
     }
 
@@ -142,6 +145,7 @@ pub mod event_formatting {
             ScrubberEventType::TrackEdited { .. } => "track_edited",
             ScrubberEventType::TrackEditFailed { .. } => "track_edit_failed",
             ScrubberEventType::TrackSkipped { .. } => "track_skipped",
+            ScrubberEventType::ClientEvent(_) => "client_event",
         }
     }
 }

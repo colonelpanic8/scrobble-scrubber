@@ -1,11 +1,11 @@
-use crate::events::{ScrubberEvent, ScrubberEventType};
-use crate::json_logger::{JsonLogger, TrackEditEventType, TrackEditLogEntry, TrackEditResult};
+use crate::events::ScrubberEvent;
+use crate::json_logger::JsonLogger;
 use tokio::sync::broadcast;
 
 /// Event-driven JSON logger that subscribes to scrubber events
+/// This is now a simple wrapper that spawns the JsonLogger task
 pub struct EventLogger {
     json_logger: JsonLogger,
-    receiver: broadcast::Receiver<ScrubberEvent>,
 }
 
 impl EventLogger {
@@ -15,88 +15,13 @@ impl EventLogger {
         event_receiver: broadcast::Receiver<ScrubberEvent>,
     ) -> Self {
         Self {
-            json_logger: JsonLogger::new(log_file_path, enabled),
-            receiver: event_receiver,
+            json_logger: JsonLogger::new(log_file_path, enabled, event_receiver),
         }
     }
 
     /// Start listening to events and logging them
     /// This should be run in a background task
     pub async fn run(&mut self) {
-        while let Ok(event) = self.receiver.recv().await {
-            if let Err(e) = self.process_event(&event).await {
-                log::warn!("Failed to log event: {e}");
-            }
-        }
-    }
-
-    async fn process_event(&self, event: &ScrubberEvent) -> Result<(), Box<dyn std::error::Error>> {
-        // Only log edit-related events by default
-        match &event.event_type {
-            ScrubberEventType::TrackEdited {
-                track,
-                edit,
-                context,
-            } => {
-                let entry = TrackEditLogEntry {
-                    timestamp: event.timestamp,
-                    event_type: TrackEditEventType::TrackEdited,
-                    original_track: track.clone(),
-                    edit: Some(edit.clone()),
-                    result: TrackEditResult {
-                        success: true,
-                        rules_applied: 1,
-                        error: None,
-                        applied_rules: vec!["applied_edit".to_string()],
-                    },
-                    context: context.clone(),
-                };
-                self.json_logger.log_track_event(entry)?;
-            }
-            ScrubberEventType::TrackEditFailed {
-                track,
-                edit,
-                context,
-                error,
-            } => {
-                let entry = TrackEditLogEntry {
-                    timestamp: event.timestamp,
-                    event_type: TrackEditEventType::TrackEditFailed,
-                    original_track: track.clone(),
-                    edit: edit.clone(),
-                    result: TrackEditResult {
-                        success: false,
-                        rules_applied: 0,
-                        error: Some(error.clone()),
-                        applied_rules: vec![],
-                    },
-                    context: context.clone(),
-                };
-                self.json_logger.log_track_event(entry)?;
-            }
-            ScrubberEventType::TrackSkipped {
-                track,
-                context,
-                reason: _,
-            } => {
-                let entry = TrackEditLogEntry {
-                    timestamp: event.timestamp,
-                    event_type: TrackEditEventType::TrackSkipped,
-                    original_track: track.clone(),
-                    edit: None,
-                    result: TrackEditResult {
-                        success: false,
-                        rules_applied: 0,
-                        error: None,
-                        applied_rules: vec![],
-                    },
-                    context: context.clone(),
-                };
-                self.json_logger.log_track_event(entry)?;
-            }
-            // Ignore other event types for JSON logging (only log edits by default)
-            _ => {}
-        }
-        Ok(())
+        self.json_logger.run().await;
     }
 }

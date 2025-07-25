@@ -733,7 +733,29 @@ async fn create_scrubber_instance(
     let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
 
     // Create scrubber instance
-    let scrubber = ScrobbleScrubber::new(storage, Box::new(client), action_provider, config);
+    let scrubber = ScrobbleScrubber::new(
+        storage.clone(),
+        Box::new(client),
+        action_provider,
+        config.clone(),
+    );
+
+    // Start event logger for JSON logging of edit attempts
+    {
+        let event_receiver = scrubber.subscribe_events();
+        let log_file_path = format!("{}.edits.jsonl", config.storage.state_file);
+        let mut event_logger = ::scrobble_scrubber::event_logger::EventLogger::new(
+            log_file_path.clone(),
+            true,
+            event_receiver,
+        );
+
+        tokio::spawn(async move {
+            // Log to console in web context if needed
+            log::info!("Started edit logging to: {log_file_path}");
+            event_logger.run().await;
+        });
+    }
 
     Ok(scrubber)
 }
@@ -881,7 +903,14 @@ async fn process_with_scrubber(
                     } => {
                         tracks_processed += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
+                            name: track.name.clone(),
+                            artist: track.artist.clone(),
+                            album: track.album.clone(),
+                            album_artist: track.album_artist.clone(),
+                            timestamp: track.timestamp,
+                            playcount: track.playcount,
+                        };
                         track_events
                             .entry(track_key)
                             .or_insert((log_track, Vec::new(), false));
@@ -893,7 +922,14 @@ async fn process_with_scrubber(
                     } => {
                         rules_applied += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
+                            name: track.name.clone(),
+                            artist: track.artist.clone(),
+                            album: track.album.clone(),
+                            album_artist: track.album_artist.clone(),
+                            timestamp: track.timestamp,
+                            playcount: track.playcount,
+                        };
                         track_events
                             .entry(track_key.clone())
                             .or_insert((log_track, Vec::new(), false))
@@ -1165,7 +1201,14 @@ async fn process_artist_with_events(
                     } => {
                         tracks_processed += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
+                            name: track.name.clone(),
+                            artist: track.artist.clone(),
+                            album: track.album.clone(),
+                            album_artist: track.album_artist.clone(),
+                            timestamp: track.timestamp,
+                            playcount: track.playcount,
+                        };
                         track_events
                             .entry(track_key)
                             .or_insert((log_track, Vec::new(), false));
@@ -1177,7 +1220,14 @@ async fn process_artist_with_events(
                     } => {
                         rules_applied += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo::from(track);
+                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
+                            name: track.name.clone(),
+                            artist: track.artist.clone(),
+                            album: track.album.clone(),
+                            album_artist: track.album_artist.clone(),
+                            timestamp: track.timestamp,
+                            playcount: track.playcount,
+                        };
                         track_events
                             .entry(track_key.clone())
                             .or_insert((log_track, Vec::new(), false))

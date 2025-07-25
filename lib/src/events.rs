@@ -4,8 +4,41 @@ use lastfm_edit::events::ClientEvent;
 use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 
-// Re-export for event-based logging
-pub use crate::json_logger::{LogEditInfo, LogTrackInfo, ProcessingContext};
+// Re-export for backwards compatibility with existing code
+// pub use crate::json_logger::{EditInfo, TrackInfo}; // Removed - no longer needed
+
+// Keep ProcessingContext for backwards compatibility with existing event consumers
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProcessingContext {
+    pub run_id: String,
+    pub batch_id: Option<String>,
+    pub track_index: Option<usize>,
+    pub batch_size: Option<usize>,
+    pub is_artist_processing: bool,
+}
+
+// These types are only kept for backwards compatibility with existing logging code
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LogTrackInfo {
+    pub name: String,
+    pub artist: String,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+    pub timestamp: Option<u64>,
+    pub playcount: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LogEditInfo {
+    pub original_track_name: Option<String>,
+    pub original_artist_name: Option<String>,
+    pub original_album_name: Option<String>,
+    pub original_album_artist_name: Option<String>,
+    pub new_track_name: Option<String>,
+    pub new_artist_name: Option<String>,
+    pub new_album_name: Option<String>,
+    pub new_album_artist_name: Option<String>,
+}
 
 /// Events emitted by the ScrobbleScrubber during operation
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,13 +85,13 @@ pub enum ScrubberEventType {
     AnchorUpdated { anchor_timestamp: u64, track: Track },
     /// Tracks were found that need processing
     TracksFound { count: usize, anchor_timestamp: u64 },
-    /// Track edit was successful
+    /// Track edit was successful (legacy - use ClientEvent::EditAttempted instead)
     TrackEdited {
         track: LogTrackInfo,
         edit: LogEditInfo,
         context: ProcessingContext,
     },
-    /// Track edit failed
+    /// Track edit failed (legacy - use ClientEvent::EditAttempted instead)
     TrackEditFailed {
         track: LogTrackInfo,
         edit: Option<LogEditInfo>,

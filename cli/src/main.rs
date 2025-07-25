@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl, LastFmError, Result};
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
+use scrobble_scrubber::event_logger::EventLogger;
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use scrobble_scrubber::scrub_action_provider::{
@@ -864,6 +865,18 @@ async fn main() -> Result<()> {
         action_provider,
         config.clone(),
     )));
+
+    // Start event logger for JSON logging of edit attempts
+    {
+        let event_receiver = scrubber.lock().await.subscribe_events();
+        let log_file_path = format!("{}.edits.jsonl", config.storage.state_file);
+        let mut event_logger = EventLogger::new(log_file_path.clone(), true, event_receiver);
+
+        tokio::spawn(async move {
+            log::info!("Started edit logging to: {log_file_path}");
+            event_logger.run().await;
+        });
+    }
 
     // Start web interface if enabled
     if config.scrubber.enable_web_interface {

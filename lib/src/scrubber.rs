@@ -98,7 +98,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Set up forwarding of client events to scrubber events
     fn setup_client_event_forwarding(&mut self) {
-        let mut client_event_receiver = self.client.subscribe_events();
+        let mut client_event_receiver = self.client.subscribe();
         let event_sender = self.event_sender.clone();
 
         tokio::spawn(async move {
@@ -1023,7 +1023,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
-                    let track_info = LogTrackInfo::from(track);
+                    let track_info = LogTrackInfo {
+                        name: track.name.clone(),
+                        artist: track.artist.clone(),
+                        album: track.album.clone(),
+                        album_artist: track.album_artist.clone(),
+                        timestamp: track.timestamp,
+                        playcount: track.playcount,
+                    };
 
                     self.emit_event(ScrubberEvent::track_skipped(
                         &track_info,
@@ -1055,7 +1062,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
-                    let track_info = LogTrackInfo::from(track);
+                    let track_info = LogTrackInfo {
+                        name: track.name.clone(),
+                        artist: track.artist.clone(),
+                        album: track.album.clone(),
+                        album_artist: track.album_artist.clone(),
+                        timestamp: track.timestamp,
+                        playcount: track.playcount,
+                    };
 
                     self.emit_event(ScrubberEvent::track_skipped(
                         &track_info,
@@ -1233,8 +1247,24 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     log::info!("Edit applied successfully: {response:?}");
 
                     // Emit event for successful edit
-                    let track_info = LogTrackInfo::from(track);
-                    let edit_info = LogEditInfo::from(edit);
+                    let track_info = LogTrackInfo {
+                        name: track.name.clone(),
+                        artist: track.artist.clone(),
+                        album: track.album.clone(),
+                        album_artist: track.album_artist.clone(),
+                        timestamp: track.timestamp,
+                        playcount: track.playcount,
+                    };
+                    let edit_info = LogEditInfo {
+                        original_track_name: edit.track_name_original.clone(),
+                        original_artist_name: Some(edit.artist_name_original.clone()),
+                        original_album_name: edit.album_name_original.clone(),
+                        original_album_artist_name: edit.album_artist_name_original.clone(),
+                        new_track_name: edit.track_name.clone(),
+                        new_artist_name: Some(edit.artist_name.clone()),
+                        new_album_name: edit.album_name.clone(),
+                        new_album_artist_name: edit.album_artist_name.clone(),
+                    };
 
                     self.emit_event(ScrubberEvent::track_edited(
                         &track_info,
@@ -1246,8 +1276,24 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     warn!("Failed to apply edit: {e}");
 
                     // Emit event for failed edit
-                    let track_info = LogTrackInfo::from(track);
-                    let edit_info = LogEditInfo::from(edit);
+                    let track_info = LogTrackInfo {
+                        name: track.name.clone(),
+                        artist: track.artist.clone(),
+                        album: track.album.clone(),
+                        album_artist: track.album_artist.clone(),
+                        timestamp: track.timestamp,
+                        playcount: track.playcount,
+                    };
+                    let edit_info = LogEditInfo {
+                        original_track_name: edit.track_name_original.clone(),
+                        original_artist_name: Some(edit.artist_name_original.clone()),
+                        original_album_name: edit.album_name_original.clone(),
+                        original_album_artist_name: edit.album_artist_name_original.clone(),
+                        new_track_name: edit.track_name.clone(),
+                        new_artist_name: Some(edit.artist_name.clone()),
+                        new_album_name: edit.album_name.clone(),
+                        new_album_artist_name: edit.album_artist_name.clone(),
+                    };
 
                     self.emit_event(ScrubberEvent::track_edit_failed(
                         &track_info,
