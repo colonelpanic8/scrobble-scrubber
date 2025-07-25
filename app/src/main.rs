@@ -108,25 +108,61 @@ fn App() -> Element {
         });
     });
 
-    // Try auto-login with environment variables or config
+    // Try auto-restore session or fallback to auto-login
     use_effect(move || {
         spawn(async move {
             if !state.read().logged_in {
-                let config = state.read().config.as_ref().cloned();
-
-                if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
-                    state.with_mut(|s| {
-                        s.logged_in = true;
-                        s.session = Some(session_str.clone());
-                    });
-
-                    // Load recent tracks using the session
-                    if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
+                // First try to restore a saved session
+                match try_restore_session().await {
+                    Ok(Some(session_str)) => {
                         state.with_mut(|s| {
-                            s.current_page = 1;
-                            // Reload cache to get the newly cached tracks
-                            s.track_cache = TrackCache::load();
+                            s.logged_in = true;
+                            s.session = Some(session_str.clone());
                         });
+
+                        // Load recent tracks using the restored session
+                        if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
+                            state.with_mut(|s| {
+                                s.current_page = 1;
+                                s.track_cache = TrackCache::load();
+                            });
+                        }
+                    },
+                    Ok(None) => {
+                        // No saved session, try auto-login with config/env vars
+                        let config = state.read().config.as_ref().cloned();
+                        if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
+                            state.with_mut(|s| {
+                                s.logged_in = true;
+                                s.session = Some(session_str.clone());
+                            });
+
+                            // Load recent tracks using the session
+                            if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
+                                state.with_mut(|s| {
+                                    s.current_page = 1;
+                                    s.track_cache = TrackCache::load();
+                                });
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Failed to restore session: {e}");
+                        // Fallback to auto-login
+                        let config = state.read().config.as_ref().cloned();
+                        if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
+                            state.with_mut(|s| {
+                                s.logged_in = true;
+                                s.session = Some(session_str.clone());
+                            });
+
+                            if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
+                                state.with_mut(|s| {
+                                    s.current_page = 1;
+                                    s.track_cache = TrackCache::load();
+                                });
+                            }
+                        }
                     }
                 }
             }

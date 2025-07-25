@@ -15,5 +15,6 @@ pub mod persistence;
 #[cfg(feature = "tokio")]
 pub mod scrubber;
 pub mod session_manager;
+pub mod recent_user_manager;
 #[cfg(feature = "web")]
 pub mod web_interface;

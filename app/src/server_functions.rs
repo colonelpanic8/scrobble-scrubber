@@ -1,6 +1,6 @@
 #[allow(unused_imports)] // Functions are used in #[server] macro-generated code
 use crate::error_utils::{
-    approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
+    approve_rewrite_rule, create_client_from_persisted_session, create_storage,
     remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
 };
 use dioxus::prelude::*;
@@ -14,20 +14,44 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
         return Err(ServerFnError::new("Username and password are required"));
     }
 
-    // Create HTTP client and LastFM client
-    let http_client = http_client::native::NativeClient::new();
+    // Use SessionManager to create and save session
+    use scrobble_scrubber::session_manager::SessionManager;
+    let session_manager = SessionManager::new(&username);
+    
+    let persisted_session = session_manager
+        .create_and_save_session(&username, &password)
+        .await
+        .to_server_error("Login failed")?;
 
-    let client = lastfm_edit::LastFmEditClientImpl::login_with_credentials(
-        Box::new(http_client),
-        &username,
-        &password,
-    )
-    .await
-    .to_server_error("Login failed")?;
+    // Update recent user
+    use scrobble_scrubber::recent_user_manager::RecentUserManager;
+    let recent_user_manager = RecentUserManager::new();
+    let _ = recent_user_manager.update_recent_user(&username);
 
-    // Get the session and serialize it
-    let session = client.get_session();
-    serde_json::to_string(&session).to_server_error("Failed to serialize session")
+    // Return serialized session for compatibility
+    serde_json::to_string(&persisted_session.session).to_server_error("Failed to serialize session")
+}
+
+#[server(TryRestoreSession)]
+pub async fn try_restore_session() -> Result<Option<String>, ServerFnError> {
+    use scrobble_scrubber::recent_user_manager::RecentUserManager;
+    
+    // Get the most recent username
+    let recent_user_manager = RecentUserManager::new();
+    if let Some(username) = recent_user_manager.get_recent_username() {
+        use scrobble_scrubber::session_manager::SessionManager;
+        let session_manager = SessionManager::new(&username);
+        
+        // Try to restore the session
+        if let Some(persisted_session) = session_manager.try_restore_session().await {
+            // Return serialized session for compatibility
+            let session_str = serde_json::to_string(&persisted_session.session)
+                .to_server_error("Failed to serialize session")?;
+            return Ok(Some(session_str));
+        }
+    }
+    
+    Ok(None)
 }
 
 #[server(LoadRecentTracks)]

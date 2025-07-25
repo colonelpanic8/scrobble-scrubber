@@ -82,7 +82,24 @@ pub fn deserialize_session(
     serde_json::from_str(session_str).to_server_error("Failed to deserialize session")
 }
 
-/// Helper to create LastFM client from session
+/// Helper to get LastFmEditSession from PersistedSession
+#[allow(dead_code)] // Used in #[server] macro-generated code
+pub fn get_session_from_persisted(
+    persisted_session: &scrobble_scrubber::session_manager::PersistedSession,
+) -> &lastfm_edit::LastFmEditSession {
+    &persisted_session.session
+}
+
+/// Helper to create LastFM client from PersistedSession
+#[allow(dead_code)] // Used in #[server] macro-generated code
+pub fn create_client_from_persisted_session(
+    persisted_session: &scrobble_scrubber::session_manager::PersistedSession,
+) -> lastfm_edit::LastFmEditClientImpl {
+    let http_client = http_client::native::NativeClient::new();
+    lastfm_edit::LastFmEditClientImpl::from_session(Box::new(http_client), persisted_session.session.clone())
+}
+
+/// Helper to create LastFM client from session (legacy)
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub fn create_client_from_session(
     session: lastfm_edit::LastFmEditSession,
@@ -94,9 +111,11 @@ pub fn create_client_from_session(
 /// Async helper to apply an edit using the client without Send issues
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub async fn apply_edit_with_timeout(
-    session: lastfm_edit::LastFmEditSession,
+    persisted_session: &scrobble_scrubber::session_manager::PersistedSession,
     edit: lastfm_edit::ScrobbleEdit,
 ) -> Result<lastfm_edit::EditResponse, String> {
+    let session = persisted_session.session.clone();
+    
     // Use spawn_blocking to run the non-Send client in a separate thread
     let handle = tokio::task::spawn_blocking(move || {
         // Create a Tokio runtime for this thread since the client needs async
