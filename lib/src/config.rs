@@ -113,8 +113,6 @@ pub struct ScrobbleScrubberConfig {
 pub struct ScrubberConfig {
     /// Check interval in seconds
     pub interval: u64,
-    /// Batch size for processing tracks (smaller batches = more incremental updates)
-    pub processing_batch_size: u32,
     /// Dry run mode - don't actually make any edits
     pub dry_run: bool,
     /// Global setting to require confirmation for all edits (deprecated - use persistent state)
@@ -203,7 +201,6 @@ impl Default for ScrubberConfig {
     fn default() -> Self {
         Self {
             interval: 300,
-            processing_batch_size: 1, // Default to 1 for recent tracks for fine-grained progress
             dry_run: false,
             require_confirmation: false,
             require_proposed_rule_confirmation: true,

@@ -125,10 +125,6 @@ enum Commands {
         #[arg(long)]
         no_existing_rules: bool,
 
-        /// Override batch size for processing
-        #[arg(long)]
-        batch_size: Option<u32>,
-
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
         dry_run: bool,
@@ -289,16 +285,12 @@ fn merge_args_into_config(
             tracks: _,
             rule_focus: _,
             no_existing_rules: _,
-            batch_size,
             dry_run,
             require_confirmation,
             require_proposed_rule_confirmation,
             enable_web_interface,
             web_port,
         } => {
-            if let Some(batch_size) = batch_size {
-                config.scrubber.processing_batch_size = *batch_size;
-            }
             if *dry_run {
                 config.scrubber.dry_run = true;
             }
@@ -978,7 +970,6 @@ async fn main() -> Result<()> {
             tracks,
             rule_focus,
             no_existing_rules,
-            batch_size,
             ..
         } => {
             let mode_info = match (rule_focus, no_existing_rules) {
@@ -987,10 +978,7 @@ async fn main() -> Result<()> {
                 (false, true) => " (no existing rules)",
                 (false, false) => "",
             };
-            let batch_info = batch_size
-                .map(|s| format!(" with batch size {s}"))
-                .unwrap_or_default();
-            log::info!("Processing last {tracks} tracks{mode_info}{batch_info}");
+            log::info!("Processing last {tracks} tracks{mode_info}");
             scrubber_guard.process_last_n_tracks(*tracks).await?;
         }
         Commands::Artist { name, album, .. } => {

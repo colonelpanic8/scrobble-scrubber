@@ -7,7 +7,7 @@ use mockall::predicate::*;
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
 use scrobble_scrubber::persistence::{MemoryStorage, StateStorage, TimestampState};
 use scrobble_scrubber::scrub_action_provider::{
-    RewriteRulesScrubActionProvider, ScrubActionSuggestion,
+    RewriteRulesScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
 // SerializableTrack is no longer needed - Track is now serializable
@@ -429,7 +429,7 @@ impl scrobble_scrubber::scrub_action_provider::ScrubActionProvider for TestActio
         tracks: &[Track],
         _pending_edits: Option<&[scrobble_scrubber::persistence::PendingEdit]>,
         _pending_rules: Option<&[scrobble_scrubber::persistence::PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
         let mut suggestions = Vec::new();
 
         for (index, track) in tracks.iter().enumerate() {
@@ -447,7 +447,12 @@ impl scrobble_scrubber::scrub_action_provider::ScrubActionProvider for TestActio
                 track.timestamp.unwrap_or(0),
             );
 
-            suggestions.push((index, vec![ScrubActionSuggestion::Edit(edit)]));
+            let suggestion_with_context = SuggestionWithContext {
+                suggestion: ScrubActionSuggestion::Edit(edit),
+                provider_name: "TestActionProvider".to_string(),
+                requires_confirmation: false,
+            };
+            suggestions.push((index, vec![suggestion_with_context]));
         }
 
         Ok(suggestions)

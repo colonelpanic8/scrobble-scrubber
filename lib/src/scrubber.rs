@@ -337,9 +337,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Step 4: Process all collected tracks (oldest first) and update anchor after processing
         if !tracks_to_process.is_empty() {
             log::info!(
-                "Processing {} tracks in batches of {} (oldest first)...",
-                tracks_to_process.len(),
-                self.config.scrubber.processing_batch_size
+                "Processing {} tracks one at a time (oldest first)...",
+                tracks_to_process.len()
             );
 
             self.process_tracks_and_update_anchor(&tracks_to_process)
@@ -364,11 +363,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         tracks: &[lastfm_edit::Track],
     ) -> Result<()> {
         // Process tracks first
-        self.process_tracks_in_batches_no_timestamp_update(tracks)
+        self.process_tracks_individually_no_timestamp_update(tracks)
             .await?;
 
-        // After processing, update anchor to the newest (last in chronological order) processed track
-        // Since tracks are processed oldest first, the newest processed track is the last one
+        // After processing, update anchor to the newest (last in chronological
+        // order) processed track Since tracks are processed oldest first, the
+        // newest processed track is the last one
         if let Some(newest_processed_track) = tracks.last() {
             if let Some(ts) = newest_processed_track.timestamp {
                 let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
@@ -505,13 +505,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         log::info!(
-            "Processing {} tracks in batches of {} (no timestamp updates)...",
-            tracks_to_process.len(),
-            self.config.scrubber.processing_batch_size
+            "Processing {} tracks one at a time (no timestamp updates)...",
+            tracks_to_process.len()
         );
 
         // Process tracks without timestamp updates
-        self.process_tracks_in_batches_no_timestamp_update(&tracks_to_process)
+        self.process_tracks_individually_no_timestamp_update(&tracks_to_process)
             .await?;
 
         log::info!(
@@ -522,166 +521,160 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
-    /// Process tracks in configurable batches without timestamp updates
-    async fn process_tracks_in_batches_no_timestamp_update(
+    /// Process tracks individually without timestamp updates
+    async fn process_tracks_individually_no_timestamp_update(
         &mut self,
         tracks: &[lastfm_edit::Track],
     ) -> Result<()> {
-        self.process_tracks_in_batches_no_timestamp_update_with_context(tracks, false)
+        self.process_tracks_individually_no_timestamp_update_with_context(tracks, false)
             .await
     }
 
-    /// Process tracks in configurable batches without timestamp updates, with artist processing context
-    async fn process_tracks_in_batches_no_timestamp_update_with_context(
+    /// Process tracks individually without timestamp updates, with artist processing context
+    async fn process_tracks_individually_no_timestamp_update_with_context(
         &mut self,
         tracks: &[lastfm_edit::Track],
         is_artist_processing: bool,
     ) -> Result<()> {
-        let batch_size = self.config.scrubber.processing_batch_size as usize;
-
-        for (batch_num, batch) in tracks.chunks(batch_size).enumerate() {
+        for (track_index, track) in tracks.iter().enumerate() {
             log::info!(
-                "Processing batch {} of {} (batch size: {})",
-                batch_num + 1,
-                tracks.len().div_ceil(batch_size),
-                batch.len()
+                "Processing track {} of {}: {} - {}",
+                track_index + 1,
+                tracks.len(),
+                track.artist,
+                track.name
             );
 
-            // Process this batch without timestamp updates
-            self.process_track_batch_with_context(batch, is_artist_processing)
+            // Process this track individually without timestamp updates
+            self.process_single_track_with_context(track, track_index, is_artist_processing)
                 .await?;
         }
 
         Ok(())
     }
 
-    /// Process a single batch of tracks with their suggestions and artist processing context
-    async fn process_track_batch_with_context(
+    /// Process a single track with its suggestions and artist processing context
+    async fn process_single_track_with_context(
         &mut self,
-        tracks: &[lastfm_edit::Track],
+        track: &lastfm_edit::Track,
+        track_index: usize,
         is_artist_processing: bool,
     ) -> Result<()> {
-        trace!("Starting batch analysis for {} tracks", tracks.len());
+        trace!(
+            "Starting analysis for track: {} - {}",
+            track.artist,
+            track.name
+        );
 
-        let batch_suggestions = self.analyze_tracks(tracks).await;
+        // Analyze this single track
+        let track_slice = &[track.clone()];
+        let track_suggestions = self.analyze_tracks(track_slice).await;
         let run_id = Uuid::new_v4().to_string();
 
-        // Process each track individually and emit detailed events
-        for (track_index, track) in tracks.iter().enumerate() {
-            // Find suggestions for this track
-            let empty_suggestions = vec![];
-            let track_suggestions = batch_suggestions
-                .iter()
-                .find(|(index, _)| *index == track_index)
-                .map(|(_, suggestions)| suggestions)
-                .unwrap_or(&empty_suggestions);
+        // Find suggestions for this track (should be at index 0 since we only passed one track)
+        let empty_suggestions = vec![];
+        let suggestions = track_suggestions
+            .iter()
+            .find(|(index, _)| *index == 0)
+            .map(|(_, suggestions)| suggestions)
+            .unwrap_or(&empty_suggestions);
 
-            // Determine processing result
-            let result = if track_suggestions.is_empty() {
-                "no rules applied".to_string()
-            } else {
-                match track_suggestions.len() {
-                    1 => "1 rule applied".to_string(),
-                    n => format!("{n} rules applied"),
-                }
-            };
+        // Emit detailed track processed event
+        let suggestions_for_event: Vec<ScrubActionSuggestion> =
+            suggestions.iter().map(|s| s.suggestion.clone()).collect();
 
+        self.emit_event(ScrubberEvent::track_processed(
+            track.clone(),
+            suggestions_for_event,
+            "".to_string(),
+        ));
+
+        log::debug!("Processed track: {} - {}", track.artist, track.name);
+
+        // Apply suggestions using the helper method
+        self.apply_suggestions_to_track(
+            track,
+            suggestions,
+            run_id,
+            track_index,
+            is_artist_processing,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    /// Apply suggestions to a track with proper context and event emission
+    async fn apply_suggestions_to_track(
+        &mut self,
+        track: &lastfm_edit::Track,
+        suggestions: &[SuggestionWithContext],
+        run_id: String,
+        track_index: usize,
+        is_artist_processing: bool,
+    ) -> Result<()> {
+        if suggestions.is_empty() {
             log::info!(
-                "Processed track: {} - {} (index {}) - {}",
-                track.artist,
-                track.name,
-                track_index,
-                result
-            );
-
-            // Emit detailed track processed event
-            let suggestions_for_event: Vec<ScrubActionSuggestion> = track_suggestions
-                .iter()
-                .map(|s| s.suggestion.clone())
-                .collect();
-            self.emit_event(ScrubberEvent::track_processed(
-                track.clone(),
-                suggestions_for_event,
-                result,
-            ));
-        }
-
-        // Then apply suggestions
-        for (track_index, suggestions) in batch_suggestions {
-            if track_index >= tracks.len() {
-                log::warn!(
-                    "Invalid track index {} for batch size {}",
-                    track_index,
-                    tracks.len()
-                );
-                continue;
-            }
-
-            let track = &tracks[track_index];
-
-            if suggestions.is_empty() {
-                log::info!(
-                    "No suggestions for track: {} - {}",
-                    track.artist,
-                    track.name
-                );
-                continue;
-            }
-
-            log::info!(
-                "Applying {} suggestions to track: {} - {}",
-                suggestions.len(),
+                "No suggestions for track: {} - {}",
                 track.artist,
                 track.name
             );
+            return Ok(());
+        }
 
-            for (i, suggestion) in suggestions.iter().enumerate() {
-                trace!(
-                    "Applying suggestion {}/{} for track '{}' by '{}': {:?}",
-                    i + 1,
-                    suggestions.len(),
-                    track.name,
-                    track.artist,
-                    suggestion
-                );
+        log::info!(
+            "Applying {} suggestions to track: {} - {}",
+            suggestions.len(),
+            track.artist,
+            track.name
+        );
 
-                let suggestion_context = ProcessingContext {
-                    run_id: run_id.clone(),
-                    batch_id: Some(format!("batch_{}", chrono::Utc::now().timestamp())),
-                    track_index: Some(track_index),
-                    batch_size: Some(tracks.len()),
-                    is_artist_processing,
-                };
-                self.apply_suggestion_with_context(track, suggestion, Some(suggestion_context))
-                    .await?;
+        for (i, suggestion) in suggestions.iter().enumerate() {
+            trace!(
+                "Applying suggestion {}/{} for track '{}' by '{}': {:?}",
+                i + 1,
+                suggestions.len(),
+                track.name,
+                track.artist,
+                suggestion
+            );
 
-                // Emit rule applied event based on suggestion type
-                let description = match &suggestion.suggestion {
-                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
-                        trace!("Applied edit: {edit:?}");
-                        format!("Applied edit from {}", suggestion.provider_name)
-                    }
-                    crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
-                        rule,
-                        motivation,
-                    } => {
-                        trace!("Proposed rule: {rule:?} with motivation: {motivation}");
-                        format!(
-                            "Proposed rule from {}: {motivation}",
-                            suggestion.provider_name
-                        )
-                    }
-                    crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
-                        trace!("No action taken for track");
-                        format!("No action taken by {}", suggestion.provider_name)
-                    }
-                };
-                self.emit_event(ScrubberEvent::rule_applied(
-                    track.clone(),
-                    suggestion.suggestion.clone(),
-                    description,
-                ));
-            }
+            let suggestion_context = ProcessingContext {
+                run_id: run_id.clone(),
+                batch_id: None, // No batch processing anymore
+                track_index: Some(track_index),
+                batch_size: Some(1), // Always 1 since we process individually
+                is_artist_processing,
+            };
+            self.apply_suggestion_with_context(track, suggestion, Some(suggestion_context))
+                .await?;
+
+            // Emit rule applied event based on suggestion type
+            let description = match &suggestion.suggestion {
+                crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
+                    trace!("Applied edit: {edit:?}");
+                    format!("Applied edit from {}", suggestion.provider_name)
+                }
+                crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
+                    rule,
+                    motivation,
+                } => {
+                    trace!("Proposed rule: {rule:?} with motivation: {motivation}");
+                    format!(
+                        "Proposed rule from {}: {motivation}",
+                        suggestion.provider_name
+                    )
+                }
+                crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
+                    trace!("No action taken for track");
+                    format!("No action taken by {}", suggestion.provider_name)
+                }
+            };
+            self.emit_event(ScrubberEvent::rule_applied(
+                track.clone(),
+                suggestion.suggestion.clone(),
+                description,
+            ));
         }
 
         Ok(())
@@ -707,9 +700,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             artist
         );
 
-        // Process collected tracks in batch with artist processing context
+        // Process collected tracks individually with artist processing context
         if !tracks_to_process.is_empty() {
-            self.process_tracks_in_batches_no_timestamp_update_with_context(
+            self.process_tracks_individually_no_timestamp_update_with_context(
                 &tracks_to_process,
                 true,
             )
@@ -732,9 +725,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tracks_to_process.len()
         );
 
-        // Process collected tracks in batch with artist processing context
+        // Process collected tracks individually with artist processing context
         if !tracks_to_process.is_empty() {
-            self.process_tracks_in_batches_no_timestamp_update_with_context(
+            self.process_tracks_individually_no_timestamp_update_with_context(
                 &tracks_to_process,
                 true,
             )
