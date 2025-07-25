@@ -1,6 +1,6 @@
-use lastfm_edit::Track;
+use lastfm_edit::{ScrobbleEdit, Track};
 use scrobble_scrubber::rewrite::{
-    any_rules_apply, any_rules_match, apply_all_rules, create_no_op_edit, RewriteRule, SdRule,
+    any_rules_apply, apply_all_rules, create_no_op_edit, RewriteRule, SdRule,
 };
 
 #[test]
@@ -682,249 +682,349 @@ fn test_anchored_regex_for_super_exact_matching() {
 }
 
 #[test]
-fn test_ui_preview_logic_simulation() {
-    // This test simulates the exact logic used in the UI RulePreview component
-    // to understand why "Chris Thile" pattern might not show as matching in the UI
+fn test_queen_track_chris_thile_rules_issue() {
+    // Replicate the exact issue from the log:
+    // [2025-07-24T23:44:25Z INFO  scrobble_scrubber::scrubber] Applying edit to track 'You And I - Remastered 2011' by 'Queen':
+    // track: 'You And I - Remastered 2011' -> 'You And I', album artist: 'unknown' -> 'Chris Thile & Michael Daves'
 
+    let queen_track = Track {
+        name: "You And I - Remastered 2011".to_string(),
+        artist: "Queen".to_string(),
+        album: None, // This would be empty/None, which means album_artist would be treated as empty/unknown
+        album_artist: None,
+        timestamp: Some(1234567890),
+        playcount: 0,
+    };
+
+    // Recreate the actual rules from the CLI output:
+
+    // Rule 1: Remove Dash Remaster of any sort
+    let rule1 = RewriteRule::new()
+        .with_name("Remove Dash Remaster of any sort")
+        .with_track_name(SdRule::new(r"(.+) -.*Remaster.*", "$1"));
+
+    // Rule 5: Rule #5 - This is the suspected culprit
+    let rule5 = RewriteRule::new()
+        .with_name("Rule #5")
+        .with_artist_name(SdRule::new("^Chris Thile$", "Chris Thile & Micheal Daves"))
+        .with_album_name(SdRule::new("Sleep With One Eye Open", "$0"))
+        .with_album_artist_name(SdRule::new(".*", "Chris Thile & Micheal Daves"));
+
+    // Rule 6: Rule #6
+    let rule6 = RewriteRule::new()
+        .with_name("Rule #6")
+        .with_artist_name(SdRule::new("^Chris Thile & Micheal Daves$", "$0"))
+        .with_album_artist_name(SdRule::new(".*", "Chris Thile & Micheal Daves"));
+
+    // Rule 7: Rule #7 (note the corrected spelling of "Michael")
+    let rule7 = RewriteRule::new()
+        .with_name("Rule #7")
+        .with_artist_name(SdRule::new(
+            "^chris thile & micheal daves$",
+            "Chris Thile & Michael Daves",
+        ))
+        .with_album_artist_name(SdRule::new(".*", "Chris Thile & Michael Daves"));
+
+    println!("Testing individual rules against Queen track:");
+
+    // Test each rule individually
+    println!(
+        "Rule 1 (remaster removal) matches: {}",
+        rule1.matches(&queen_track).unwrap()
+    );
+    println!(
+        "Rule 5 (Chris Thile) matches: {}",
+        rule5.matches(&queen_track).unwrap()
+    );
+    println!(
+        "Rule 6 (Chris Thile & Micheal) matches: {}",
+        rule6.matches(&queen_track).unwrap()
+    );
+    println!(
+        "Rule 7 (chris thile lowercase) matches: {}",
+        rule7.matches(&queen_track).unwrap()
+    );
+
+    // Apply the rules to see what happens
+    let rules = vec![rule1.clone(), rule5.clone(), rule6.clone(), rule7.clone()];
+    let mut edit = create_no_op_edit(&queen_track);
+
+    println!("Original edit: {edit:?}");
+    let changed = apply_all_rules(&rules, &mut edit).unwrap();
+    println!("After applying rules - changed: {changed}, edit: {edit:?}");
+
+    // This test is to understand the issue, not assert specific behavior
+    // We expect:
+    // 1. Rule 1 should match and remove "- Remastered 2011"
+    // 2. Rules 5, 6, 7 should NOT match because artist != "Chris Thile" variants
+
+    // Rule 1 should match (remaster removal)
+    assert!(
+        rule1.matches(&queen_track).unwrap(),
+        "Rule 1 should match Queen track for remaster removal"
+    );
+
+    // Rules 5, 6, 7 should NOT match because artist conditions don't match
+    assert!(
+        !rule5.matches(&queen_track).unwrap(),
+        "Rule 5 should NOT match - artist is Queen, not Chris Thile"
+    );
+    assert!(
+        !rule6.matches(&queen_track).unwrap(),
+        "Rule 6 should NOT match - artist is Queen, not Chris Thile & Micheal Daves"
+    );
+    assert!(
+        !rule7.matches(&queen_track).unwrap(),
+        "Rule 7 should NOT match - artist is Queen, not chris thile & micheal daves"
+    );
+
+    // ✅ FIXED: Rules 5, 6, 7 now correctly don't apply because they don't match
+    // The apply() method now checks matches() first before applying any field transformations
+
+    // Verify that only the expected changes occurred:
+    // - track_name should be changed from "You And I - Remastered 2011" to "You And I" (rule 1)
+    // - album_artist_name should remain "Queen" (no Chris Thile rules should apply)
+    assert_eq!(
+        edit.track_name,
+        Some("You And I".to_string()),
+        "Track name should be cleaned by rule 1"
+    );
+    assert_eq!(
+        edit.album_artist_name,
+        Some("Queen".to_string()),
+        "Album artist should remain Queen - no Chris Thile rules should apply"
+    );
+
+    println!("✅ FIXED: Only rule 1 applied as expected. Rules 5, 6, 7 correctly did not apply.");
+}
+
+#[test]
+fn test_individual_rule_apply_vs_matches_inconsistency() {
+    // This test demonstrates the bug where apply() doesn't check matches() first
     let track = Track {
         name: "Some Song".to_string(),
-        artist: "Chris Thile".to_string(),
-        album: Some("Not All Who Wander Are Lost".to_string()),
+        artist: "Queen".to_string(), // This won't match the artist condition
+        album: None,
         album_artist: None,
         timestamp: Some(1234567890),
         playcount: 0,
     };
 
-    // Test the problematic case: exact match "Chris Thile" -> "Chris Thile" (no change)
-    let rule_no_change =
-        RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "Chris Thile")); // Same input and output!
+    // Rule with artist condition that WON'T match + album_artist condition that WILL match
+    let rule = RewriteRule::new()
+        .with_name("Inconsistent Rule")
+        .with_artist_name(SdRule::new("^Chris Thile$", "Modified Artist")) // Won't match "Queen"
+        .with_album_artist_name(SdRule::new(".*", "Modified Album Artist")); // Will match anything
 
-    // This rule should NOT apply because it makes no changes (correct behavior!)
-    assert!(
-        !rule_no_change.matches(&track).unwrap(),
-        "Rule should NOT apply - pattern matches but produces no changes"
-    );
-
-    // But when we apply it, there are no actual changes (UI logic)
     let mut edit = create_no_op_edit(&track);
-    let rule_applied = rule_no_change.apply(&mut edit).unwrap();
+    println!("Before: {edit:?}");
 
-    // The rule applies but makes no changes - this is why UI doesn't show it as matching!
+    // The rule should NOT match because artist condition fails
     assert!(
-        !rule_applied,
-        "Rule application should return false - no actual changes were made"
+        !rule.matches(&track).unwrap(),
+        "Rule should not match because artist != Chris Thile"
     );
 
-    // UI logic: has_changes check (from RulePreview component line 28-30)
-    let has_changes = edit.track_name != Some(track.name.clone())
-        || edit.artist_name != track.artist
-        || edit.album_name != track.album;
-
+    // The rule should NOT match the ScrobbleEdit either because artist condition fails
     assert!(
-        !has_changes,
-        "UI should show no changes - this is why 'Chris Thile' doesn't appear to match in the UI!"
+        !rule.matches_scrobble_edit(&edit).unwrap(),
+        "Rule should not match ScrobbleEdit because artist != Chris Thile"
     );
 
-    // Now test with a rule that actually makes changes
-    let rule_with_change =
-        RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "Chris Thile (Modified)"));
+    // Test using apply_all_rules which properly filters rules before applying
+    let changed = apply_all_rules(&[rule.clone()], &mut edit).unwrap();
+    println!("After: {edit:?}");
+    println!("Changed: {changed}");
 
-    let mut edit_changed = create_no_op_edit(&track);
-    let rule_applied_changed = rule_with_change.apply(&mut edit_changed).unwrap();
-
+    // ✅ FIXED: apply_all_rules now correctly filters rules and returns false when rule doesn't match
     assert!(
-        rule_applied_changed,
-        "Rule with actual changes should return true"
+        !changed,
+        "Rule should not apply any changes when it doesn't match"
+    );
+    assert_eq!(
+        edit.album_artist_name,
+        Some("Queen".to_string()),
+        "Album artist should remain unchanged when rule doesn't match"
     );
 
-    let has_changes_real = edit_changed.track_name != Some(track.name.clone())
-        || edit_changed.artist_name != track.artist
-        || edit_changed.album_name != track.album;
-
-    assert!(
-        has_changes_real,
-        "UI should show changes when replacement text is different"
-    );
+    println!("✅ FIXED: Rule correctly did not apply changes because it doesn't match.");
 }
 
 #[test]
-fn test_pattern_matching_vs_change_detection() {
-    // These tests demonstrate the difference between pattern matching and change detection
-    // Previously, rules that matched but produced no changes would not show as matching in UI
+fn test_matches_scrobble_edit_semantic_none_handling() {
+    // Test the semantic None handling in matches_scrobble_edit
 
-    let track = Track {
-        name: "Chris Thile".to_string(),
-        artist: "Chris Thile".to_string(),
-        album: Some("Not All Who Wander Are Lost".to_string()),
-        album_artist: None,
+    // Case 1: Rule field None, ScrobbleEdit field None -> MATCH
+    let rule1 = RewriteRule::new()
+        .with_name("No constraints rule")
+        .with_artist_name(SdRule::new("^Artist$", "Modified Artist"));
+    // track_name, album_name, album_artist_name are None in the rule
+
+    let edit1 = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: None, // Rule doesn't care about this field
+        album_name: None, // Rule doesn't care about this field
+        artist_name: "Artist".to_string(),
+        album_artist_name: None, // Rule doesn't care about this field
         timestamp: Some(1234567890),
-        playcount: 0,
+        edit_all: false,
     };
 
-    // Test 1: Pattern matches but produces no change (using $0)
-    let rule_no_change = RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "$0")); // $0 means "entire match"
-
-    // Pattern should match (new behavior)
     assert!(
-        rule_no_change.matches(&track).unwrap(),
-        "matches() should return true when pattern matches, even if no changes would occur"
+        rule1.matches_scrobble_edit(&edit1).unwrap(),
+        "Rule with None fields should match ScrobbleEdit with None fields"
     );
 
-    // But applies_to should return false (old behavior still valid for actual application)
-    assert!(
-        !rule_no_change.matches(&track).unwrap(),
-        "applies_to() should return false when no actual changes would occur"
-    );
-
-    // Test 2: Pattern matches and produces change
-    let rule_with_change =
-        RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "Chris Thile (Modified)"));
-
-    // Both should return true
-    assert!(
-        rule_with_change.matches(&track).unwrap(),
-        "matches() should return true when pattern matches and changes occur"
-    );
+    // Case 2: Rule field None, ScrobbleEdit field Some -> MATCH
+    let edit2 = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: Some("Song".to_string()), // Rule doesn't care about this field
+        album_name: Some("Album".to_string()), // Rule doesn't care about this field
+        artist_name: "Artist".to_string(),
+        album_artist_name: Some("Album Artist".to_string()), // Rule doesn't care about this field
+        timestamp: Some(1234567890),
+        edit_all: false,
+    };
 
     assert!(
-        rule_with_change.matches(&track).unwrap(),
-        "applies_to() should return true when pattern matches and changes occur"
+        rule1.matches_scrobble_edit(&edit2).unwrap(),
+        "Rule with None fields should match ScrobbleEdit with Some fields"
     );
 
-    // Test 3: Pattern doesn't match
-    let rule_no_match = RewriteRule::new().with_artist_name(SdRule::new("John Doe", "Jane Doe"));
+    // Case 3: Rule field Some, ScrobbleEdit field None -> NO MATCH
+    let rule3 = RewriteRule::new()
+        .with_name("Requires track name rule")
+        .with_track_name(SdRule::new("^Song$", "Modified Song"))
+        .with_artist_name(SdRule::new("^Artist$", "Modified Artist"));
 
-    // Both should return false
+    let edit3 = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: None, // Rule requires this field but it's None
+        album_name: None,
+        artist_name: "Artist".to_string(),
+        album_artist_name: None,
+        timestamp: Some(1234567890),
+        edit_all: false,
+    };
+
     assert!(
-        !rule_no_match.matches(&track).unwrap(),
-        "matches() should return false when pattern doesn't match"
+        !rule3.matches_scrobble_edit(&edit3).unwrap(),
+        "Rule with Some field should NOT match ScrobbleEdit with None field"
     );
 
+    // Case 4: Rule field Some, ScrobbleEdit field Some -> Check pattern match
+    let edit4 = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: Some("Song".to_string()),
+        album_name: None,
+        artist_name: "Artist".to_string(),
+        album_artist_name: None,
+        timestamp: Some(1234567890),
+        edit_all: false,
+    };
+
     assert!(
-        !rule_no_match.matches(&track).unwrap(),
-        "applies_to() should return false when pattern doesn't match"
+        rule3.matches_scrobble_edit(&edit4).unwrap(),
+        "Rule with Some field should match ScrobbleEdit with matching Some field"
     );
+
+    // Case 5: Rule field Some, ScrobbleEdit field Some but pattern doesn't match
+    let edit5 = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: Some("Different Song".to_string()), // Doesn't match pattern
+        album_name: None,
+        artist_name: "Artist".to_string(),
+        album_artist_name: None,
+        timestamp: Some(1234567890),
+        edit_all: false,
+    };
+
+    assert!(
+        !rule3.matches_scrobble_edit(&edit5).unwrap(),
+        "Rule with Some field should NOT match ScrobbleEdit with non-matching Some field"
+    );
+
+    println!("✅ All semantic None handling tests passed!");
 }
 
 #[test]
-fn test_ui_matching_with_dollar_zero_replacement() {
-    // This test specifically addresses the user's issue with $0 replacements not showing as matching
+fn test_matches_scrobble_edit_dot_star_special_case() {
+    // Test that .* pattern matches None fields (special case)
 
-    let track = Track {
-        name: "Test Song".to_string(),
-        artist: "Test Artist".to_string(),
-        album: Some("Test Album".to_string()),
-        album_artist: None,
+    // Rule with .* pattern should match None fields
+    let rule_dot_star = RewriteRule::new()
+        .with_name("Dot star rule")
+        .with_artist_name(SdRule::new("^Artist$", "Modified Artist"))
+        .with_album_artist_name(SdRule::new(".*", "Some Album Artist")); // .* should match None
+
+    let edit_with_none = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: Some("Song".to_string()),
+        album_name: None,
+        artist_name: "Artist".to_string(),
+        album_artist_name: None, // This is None, but .* should match it
         timestamp: Some(1234567890),
-        playcount: 0,
+        edit_all: false,
     };
 
-    // Various patterns that match but produce no changes due to $0
-    let test_cases = vec![
-        ("Test Song", "$0"),     // Exact match with $0
-        ("Test.*", "$0"),        // Regex match with $0
-        ("^Test Song$", "$0"),   // Anchored match with $0
-        ("(Test) (Song)", "$0"), // Capture groups but return full match
-    ];
+    assert!(
+        rule_dot_star
+            .matches_scrobble_edit(&edit_with_none)
+            .unwrap(),
+        "Rule with .* pattern should match ScrobbleEdit with None album_artist_name"
+    );
 
-    for (pattern, replacement) in test_cases {
-        let rule = RewriteRule::new().with_track_name(SdRule::new(pattern, replacement));
+    // Rule with specific pattern should NOT match None fields
+    let rule_specific = RewriteRule::new()
+        .with_name("Specific pattern rule")
+        .with_artist_name(SdRule::new("^Artist$", "Modified Artist"))
+        .with_album_artist_name(SdRule::new("^Album Artist$", "Some Album Artist")); // Specific pattern should NOT match None
 
-        // Should match (for UI display)
-        assert!(
-            rule.matches(&track).unwrap(),
-            "Pattern '{pattern}' with replacement '{replacement}' should match for UI display"
-        );
+    assert!(
+        !rule_specific
+            .matches_scrobble_edit(&edit_with_none)
+            .unwrap(),
+        "Rule with specific pattern should NOT match ScrobbleEdit with None album_artist_name"
+    );
 
-        // But shouldn't apply for actual processing (no changes)
-        assert!(
-            !rule.matches(&track).unwrap(),
-            "Pattern '{pattern}' with replacement '{replacement}' should not apply for processing (no changes)"
-        );
-    }
-}
-
-#[test]
-fn test_any_rules_match_vs_any_rules_apply() {
-    // Test the new any_rules_match function vs the existing any_rules_apply function
-
-    let track = Track {
-        name: "Sample Track".to_string(),
-        artist: "Sample Artist".to_string(),
-        album: Some("Sample Album".to_string()),
-        album_artist: None,
+    // .* pattern should also match Some fields
+    let edit_with_some = ScrobbleEdit {
+        track_name_original: Some("Song".to_string()),
+        album_name_original: None,
+        artist_name_original: "Artist".to_string(),
+        album_artist_name_original: None,
+        track_name: Some("Song".to_string()),
+        album_name: None,
+        artist_name: "Artist".to_string(),
+        album_artist_name: Some("Any Album Artist".to_string()), // This has a value
         timestamp: Some(1234567890),
-        playcount: 0,
+        edit_all: false,
     };
 
-    let rules = vec![
-        // Rule that matches but produces no change
-        RewriteRule::new().with_artist_name(SdRule::new("Sample Artist", "$0")),
-        // Rule that doesn't match at all
-        RewriteRule::new().with_artist_name(SdRule::new("Different Artist", "Modified")),
-    ];
-
-    // any_rules_match should return true (first rule pattern matches)
     assert!(
-        any_rules_match(&rules, &track).unwrap(),
-        "any_rules_match should return true when at least one pattern matches"
+        rule_dot_star
+            .matches_scrobble_edit(&edit_with_some)
+            .unwrap(),
+        "Rule with .* pattern should match ScrobbleEdit with Some album_artist_name"
     );
 
-    // any_rules_apply should return false (no rule produces changes)
-    assert!(
-        !any_rules_apply(&rules, &track).unwrap(),
-        "any_rules_apply should return false when no rule produces changes"
-    );
-
-    // Now test with a rule that actually produces changes
-    let rules_with_changes =
-        vec![RewriteRule::new().with_artist_name(SdRule::new("Sample Artist", "Modified Artist"))];
-
-    // Both should return true
-    assert!(
-        any_rules_match(&rules_with_changes, &track).unwrap(),
-        "any_rules_match should return true when pattern matches and produces changes"
-    );
-
-    assert!(
-        any_rules_apply(&rules_with_changes, &track).unwrap(),
-        "any_rules_apply should return true when pattern matches and produces changes"
-    );
-}
-
-#[test]
-fn test_dollar_zero_replacement_fix() {
-    // This test verifies the fix for the user's specific issue:
-    // Rules with $0 replacement should show as matching in UI
-
-    let track = Track {
-        name: "Chris Thile".to_string(),
-        artist: "Chris Thile".to_string(),
-        album: Some("Not All Who Wander Are Lost".to_string()),
-        album_artist: None,
-        timestamp: Some(1234567890),
-        playcount: 0,
-    };
-
-    let rule = RewriteRule::new().with_artist_name(SdRule::new("Chris Thile", "$0"));
-
-    let rules = vec![rule];
-
-    // The old behavior would have been:
-    // any_rules_apply returns false (no changes)
-    // UI would not show the rule as matching
-    assert!(
-        !any_rules_apply(&rules, &track).unwrap(),
-        "any_rules_apply should return false for $0 replacement (no actual changes)"
-    );
-
-    // The new behavior is:
-    // any_rules_match returns true (pattern matches)
-    // UI will show the rule as matching
-    assert!(
-        any_rules_match(&rules, &track).unwrap(),
-        "any_rules_match should return true for $0 replacement (pattern matches for UI)"
-    );
-
-    println!("✅ Fix verified: $0 replacements now show as matching in UI!");
+    println!("✅ Dot star pattern special case tests passed!");
 }

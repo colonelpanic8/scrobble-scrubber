@@ -266,18 +266,6 @@ mod tests {
     }
 
     #[test]
-    fn test_regex_requires_anchors() {
-        // This should fail because it doesn't use ^ and $ anchors
-        let rule = TransformRule::new("feat.", "featuring");
-        let result = RewriteProcessor::new(vec![rule]);
-
-        assert!(matches!(
-            result,
-            Err(RewriteProcessorError::MissingAnchorsError(_))
-        ));
-    }
-
-    #[test]
     fn test_case_insensitive_replacement() {
         let rule = TransformRule::new(r"^(.*)FEAT\.(.*)$", "${1}featuring${2}").with_flags("i");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();

@@ -22,6 +22,7 @@ pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
 }
 
 /// Check if any of the rewrite rules would apply to the given track
+/// This checks if any rule patterns match the track
 pub fn any_rules_apply(rules: &[RewriteRule], track: &Track) -> Result<bool, RewriteError> {
     for rule in rules {
         if rule.matches(track)? {
@@ -42,22 +43,26 @@ pub fn any_rules_match(rules: &[RewriteRule], track: &Track) -> Result<bool, Rew
 }
 
 /// Apply all rewrite rules to a `ScrobbleEdit`, returning true if any changes were made
+/// Rules are filtered to only apply those that match the ScrobbleEdit using semantic None handling
 pub fn apply_all_rules(
     rules: &[RewriteRule],
     edit: &mut ScrobbleEdit,
 ) -> Result<bool, RewriteError> {
     let mut any_changes = false;
     for rule in rules {
-        let changed = rule.apply(edit)?;
-        if changed {
-            any_changes = true;
-            let rule_name = rule.name.as_deref().unwrap_or("unnamed rule");
-            log::info!(
-                "Applied rewrite rule '{}' to track '{}' by '{}'",
-                rule_name,
-                edit.track_name_original.as_deref().unwrap_or("unknown"),
-                &edit.artist_name_original
-            );
+        // Filter: only apply rules that match the ScrobbleEdit with semantic None handling
+        if rule.matches_scrobble_edit(edit)? {
+            let changed = rule.apply(edit)?;
+            if changed {
+                any_changes = true;
+                let rule_name = rule.name.as_deref().unwrap_or("unnamed rule");
+                log::info!(
+                    "Applied rewrite rule '{}' to track '{}' by '{}'",
+                    rule_name,
+                    edit.track_name_original.as_deref().unwrap_or("unknown"),
+                    &edit.artist_name_original
+                );
+            }
         }
     }
     Ok(any_changes)
@@ -441,8 +446,132 @@ impl RewriteRule {
         Ok(rule_matches)
     }
 
+    /// Helper function to check if a single field matches between rule and ScrobbleEdit
+    /// with semantic None handling
+    fn check_field_match(
+        field_name: &str,
+        rule: &SdRule,
+        edit_field: Option<&str>,
+        matched_fields: &mut Vec<String>,
+        failed_fields: &mut Vec<String>,
+    ) -> Result<(), RewriteError> {
+        if let Some(field_value) = edit_field {
+            if rule.matches(field_value)? {
+                matched_fields.push(format!("{field_name}('{field_value}')"));
+            } else {
+                let pattern = &rule.find;
+                failed_fields.push(format!(
+                    "{field_name}('{field_value}' ≠ pattern '{pattern}')"
+                ));
+            }
+        } else {
+            // ScrobbleEdit field is None - check for special .* pattern that matches anything including None
+            let pattern = &rule.find;
+            if pattern == ".*" {
+                // Special case: .* pattern matches None (conceptually "match anything, including nothing")
+                matched_fields.push(format!("{field_name}(None - matched by .* pattern)"));
+            } else {
+                // Rule field is Some but ScrobbleEdit field is None - NO MATCH for other patterns
+                failed_fields.push(format!("{field_name}(None ≠ pattern '{pattern}' - cannot match pattern against None value)"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if this rule's patterns match the given ScrobbleEdit with semantic None handling
+    ///
+    /// A rule matches when:
+    /// - All None rule fields are considered as always matching (no constraint)
+    /// - For Some rule fields, they must match their respective ScrobbleEdit fields
+    /// - **Semantic None Handling**:
+    ///   - If rule field is None and ScrobbleEdit field is None: **MATCH** (no constraint, no value)
+    ///   - If rule field is None and ScrobbleEdit field is Some: **MATCH** (no constraint, any value OK)
+    ///   - If rule field is Some and ScrobbleEdit field is None: **NO MATCH** (constraint exists but no value to match)
+    ///   - If rule field is Some and ScrobbleEdit field is Some: **Check pattern match**
+    /// - If any Some field's pattern doesn't match, the rule doesn't match
+    pub fn matches_scrobble_edit(&self, edit: &ScrobbleEdit) -> Result<bool, RewriteError> {
+        let rule_name = self.name.as_deref().unwrap_or("unnamed");
+        let mut matched_fields = Vec::new();
+        let mut failed_fields = Vec::new();
+        let mut checked_fields = Vec::new();
+
+        // Check track name pattern if present
+        if let Some(rule) = &self.track_name {
+            checked_fields.push("track_name");
+            Self::check_field_match(
+                "track_name",
+                rule,
+                edit.track_name.as_deref(),
+                &mut matched_fields,
+                &mut failed_fields,
+            )?;
+        }
+
+        // Check artist name pattern if present
+        if let Some(rule) = &self.artist_name {
+            checked_fields.push("artist_name");
+            // artist_name is always Some in ScrobbleEdit (it's not Option<String>)
+            Self::check_field_match(
+                "artist_name",
+                rule,
+                Some(&edit.artist_name),
+                &mut matched_fields,
+                &mut failed_fields,
+            )?;
+        }
+
+        // Check album name pattern if present
+        if let Some(rule) = &self.album_name {
+            checked_fields.push("album_name");
+            Self::check_field_match(
+                "album_name",
+                rule,
+                edit.album_name.as_deref(),
+                &mut matched_fields,
+                &mut failed_fields,
+            )?;
+        }
+
+        // Check album artist name pattern if present
+        if let Some(rule) = &self.album_artist_name {
+            checked_fields.push("album_artist_name");
+            Self::check_field_match(
+                "album_artist_name",
+                rule,
+                edit.album_artist_name.as_deref(),
+                &mut matched_fields,
+                &mut failed_fields,
+            )?;
+        }
+
+        let rule_matches = failed_fields.is_empty();
+
+        // Log comprehensive summary
+        if checked_fields.is_empty() {
+            log::debug!(
+                "Rule '{rule_name}' matches ScrobbleEdit (catch-all rule with no patterns)"
+            );
+        } else if rule_matches {
+            let matched = matched_fields.join(", ");
+            log::debug!("Rule '{rule_name}' matches ScrobbleEdit | Matched: [{matched}]");
+        } else {
+            let matched = if matched_fields.is_empty() {
+                "none".to_string()
+            } else {
+                matched_fields.join(", ")
+            };
+            let failed = failed_fields.join(", ");
+            log::debug!("Rule '{rule_name}' does not match ScrobbleEdit | Matched: [{matched}] | Failed: [{failed}]");
+        }
+
+        Ok(rule_matches)
+    }
+
     /// Apply this rule to an existing `ScrobbleEdit`, modifying it in place
     /// Returns true if any changes were made
+    ///
+    /// IMPORTANT: This method assumes the rule has already been checked to match the ScrobbleEdit.
+    /// Rules should be filtered using matches_scrobble_edit() before calling apply().
     pub fn apply(&self, edit: &mut ScrobbleEdit) -> Result<bool, RewriteError> {
         let mut has_changes = false;
 
