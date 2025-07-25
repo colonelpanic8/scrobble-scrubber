@@ -843,6 +843,27 @@ async fn main() -> Result<()> {
         log::info!("Enabled MusicBrainz provider for metadata corrections");
     }
 
+    // Log active providers summary
+    let mut active_providers = Vec::new();
+    if config.providers.enable_rewrite_rules && !skip_existing_rules {
+        active_providers.push("RewriteRules");
+    }
+    if config.providers.enable_openai {
+        active_providers.push("OpenAI");
+    }
+    if config.providers.enable_musicbrainz {
+        active_providers.push("MusicBrainz");
+    }
+    if config.providers.enable_http {
+        active_providers.push("HTTP");
+    }
+
+    if active_providers.is_empty() {
+        log::warn!("No scrub action providers are enabled");
+    } else {
+        log::info!("Active providers: {}", active_providers.join(", "));
+    }
+
     // Handle commands that don't need a scrubber instance first
     match &args.command {
         Commands::ShowCache { limit, all_pages } => {

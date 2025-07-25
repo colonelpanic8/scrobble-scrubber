@@ -1,8 +1,9 @@
 use crate::persistence::{PendingEdit, PendingRewriteRule};
-use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
+use crate::scrub_action_provider::{ScrubActionProvider, SuggestionWithContext};
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
 use log::{trace, warn};
+use musicbrainz_rs::entity::recording::RecordingSearchQuery;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -62,13 +63,14 @@ impl MusicBrainzScrubActionProvider {
             track.artist
         );
 
-        // Search for recordings (tracks) matching the artist and title
-        let query = format!(
-            "recording:\"{}\" AND artist:\"{}\"",
-            track.name, track.artist
-        );
+        // Search for recordings using the proper structured query builder
+        let query_string = RecordingSearchQuery::query_builder()
+            .recording(&track.name)
+            .and()
+            .artist(&track.artist)
+            .build();
 
-        let search_results = match Recording::search(query).execute().await {
+        let search_results = match Recording::search(query_string).execute().await {
             Ok(results) => results,
             Err(e) => {
                 warn!(
@@ -189,7 +191,7 @@ impl MusicBrainzScrubActionProvider {
         &self,
         track: &Track,
         mb_match: &MusicBrainzMatch,
-    ) -> Option<ScrubActionSuggestion> {
+    ) -> Option<SuggestionWithContext> {
         let mut needs_artist_correction = false;
         let mut needs_title_correction = false;
         let mut needs_album_correction = false;
@@ -213,7 +215,7 @@ impl MusicBrainzScrubActionProvider {
 
         // If no corrections needed, return no action
         if !needs_artist_correction && !needs_title_correction && !needs_album_correction {
-            return Some(ScrubActionSuggestion::NoAction);
+            return Some(SuggestionWithContext::no_action("MusicBrainz".to_string()));
         }
 
         // Create the corrected edit
@@ -269,7 +271,12 @@ impl MusicBrainzScrubActionProvider {
             mb_match.mbid
         );
 
-        Some(ScrubActionSuggestion::Edit(edit))
+        // MusicBrainz suggestions typically don't require confirmation since they're based on authoritative data
+        Some(SuggestionWithContext::edit_with_confirmation(
+            edit,
+            false, // MusicBrainz corrections are generally high-confidence
+            "MusicBrainz".to_string(),
+        ))
     }
 }
 
@@ -292,7 +299,7 @@ impl ScrubActionProvider for MusicBrainzScrubActionProvider {
         tracks: &[Track],
         _pending_edits: Option<&[PendingEdit]>,
         _pending_rules: Option<&[PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
         let mut results = Vec::new();
 
         for (index, track) in tracks.iter().enumerate() {

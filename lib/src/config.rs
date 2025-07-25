@@ -296,7 +296,7 @@ impl StorageConfig {
         } else {
             // Fallback to current directory if XDG data directory is not available
             if let Some(user) = username {
-                format!("{}_scrobble_state.db", user)
+                format!("{user}_scrobble_state.db")
             } else {
                 "scrobble_state.db".to_string()
             }

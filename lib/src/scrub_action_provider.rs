@@ -49,6 +49,57 @@ pub enum ScrubActionSuggestion {
     NoAction,
 }
 
+/// Context wrapper for suggestions that includes confirmation requirements
+#[derive(Debug, Clone)]
+pub struct SuggestionWithContext {
+    pub suggestion: ScrubActionSuggestion,
+    pub requires_confirmation: bool,
+    pub provider_name: String,
+}
+
+impl SuggestionWithContext {
+    pub fn new(
+        suggestion: ScrubActionSuggestion,
+        requires_confirmation: bool,
+        provider_name: String,
+    ) -> Self {
+        Self {
+            suggestion,
+            requires_confirmation,
+            provider_name,
+        }
+    }
+
+    pub fn edit_with_confirmation(
+        edit: ScrobbleEdit,
+        requires_confirmation: bool,
+        provider_name: String,
+    ) -> Self {
+        Self::new(
+            ScrubActionSuggestion::Edit(edit),
+            requires_confirmation,
+            provider_name,
+        )
+    }
+
+    pub fn propose_rule_with_confirmation(
+        rule: RewriteRule,
+        motivation: String,
+        requires_confirmation: bool,
+        provider_name: String,
+    ) -> Self {
+        Self::new(
+            ScrubActionSuggestion::ProposeRule { rule, motivation },
+            requires_confirmation,
+            provider_name,
+        )
+    }
+
+    pub fn no_action(provider_name: String) -> Self {
+        Self::new(ScrubActionSuggestion::NoAction, false, provider_name)
+    }
+}
+
 /// Trait for external providers that can suggest scrobble actions
 #[async_trait]
 pub trait ScrubActionProvider: Send + Sync {
@@ -65,7 +116,7 @@ pub trait ScrubActionProvider: Send + Sync {
         tracks: &[Track],
         pending_edits: Option<&[PendingEdit]>,
         pending_rules: Option<&[PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error>;
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error>;
 
     /// Get a human-readable name for this provider
     fn provider_name(&self) -> &str;
@@ -99,7 +150,7 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
         tracks: &[Track],
         _pending_edits: Option<&[crate::persistence::PendingEdit]>,
         _pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
         let mut results = Vec::new();
 
         for (index, track) in tracks.iter().enumerate() {
@@ -126,9 +177,25 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
                     trace!(
                         "RewriteRulesScrubActionProvider track {index}: creating edit suggestion"
                     );
-                    // Always return the ScrobbleEdit - let the scrubber handle confirmation logic
-                    // The scrubber will check both global settings and individual rule confirmation requirements
-                    suggestions.push(ScrubActionSuggestion::Edit(edit));
+
+                    // Check if any applicable rule requires individual confirmation
+                    let requires_confirmation = self.rules.iter().any(|rule| {
+                        let applies = rule.matches(track).unwrap_or(false);
+                        let requires_conf = rule.requires_confirmation;
+                        trace!(
+                            "Rule '{}' applies: {}, requires confirmation: {}",
+                            rule.name.as_deref().unwrap_or("Unnamed"),
+                            applies,
+                            requires_conf
+                        );
+                        applies && requires_conf
+                    });
+
+                    suggestions.push(SuggestionWithContext::edit_with_confirmation(
+                        edit,
+                        requires_confirmation,
+                        self.provider_name().to_string(),
+                    ));
                 }
             } else {
                 trace!("RewriteRulesScrubActionProvider track {index}: no rules apply, skipping");
@@ -214,7 +281,7 @@ where
         tracks: &[Track],
         pending_edits: Option<&[PendingEdit]>,
         pending_rules: Option<&[PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
         self.inner
             .analyze_tracks(tracks, pending_edits, pending_rules)
             .await
@@ -235,8 +302,8 @@ impl ScrubActionProvider for OrScrubActionProvider {
         tracks: &[Track],
         pending_edits: Option<&[PendingEdit]>,
         pending_rules: Option<&[PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
-        let mut combined_results: Vec<(usize, Vec<ScrubActionSuggestion>)> = Vec::new();
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
+        let mut combined_results: Vec<(usize, Vec<SuggestionWithContext>)> = Vec::new();
 
         // Try each provider in sequence and combine results
         for (provider_idx, provider) in self.providers.iter().enumerate() {

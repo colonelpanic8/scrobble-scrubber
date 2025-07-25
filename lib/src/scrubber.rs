@@ -7,7 +7,9 @@ use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, LogTrackInfo, ProcessingContext};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
-use crate::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
+use crate::scrub_action_provider::{
+    ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
+};
 use crate::track_provider::{CachedTrackProvider, DirectTrackProvider, TrackProvider};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
@@ -593,9 +595,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             // Emit detailed track processed event
+            let suggestions_for_event: Vec<ScrubActionSuggestion> = track_suggestions
+                .iter()
+                .map(|s| s.suggestion.clone())
+                .collect();
             self.emit_event(ScrubberEvent::track_processed(
                 track.clone(),
-                track_suggestions.clone(),
+                suggestions_for_event,
                 result,
             ));
         }
@@ -650,26 +656,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     .await?;
 
                 // Emit rule applied event based on suggestion type
-                let description = match suggestion {
+                let description = match &suggestion.suggestion {
                     crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
                         trace!("Applied edit: {edit:?}");
-                        "Applied edit".to_string()
+                        format!("Applied edit from {}", suggestion.provider_name)
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
                         rule,
                         motivation,
                     } => {
                         trace!("Proposed rule: {rule:?} with motivation: {motivation}");
-                        format!("Proposed rule: {motivation}")
+                        format!(
+                            "Proposed rule from {}: {motivation}",
+                            suggestion.provider_name
+                        )
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
                         trace!("No action taken for track");
-                        "No action taken".to_string()
+                        format!("No action taken by {}", suggestion.provider_name)
                     }
                 };
                 self.emit_event(ScrubberEvent::rule_applied(
                     track.clone(),
-                    suggestion.clone(),
+                    suggestion.suggestion.clone(),
                     description,
                 ));
             }
@@ -800,7 +809,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     async fn analyze_tracks(
         &self,
         tracks: &[lastfm_edit::Track],
-    ) -> Vec<(usize, Vec<ScrubActionSuggestion>)> {
+    ) -> Vec<(usize, Vec<SuggestionWithContext>)> {
         // Load pending items to provide context for action providers
         let (pending_edits_result, pending_rules_result) = tokio::join!(
             async {
@@ -938,7 +947,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     async fn apply_suggestion(
         &mut self,
         track: &lastfm_edit::Track,
-        suggestion: &ScrubActionSuggestion,
+        suggestion: &SuggestionWithContext,
     ) -> Result<()> {
         self.apply_suggestion_with_context(track, suggestion, None)
             .await
@@ -947,7 +956,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     async fn apply_suggestion_with_context(
         &mut self,
         track: &lastfm_edit::Track,
-        suggestion: &ScrubActionSuggestion,
+        suggestion: &SuggestionWithContext,
         context: Option<ProcessingContext>,
     ) -> Result<()> {
         // Load settings to check global confirmation requirement
@@ -963,38 +972,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        match suggestion {
+        match &suggestion.suggestion {
             ScrubActionSuggestion::Edit(edit) => {
                 // Clone edit and set edit_all to true if this is artist processing
                 let mut edit = edit.clone();
                 if context.as_ref().is_some_and(|c| c.is_artist_processing) {
                     edit.edit_all = true;
                 }
-                // Load rewrite rules to check individual rule confirmation requirements
-                let rules_state = self
-                    .storage
-                    .lock()
-                    .await
-                    .load_rewrite_rules_state()
-                    .await
-                    .map_err(|e| {
-                        lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                            "Failed to load rewrite rules state: {e}"
-                        )))
-                    })?;
-
-                // Check if any applicable rule requires individual confirmation
-                let individual_rule_confirmation = rules_state.rewrite_rules.iter().any(|rule| {
-                    let applies = rule.matches(track).unwrap_or(false);
-                    let requires_conf = rule.requires_confirmation;
-                    trace!(
-                        "Rule '{}' applies: {}, requires confirmation: {}",
-                        rule.name.as_deref().unwrap_or("Unnamed"),
-                        applies,
-                        requires_conf
-                    );
-                    applies && requires_conf
-                });
 
                 // Check if global settings require confirmation (persistent state takes precedence over config)
                 let global_confirmation = settings_state.require_confirmation
@@ -1002,13 +986,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     || self.config.scrubber.require_confirmation;
 
                 trace!(
-                    "Confirmation settings - Global: {}, Individual rule: {}, Config dry_run: {}",
+                    "Confirmation settings - Global: {}, Provider suggests confirmation: {}, Config dry_run: {}",
                     global_confirmation,
-                    individual_rule_confirmation,
+                    suggestion.requires_confirmation,
                     self.config.scrubber.dry_run
                 );
 
-                let requires_confirmation = global_confirmation || individual_rule_confirmation;
+                let requires_confirmation = global_confirmation || suggestion.requires_confirmation;
 
                 if requires_confirmation {
                     trace!("Edit requires confirmation, creating pending edit");

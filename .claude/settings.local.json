@@ -113,7 +113,15 @@
       "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:30:00Z\" --dry-run)",
       "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:37:00Z\" --dry-run)",
       "Bash(RUST_LOG=scrobble_scrubber::musicbrainz_provider=trace cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:37:00Z\" --dry-run)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:37:00Z\" --dry-run)",
+      "Bash(RUST_LOG=info cargo run -- --provider musicbrainz once --dry-run 2 >& 1)",
+      "Bash(RUST_LOG=debug timeout 5 cargo run -- --provider musicbrainz once --dry-run 2 >& 1)",
+      "Bash(RUST_LOG=debug cargo run -- --provider musicbrainz once --dry-run 2 >& 1)",
+      "Bash(RUST_LOG=debug cargo run -- --provider musicbrainz once --dry-run)",
+      "Bash(RUST_LOG=info cargo run -- --provider musicbrainz show-cache --limit 1 2 >& 1)",
+      "Bash(RUST_LOG=debug timeout 10 cargo run -- --provider musicbrainz once --dry-run 2 >& 1)",
+      "Bash(RUST_LOG=info cargo run -- show-cache --limit 1 2 >& 1)"
     ],
     "deny": [
       "Bash(dx serve:*)"

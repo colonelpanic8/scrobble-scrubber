@@ -15,7 +15,7 @@ use crate::rewrite::RewriteRule;
 
 use crate::config::DEFAULT_CLAUDE_SYSTEM_PROMPT;
 use crate::scrub_action_provider::{
-    ActionProviderError, ScrubActionProvider, ScrubActionSuggestion,
+    ActionProviderError, ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
 };
 
 #[derive(Deserialize)]
@@ -600,16 +600,36 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
         tracks: &[Track],
         pending_edits: Option<&[crate::persistence::PendingEdit]>,
         pending_rules: Option<&[crate::persistence::PendingRewriteRule]>,
-    ) -> Result<Vec<(usize, Vec<ScrubActionSuggestion>)>, Self::Error> {
+    ) -> Result<Vec<(usize, Vec<SuggestionWithContext>)>, Self::Error> {
         if tracks.is_empty() {
             return Ok(Vec::new());
         }
 
         // If context is provided, use the context-aware implementation
         if let (Some(pending_edits), Some(pending_rules)) = (pending_edits, pending_rules) {
-            return self
+            let results = self
                 .analyze_tracks_with_context_impl(tracks, pending_edits, pending_rules)
-                .await;
+                .await?;
+
+            // Convert ScrubActionSuggestion to SuggestionWithContext
+            let converted_results = results
+                .into_iter()
+                .map(|(index, suggestions)| {
+                    let wrapped_suggestions = suggestions
+                        .into_iter()
+                        .map(|suggestion| {
+                            SuggestionWithContext::new(
+                                suggestion,
+                                false, // OpenAI suggestions generally don't require confirmation by default
+                                "OpenAI".to_string(),
+                            )
+                        })
+                        .collect();
+                    (index, wrapped_suggestions)
+                })
+                .collect();
+
+            return Ok(converted_results);
         }
 
         // Otherwise, use basic analysis without context
@@ -642,7 +662,27 @@ impl ScrubActionProvider for OpenAIScrubActionProvider {
             "Analyze these Last.fm scrobbles and provide suggestions for each track that needs improvement:\n\n{tracks_info}\n\n{existing_rules}"
         );
 
-        self.make_openai_request(&user_message, tracks).await
+        let results = self.make_openai_request(&user_message, tracks).await?;
+
+        // Convert ScrubActionSuggestion to SuggestionWithContext
+        let converted_results = results
+            .into_iter()
+            .map(|(index, suggestions)| {
+                let wrapped_suggestions = suggestions
+                    .into_iter()
+                    .map(|suggestion| {
+                        SuggestionWithContext::new(
+                            suggestion,
+                            false, // OpenAI suggestions generally don't require confirmation by default
+                            "OpenAI".to_string(),
+                        )
+                    })
+                    .collect();
+                (index, wrapped_suggestions)
+            })
+            .collect();
+
+        Ok(converted_results)
     }
 
     fn provider_name(&self) -> &'static str {
