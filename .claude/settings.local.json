@@ -103,7 +103,17 @@
       "Bash(/tmp:*)",
       "Bash(true)",
       "Bash(RUST_LOG=trace dx build)",
-      "Bash(RUST_LOG=debug dx build)"
+      "Bash(RUST_LOG=debug dx build)",
+      "Bash(RUST_LOG=debug cargo run --bin scrobble-scrubber-cli -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T18:00:00Z\")",
+      "Bash(RUST_LOG=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T18:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T20:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-24T00:00:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:40:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:30:00Z\")",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:30:00Z\" --dry-run)",
+      "Bash(RUST_LOG=scrobble_scrubber=debug cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:37:00Z\" --dry-run)",
+      "Bash(RUST_LOG=scrobble_scrubber::musicbrainz_provider=trace cargo run --bin scrobble-scrubber -- --provider musicbrainz once --set-anchor-timestamp \"2025-07-25T08:37:00Z\" --dry-run)",
+      "Bash(curl:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

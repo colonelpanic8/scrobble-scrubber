@@ -275,15 +275,42 @@ impl StorageConfig {
     /// Get the default state file path using XDG Base Directory specification
     /// Falls back to current directory if XDG data directory is not available
     pub fn get_default_state_file_path() -> String {
+        Self::get_default_state_file_path_for_user(None)
+    }
+
+    /// Get the default state file path for a specific user using XDG Base Directory specification
+    /// Falls back to current directory if XDG data directory is not available
+    pub fn get_default_state_file_path_for_user(username: Option<&str>) -> String {
         if let Some(data_dir) = dirs::data_dir() {
-            let scrobble_data_dir = data_dir.join("scrobble-scrubber");
+            let mut scrobble_data_dir = data_dir.join("scrobble-scrubber");
+
+            // Add per-user subdirectory if username is provided
+            if let Some(user) = username {
+                scrobble_data_dir = scrobble_data_dir.join("users").join(user);
+            }
+
             scrobble_data_dir
                 .join("state.db")
                 .to_string_lossy()
                 .to_string()
         } else {
             // Fallback to current directory if XDG data directory is not available
-            "scrobble_state.db".to_string()
+            if let Some(user) = username {
+                format!("{}_scrobble_state.db", user)
+            } else {
+                "scrobble_state.db".to_string()
+            }
+        }
+    }
+
+    /// Get the edit log file path based on the state file path
+    /// Uses the same directory as the state file but with a cleaner name
+    pub fn get_edit_log_path(state_file_path: &str) -> String {
+        if let Some(parent) = std::path::Path::new(state_file_path).parent() {
+            parent.join("edit_log.jsonl").to_string_lossy().to_string()
+        } else {
+            // If no parent directory, put it in the same location
+            "edit_log.jsonl".to_string()
         }
     }
 }

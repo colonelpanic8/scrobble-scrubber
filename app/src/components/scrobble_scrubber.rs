@@ -743,7 +743,9 @@ async fn create_scrubber_instance(
     // Start event logger for JSON logging of edit attempts
     {
         let event_receiver = scrubber.subscribe_events();
-        let log_file_path = format!("{}.edits.jsonl", config.storage.state_file);
+        let log_file_path = ::scrobble_scrubber::config::StorageConfig::get_edit_log_path(
+            &config.storage.state_file,
+        );
         let mut event_logger = ::scrobble_scrubber::event_logger::EventLogger::new(
             log_file_path.clone(),
             true,

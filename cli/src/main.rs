@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl, LastFmError, Result};
-use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
+use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig, StorageConfig};
 use scrobble_scrubber::event_logger::EventLogger;
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
@@ -379,6 +379,13 @@ fn merge_args_into_config(
     if args.enable_openai {
         config.providers.enable_openai = true;
     }
+
+    // Update state file path to use per-user directory if no explicit state file was provided
+    // and we have a username
+    if args.state_file.is_none() && !config.lastfm.username.is_empty() {
+        config.storage.state_file =
+            StorageConfig::get_default_state_file_path_for_user(Some(&config.lastfm.username));
+    }
     if let Some(api_key) = &args.openai_api_key {
         if config.providers.openai.is_none() {
             config.providers.openai = Some(OpenAIProviderConfig {
@@ -391,15 +398,20 @@ fn merge_args_into_config(
         }
     }
     // Update provider configuration based on CLI flags
-    for provider in &args.providers {
-        match provider {
-            ProviderType::Musicbrainz => {
-                config.providers.enable_musicbrainz = true;
-            }
-            ProviderType::Openai => {
-                if args.enable_openai {
-                    // OpenAI was enabled by both flags - this is fine
-                } else {
+    // If --provider flags are specified, disable all providers by default
+    // and only enable the ones explicitly requested
+    if !args.providers.is_empty() {
+        config.providers.enable_rewrite_rules = false;
+        config.providers.enable_openai = false;
+        config.providers.enable_musicbrainz = false;
+        config.providers.enable_http = false;
+
+        for provider in &args.providers {
+            match provider {
+                ProviderType::Musicbrainz => {
+                    config.providers.enable_musicbrainz = true;
+                }
+                ProviderType::Openai => {
                     config.providers.enable_openai = true;
                 }
             }
@@ -869,7 +881,7 @@ async fn main() -> Result<()> {
     // Start event logger for JSON logging of edit attempts
     {
         let event_receiver = scrubber.lock().await.subscribe_events();
-        let log_file_path = format!("{}.edits.jsonl", config.storage.state_file);
+        let log_file_path = StorageConfig::get_edit_log_path(&config.storage.state_file);
         let mut event_logger = EventLogger::new(log_file_path.clone(), true, event_receiver);
 
         tokio::spawn(async move {

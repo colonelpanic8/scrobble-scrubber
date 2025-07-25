@@ -1,4 +1,4 @@
-use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
+use ::scrobble_scrubber::config::{ScrobbleScrubberConfig, StorageConfig};
 use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::track_cache::TrackCache;
@@ -25,8 +25,14 @@ async fn initialize_app_state() -> Result<
     ),
     String,
 > {
-    let config =
+    let mut config =
         ScrobbleScrubberConfig::load().map_err(|e| format!("Failed to load config: {e}"))?;
+
+    // Update state file path to use per-user directory if we have a username
+    if !config.lastfm.username.is_empty() {
+        config.storage.state_file =
+            StorageConfig::get_default_state_file_path_for_user(Some(&config.lastfm.username));
+    }
 
     let state_file = config.storage.state_file.clone();
 
