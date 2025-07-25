@@ -91,6 +91,30 @@ pub fn create_client_from_session(
     lastfm_edit::LastFmEditClientImpl::from_session(Box::new(http_client), session)
 }
 
+/// Async helper to apply an edit using the client without Send issues
+pub async fn apply_edit_with_timeout(
+    session: lastfm_edit::LastFmEditSession,
+    edit: lastfm_edit::ScrobbleEdit,
+) -> Result<lastfm_edit::EditResponse, String> {
+    // Use spawn_blocking to run the non-Send client in a separate thread
+    let handle = tokio::task::spawn_blocking(move || {
+        // Create a Tokio runtime for this thread since the client needs async
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async move {
+            let client = create_client_from_session(session);
+            client.edit_scrobble(&edit).await
+        })
+    });
+
+    // Apply timeout to the spawn_blocking operation
+    match tokio::time::timeout(std::time::Duration::from_secs(10), handle).await {
+        Ok(Ok(Ok(result))) => Ok(result),
+        Ok(Ok(Err(e))) => Err(format!("Failed to apply edit to Last.fm: {}", e)),
+        Ok(Err(e)) => Err(format!("Task execution error: {}", e)),
+        Err(_) => Err("Timeout applying edit to Last.fm".to_string()),
+    }
+}
+
 /// Helper to find and remove an edit by ID
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub async fn remove_pending_edit(
@@ -101,12 +125,13 @@ pub async fn remove_pending_edit(
 
     log::info!("Removing pending edit with ID: {edit_id}");
 
-    let mut pending_edits_state = storage
-        .lock()
-        .await
-        .load_pending_edits_state()
-        .await
-        .to_server_error("Failed to load pending edits")?;
+    let mut pending_edits_state = {
+        let storage_guard = storage.lock().await;
+        storage_guard
+            .load_pending_edits_state()
+            .await
+            .to_server_error("Failed to load pending edits")?
+    };
 
     log::debug!(
         "Loaded {} pending edits from storage",
@@ -133,12 +158,13 @@ pub async fn remove_pending_edit(
         pending_edits_state.pending_edits.len()
     );
 
-    storage
-        .lock()
-        .await
-        .save_pending_edits_state(&pending_edits_state)
-        .await
-        .to_server_error("Failed to save pending edits")?;
+    {
+        let mut storage_guard = storage.lock().await;
+        storage_guard
+            .save_pending_edits_state(&pending_edits_state)
+            .await
+            .to_server_error("Failed to save pending edits")?;
+    }
 
     log::info!("Saved pending edits state to disk");
 
@@ -154,12 +180,13 @@ pub async fn remove_pending_rule(
 
     log::info!("Removing pending rule with ID: {rule_id}");
 
-    let mut pending_rules_state = storage
-        .lock()
-        .await
-        .load_pending_rewrite_rules_state()
-        .await
-        .to_server_error("Failed to load pending rules")?;
+    let mut pending_rules_state = {
+        let storage_guard = storage.lock().await;
+        storage_guard
+            .load_pending_rewrite_rules_state()
+            .await
+            .to_server_error("Failed to load pending rules")?
+    };
 
     log::debug!(
         "Loaded {} pending rules from storage",
@@ -186,12 +213,13 @@ pub async fn remove_pending_rule(
         pending_rules_state.pending_rules.len()
     );
 
-    storage
-        .lock()
-        .await
-        .save_pending_rewrite_rules_state(&pending_rules_state)
-        .await
-        .to_server_error("Failed to save pending rules")?;
+    {
+        let mut storage_guard = storage.lock().await;
+        storage_guard
+            .save_pending_rewrite_rules_state(&pending_rules_state)
+            .await
+            .to_server_error("Failed to save pending rules")?;
+    }
 
     log::info!("Saved pending rules state to disk");
 
@@ -210,21 +238,23 @@ pub async fn approve_rewrite_rule(
     let approved_rule = remove_pending_rule(storage, rule_id).await?;
 
     // Add to active rules
-    let mut rewrite_rules_state = storage
-        .lock()
-        .await
-        .load_rewrite_rules_state()
-        .await
-        .to_server_error("Failed to load rewrite rules")?;
+    let mut rewrite_rules_state = {
+        let storage_guard = storage.lock().await;
+        storage_guard
+            .load_rewrite_rules_state()
+            .await
+            .to_server_error("Failed to load rewrite rules")?
+    };
 
     rewrite_rules_state.rewrite_rules.push(approved_rule.rule);
 
-    storage
-        .lock()
-        .await
-        .save_rewrite_rules_state(&rewrite_rules_state)
-        .await
-        .to_server_error("Failed to save rewrite rules")?;
+    {
+        let mut storage_guard = storage.lock().await;
+        storage_guard
+            .save_rewrite_rules_state(&rewrite_rules_state)
+            .await
+            .to_server_error("Failed to save rewrite rules")?;
+    }
 
     Ok(())
 }

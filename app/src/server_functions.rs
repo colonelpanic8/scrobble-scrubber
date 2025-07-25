@@ -273,29 +273,19 @@ pub async fn approve_pending_edit(
     let storage = create_storage().await?;
     let approved_edit = remove_pending_edit(&storage, &edit_id).await?;
 
-    // Deserialize session and create client
+    // Deserialize session
     let session = deserialize_session(&session_str)?;
-    let client = create_client_from_session(session);
 
     // Convert PendingEdit to ScrobbleEdit
     let edit = approved_edit.to_scrobble_edit();
 
-    // Apply the edit to Last.fm
-    let result = with_timeout(
-        std::time::Duration::from_secs(10),
-        async {
-            client
-                .edit_scrobble(&edit)
-                .await
-                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-        },
-        "applying edit to Last.fm",
-    )
-    .await
-    .map_err(|e| {
-        eprintln!("Error applying edit to Last.fm: {}", e);
-        ServerFnError::new(format!("Failed to apply edit to Last.fm: {}", e))
-    })?;
+    // Apply the edit to Last.fm with timeout
+    let result = crate::error_utils::apply_edit_with_timeout(session, edit)
+        .await
+        .map_err(|e| {
+            eprintln!("Error applying edit to Last.fm: {}", e);
+            ServerFnError::new(e)
+        })?;
 
     log::info!("Successfully applied edit to Last.fm: {:?}", result);
     Ok("Edit approved and applied to Last.fm".to_string())

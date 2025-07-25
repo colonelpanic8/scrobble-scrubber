@@ -140,3 +140,8 @@ impl StateStorage for FileStorage {
         Ok(self.db.get("settings_state").unwrap_or_default())
     }
 }
+
+// PickleDb is not Send + Sync by default, but since we're using it in a controlled manner
+// with proper synchronization via Arc<Mutex<FileStorage>>, we can safely implement Send + Sync
+unsafe impl Send for FileStorage {}
+unsafe impl Sync for FileStorage {}
