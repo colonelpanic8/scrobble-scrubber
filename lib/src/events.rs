@@ -1,5 +1,6 @@
 use crate::scrub_action_provider::ScrubActionSuggestion;
 use chrono::{DateTime, Utc};
+use lastfm_edit::events::ClientEvent;
 use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 
@@ -70,6 +71,8 @@ pub enum ScrubberEventType {
         context: ProcessingContext,
         reason: String,
     },
+    /// Client event forwarded from lastfm-edit client
+    ClientEvent(ClientEvent),
 }
 
 impl ScrubberEvent {
@@ -220,5 +223,9 @@ impl ScrubberEvent {
             context,
             reason,
         })
+    }
+
+    pub fn client_event(client_event: ClientEvent) -> Self {
+        Self::new(ScrubberEventType::ClientEvent(client_event))
     }
 }

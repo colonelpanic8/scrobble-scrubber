@@ -31,18 +31,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         action_provider: P,
         config: ScrobbleScrubberConfig,
     ) -> Self {
-        let (event_sender, _) = broadcast::channel(1000);
-        Self {
-            client,
+        Self::with_track_provider(
             storage,
+            client,
             action_provider,
             config,
-            is_running: Arc::new(RwLock::new(false)),
-            should_stop: Arc::new(Notify::new()),
-            event_sender,
-            trigger_immediate: Arc::new(Notify::new()),
-            track_provider: TrackProvider::Cached(CachedTrackProvider::new()),
-        }
+            TrackProvider::Cached(CachedTrackProvider::new()),
+        )
     }
 
     /// Create a new scrubber with a custom track provider
@@ -54,7 +49,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         track_provider: TrackProvider,
     ) -> Self {
         let (event_sender, _) = broadcast::channel(1000);
-        Self {
+        let mut scrubber = Self {
             client,
             storage,
             action_provider,
@@ -64,7 +59,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
             track_provider,
-        }
+        };
+        scrubber.setup_client_event_forwarding();
+        scrubber
     }
 
     /// Create a new scrubber with cached track provider (default behavior)
@@ -97,6 +94,19 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             config,
             TrackProvider::Direct(DirectTrackProvider::new()),
         )
+    }
+
+    /// Set up forwarding of client events to scrubber events
+    fn setup_client_event_forwarding(&mut self) {
+        let mut client_event_receiver = self.client.subscribe_events();
+        let event_sender = self.event_sender.clone();
+
+        tokio::spawn(async move {
+            while let Ok(client_event) = client_event_receiver.recv().await {
+                let scrubber_event = ScrubberEvent::client_event(client_event);
+                let _ = event_sender.send(scrubber_event);
+            }
+        });
     }
 
     /// Trigger immediate processing, bypassing the normal wait interval
