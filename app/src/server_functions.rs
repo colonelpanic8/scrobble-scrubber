@@ -326,3 +326,13 @@ pub async fn reject_pending_rewrite_rule(rule_id: String) -> Result<String, Serv
     remove_pending_rule(&storage, &rule_id).await?;
     Ok("Rule rejected and removed".to_string())
 }
+
+#[server(GetLatestClientEvent)]
+pub async fn get_latest_client_event(
+    session_str: String,
+) -> Result<Option<crate::types::ClientEvent>, ServerFnError> {
+    let session = deserialize_session(&session_str)?;
+    let client = create_client_from_session(session);
+
+    Ok(client.latest_event().map(|event| event.into()))
+}

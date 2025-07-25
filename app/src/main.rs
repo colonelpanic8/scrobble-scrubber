@@ -137,6 +137,7 @@ fn App() -> Element {
                 } else {
                     div {
                         Navigation { state }
+                        ClientEventIndicator { state }
                         MainContent { state }
                     }
                 }

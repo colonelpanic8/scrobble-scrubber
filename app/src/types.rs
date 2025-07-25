@@ -3,6 +3,7 @@ use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::track_cache::TrackCache;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
@@ -41,9 +42,52 @@ pub enum ScrubberStatus {
     Error(String),
 }
 
+/// Serializable wrapper for Last.fm client events
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ClientEvent {
+    RateLimited(u64),
+}
+
+impl From<lastfm_edit::ClientEvent> for ClientEvent {
+    fn from(event: lastfm_edit::ClientEvent) -> Self {
+        match event {
+            lastfm_edit::ClientEvent::RateLimited(delay) => ClientEvent::RateLimited(delay),
+        }
+    }
+}
+
+/// State for tracking Last.fm client events
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClientEventState {
+    pub latest_event: Option<ClientEvent>,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+impl Default for ClientEventState {
+    fn default() -> Self {
+        Self {
+            latest_event: None,
+            last_updated: chrono::Utc::now(),
+        }
+    }
+}
+
+impl ClientEventState {
+    pub fn update_event(&mut self, event: ClientEvent) {
+        self.latest_event = Some(event);
+        self.last_updated = chrono::Utc::now();
+    }
+
+    pub fn clear_event(&mut self) {
+        self.latest_event = None;
+        self.last_updated = chrono::Utc::now();
+    }
+}
+
 // Using library events directly - no need for duplicate types
 
 pub mod event_formatting {
+    use crate::types::ClientEvent;
     use ::scrobble_scrubber::events::{ScrubberEvent, ScrubberEventType};
 
     /// Format a library event for display in the UI
@@ -144,6 +188,23 @@ pub mod event_formatting {
             ScrubberEventType::TrackSkipped { .. } => "track_skipped",
         }
     }
+
+    /// Format a Last.fm client event for display in the UI
+    pub fn format_client_event_message(event: &ClientEvent) -> String {
+        match event {
+            ClientEvent::RateLimited(delay) => {
+                format!("⏳ Rate limited - waiting {delay}s")
+            }
+        }
+    }
+
+    /// Get a simple client event type string for categorization
+    #[allow(dead_code)]
+    pub fn get_client_event_category(event: &ClientEvent) -> &'static str {
+        match event {
+            ClientEvent::RateLimited(_) => "rate_limited",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -174,6 +235,7 @@ pub struct AppState {
     pub storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
+    pub client_events: ClientEventState, // Last.fm client event tracking
     #[allow(dead_code)]
     pub track_cache: TrackCache, // Disk cache for track data
 }
@@ -201,6 +263,7 @@ impl Default for AppState {
                 current_anchor_timestamp: None,
                 next_cycle_timestamp: None,
             },
+            client_events: ClientEventState::default(),
             track_cache: TrackCache::load(), // Load cache from disk on startup
         }
     }
