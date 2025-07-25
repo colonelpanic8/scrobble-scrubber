@@ -1,5 +1,8 @@
 use chrono::{TimeZone, Utc};
-use lastfm_edit::{EditResponse, LastFmEditClientImpl, MockLastFmEditClient, ScrobbleEdit, Track};
+use lastfm_edit::{
+    EditResponse, LastFmEditClientImpl, LastFmEditSession, MockLastFmEditClient, ScrobbleEdit,
+    Track,
+};
 use mockall::predicate::*;
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
 use scrobble_scrubber::persistence::{MemoryStorage, StateStorage, TimestampState};
@@ -15,7 +18,13 @@ use tokio::sync::Mutex;
 async fn test_scrubber_creation() {
     // Create a dummy client (won't actually be used in this test)
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::new(Box::new(http_client));
+    let session = LastFmEditSession::new(
+        "test_user".to_string(),
+        vec!["test_cookie".to_string()],
+        Some("test_csrf".to_string()),
+        "https://www.last.fm".to_string(),
+    );
+    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
 
     // Set up storage
     let storage = Arc::new(Mutex::new(MemoryStorage::new()));
@@ -44,7 +53,13 @@ async fn test_scrubber_creation() {
 async fn test_scrubber_is_not_running_initially() {
     // Create a minimal scrubber setup
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::new(Box::new(http_client));
+    let session = LastFmEditSession::new(
+        "test_user".to_string(),
+        vec!["test_cookie".to_string()],
+        Some("test_csrf".to_string()),
+        "https://www.last.fm".to_string(),
+    );
+    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
     let storage = Arc::new(Mutex::new(MemoryStorage::new()));
     let rules_state = scrobble_scrubber::persistence::RewriteRulesState {
         rewrite_rules: vec![],

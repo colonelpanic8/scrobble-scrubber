@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use config::ConfigError;
-use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
+use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl, LastFmError, Result};
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig};
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
@@ -710,12 +710,14 @@ async fn main() -> Result<()> {
 
     // Create and login to LastFM client
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::new(Box::new(http_client));
 
     log::info!("Logging in to Last.fm...");
-    client
-        .login(&config.lastfm.username, &config.lastfm.password)
-        .await?;
+    let client = LastFmEditClientImpl::login_with_credentials(
+        Box::new(http_client),
+        &config.lastfm.username,
+        &config.lastfm.password,
+    )
+    .await?;
     log::info!("Successfully logged in to Last.fm");
 
     // Create storage wrapped in Arc<Mutex<>>

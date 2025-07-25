@@ -92,6 +92,7 @@ pub fn create_client_from_session(
 }
 
 /// Async helper to apply an edit using the client without Send issues
+#[allow(dead_code)] // Used in #[server] macro-generated code
 pub async fn apply_edit_with_timeout(
     session: lastfm_edit::LastFmEditSession,
     edit: lastfm_edit::ScrobbleEdit,
@@ -109,8 +110,8 @@ pub async fn apply_edit_with_timeout(
     // Apply timeout to the spawn_blocking operation
     match tokio::time::timeout(std::time::Duration::from_secs(10), handle).await {
         Ok(Ok(Ok(result))) => Ok(result),
-        Ok(Ok(Err(e))) => Err(format!("Failed to apply edit to Last.fm: {}", e)),
-        Ok(Err(e)) => Err(format!("Task execution error: {}", e)),
+        Ok(Ok(Err(e))) => Err(format!("Failed to apply edit to Last.fm: {e}")),
+        Ok(Err(e)) => Err(format!("Task execution error: {e}")),
         Err(_) => Err("Timeout applying edit to Last.fm".to_string()),
     }
 }

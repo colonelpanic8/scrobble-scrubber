@@ -4,7 +4,8 @@ use crate::error_utils::{
     remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
 };
 use dioxus::prelude::*;
-use lastfm_edit::Track;
+#[allow(unused_imports)] // Traits needed for methods but appear unused to compiler
+use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Track};
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 #[server(LoginToLastfm)]
@@ -15,12 +16,14 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
 
     // Create HTTP client and LastFM client
     let http_client = http_client::native::NativeClient::new();
-    let client = lastfm_edit::LastFmEditClientImpl::new(Box::new(http_client));
 
-    client
-        .login(&username, &password)
-        .await
-        .to_server_error("Login failed")?;
+    let client = lastfm_edit::LastFmEditClientImpl::login_with_credentials(
+        Box::new(http_client),
+        &username,
+        &password,
+    )
+    .await
+    .to_server_error("Login failed")?;
 
     // Get the session and serialize it
     let session = client.get_session();
@@ -98,17 +101,29 @@ pub async fn load_artist_tracks(
     // Fetch tracks from each album
     let mut all_tracks = Vec::new();
     for album in albums {
-        let album_tracks = client_for_tracks
-            .get_album_tracks(&album.name, &artist_name)
-            .await
-            .unwrap_or_else(|e| {
-                eprintln!("Error fetching tracks for album '{}': {e}", album.name);
-                Vec::new()
-            });
+        // Use spawn_blocking to handle the non-Send iterator
+        let client_clone = create_client_from_session(deserialize_session(&session_str)?);
+        let album_name = album.name.clone();
+        let artist_name_clone = artist_name.clone();
 
-        for track in album_tracks {
-            all_tracks.push(track);
-        }
+        let album_tracks = tokio::task::spawn_blocking(move || {
+            // Create a tokio runtime for this blocking task
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async move {
+                let mut tracks = Vec::new();
+                let mut iter = client_clone.album_tracks(&album_name, &artist_name_clone);
+
+                // Collect all tracks from the iterator
+                while let Ok(Some(track)) = iter.next().await {
+                    tracks.push(track);
+                }
+                tracks
+            })
+        })
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to fetch album tracks: {e}")))?;
+
+        all_tracks.extend(album_tracks);
     }
 
     if all_tracks.is_empty() {

@@ -3633,9 +3633,9 @@ dependencies = [
 
 [[package]]
 name = "lastfm-edit"
-version = "2.3.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46a29ab56779a77f71389650ca7c94bd11088f666ee9d6b5e115349b1ddb6e17"
+checksum = "65c1a654bd9e2f199e7b56fe5e5575e2ca1a20b009b8a118472ff8173f8bf83f"
 dependencies = [
  "async-trait",
  "chrono",
