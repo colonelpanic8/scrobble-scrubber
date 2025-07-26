@@ -35,6 +35,8 @@ pub enum Route {
     CacheManagement {},
     #[route("/musicbrainz")]
     MusicBrainz {},
+    #[route("/config")]
+    Config {},
 }
 
 // Helper function to initialize config and storage
@@ -262,4 +264,8 @@ fn MusicBrainz() -> Element {
     rsx! { MusicBrainzPage { state } }
 }
 
+#[component]
+fn Config() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { ConfigPage { state } }
 }

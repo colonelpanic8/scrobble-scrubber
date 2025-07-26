@@ -145,7 +145,7 @@ pub struct ProvidersConfig {
     pub musicbrainz: Option<MusicBrainzProviderConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenAIProviderConfig {
     /// `OpenAI` API key
     pub api_key: String,
@@ -163,7 +163,7 @@ pub struct HttpProviderConfig {
     pub timeout_seconds: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MusicBrainzProviderConfig {
     /// Confidence threshold for accepting MusicBrainz matches (0.0-1.0)
     pub confidence_threshold: f32,
