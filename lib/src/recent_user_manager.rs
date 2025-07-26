@@ -162,8 +162,8 @@ mod tests {
         let mut user_data = RecentUserData::new("testuser".to_string());
         let original_time = user_data.last_used;
         
-        // Sleep a bit to ensure time difference
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // Sleep long enough to ensure time difference in seconds resolution
+        std::thread::sleep(std::time::Duration::from_secs(1));
         
         user_data.update_last_used();
         assert!(user_data.last_used > original_time);
