@@ -8,7 +8,7 @@ use std::path::PathBuf;
 pub struct RecentUserData {
     /// The most recently used username
     pub username: String,
-    /// When this username was last used (Unix timestamp) 
+    /// When this username was last used (Unix timestamp)
     pub last_used: u64,
     /// Version for future compatibility
     pub version: u32,
@@ -53,9 +53,7 @@ impl RecentUserManager {
     /// Get the recent user file path using XDG data directory
     fn get_recent_user_file_path() -> PathBuf {
         if let Some(data_dir) = dirs::data_dir() {
-            data_dir
-                .join("scrobble-scrubber")
-                .join("recent_user.json")
+            data_dir.join("scrobble-scrubber").join("recent_user.json")
         } else {
             // Fallback to current directory if XDG data directory is not available
             PathBuf::from("recent_user.json")
@@ -146,13 +144,13 @@ mod tests {
         let user_data = RecentUserData::new("testuser".to_string());
         assert_eq!(user_data.username, "testuser");
         assert_eq!(user_data.version, 1);
-        
+
         // Should have a reasonable timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         // Should be within a few seconds
         assert!(user_data.last_used <= now && user_data.last_used >= (now - 10));
     }
@@ -161,10 +159,10 @@ mod tests {
     fn test_update_last_used() {
         let mut user_data = RecentUserData::new("testuser".to_string());
         let original_time = user_data.last_used;
-        
+
         // Sleep long enough to ensure time difference in seconds resolution
         std::thread::sleep(std::time::Duration::from_secs(1));
-        
+
         user_data.update_last_used();
         assert!(user_data.last_used > original_time);
     }

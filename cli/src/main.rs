@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use config::ConfigError;
+use lastfm_edit::SessionManager;
 use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl, LastFmError, Result};
 use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig, StorageConfig};
 use scrobble_scrubber::event_logger::EventLogger;
@@ -9,7 +10,6 @@ use scrobble_scrubber::scrub_action_provider::{
     OrScrubActionProvider, RewriteRulesScrubActionProvider,
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
-use lastfm_edit::SessionManager;
 use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -741,7 +741,7 @@ async fn create_authenticated_client(
     .await?;
 
     let session = client.get_session();
-    
+
     // Save the session for future use
     if let Err(e) = session_manager.save_session(&session) {
         log::warn!("Failed to save session: {e}");

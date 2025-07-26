@@ -127,7 +127,7 @@ fn App() -> Element {
                                 s.track_cache = TrackCache::load();
                             });
                         }
-                    },
+                    }
                     Ok(None) => {
                         // No saved session, try auto-login with config/env vars
                         let config = state.read().config.as_ref().cloned();
@@ -145,7 +145,7 @@ fn App() -> Element {
                                 });
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         eprintln!("Failed to restore session: {e}");
                         // Fallback to auto-login
