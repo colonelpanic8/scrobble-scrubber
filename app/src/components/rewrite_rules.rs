@@ -1,5 +1,5 @@
+use crate::api::{load_artist_tracks, load_recent_tracks_from_page};
 use crate::components::RulePreview;
-use crate::server_functions::{load_artist_tracks, load_recent_tracks_from_page};
 use crate::types::{AppState, PreviewType, TrackSourceState};
 use crate::utils::{clear_all_rules, get_current_tracks, remove_rule_at_index};
 use ::scrobble_scrubber::track_cache::TrackCache;

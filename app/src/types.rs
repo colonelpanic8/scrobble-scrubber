@@ -6,7 +6,6 @@ use ::scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
-
 #[derive(Clone, Debug)]
 pub struct TrackSourceState {
     pub enabled: bool,

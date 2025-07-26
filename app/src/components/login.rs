@@ -1,4 +1,4 @@
-use crate::server_functions::{load_recent_tracks_from_page, login_to_lastfm};
+use crate::api::{load_recent_tracks_from_page, login_to_lastfm};
 use crate::types::AppState;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;

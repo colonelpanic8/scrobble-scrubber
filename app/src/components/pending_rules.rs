@@ -1,4 +1,4 @@
-use crate::server_functions::{
+use crate::api::{
     approve_pending_rewrite_rule, load_pending_rewrite_rules, reject_pending_rewrite_rule,
 };
 use crate::types::AppState;
@@ -14,7 +14,8 @@ fn create_operation_handler<F, Fut>(
 ) -> impl Fn() + 'static
 where
     F: Fn() -> Fut + Clone + 'static,
-    Fut: std::future::Future<Output = Result<String, dioxus::prelude::ServerFnError>> + 'static,
+    Fut: std::future::Future<Output = Result<String, Box<dyn std::error::Error + Send + Sync>>>
+        + 'static,
 {
     move || {
         let operation = operation.clone();

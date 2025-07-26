@@ -1,14 +1,14 @@
-use dioxus::prelude::*;
+use dioxus::prelude::{spawn, Signal, Writable};
 
-/// Helper trait to convert any error to ServerFnError with context
-pub trait ToServerError<T> {
-    #[allow(dead_code)] // Used in #[server] macro-generated code
-    fn to_server_error(self, context: &str) -> Result<T, ServerFnError>;
+/// Helper trait to convert any error to Box<dyn Error> with context
+pub trait ToBoxError<T> {
+    #[allow(dead_code)] // Used in function implementations
+    fn to_box_error(self, context: &str) -> Result<T, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-impl<T, E: std::fmt::Display> ToServerError<T> for Result<T, E> {
-    fn to_server_error(self, context: &str) -> Result<T, ServerFnError> {
-        self.map_err(|e| ServerFnError::new(format!("{context}: {e}")))
+impl<T, E: std::fmt::Display> ToBoxError<T> for Result<T, E> {
+    fn to_box_error(self, context: &str) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
+        self.map_err(|e| format!("{context}: {e}").into())
     }
 }
 
@@ -59,17 +59,17 @@ where
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub async fn create_storage() -> Result<
     std::sync::Arc<tokio::sync::Mutex<scrobble_scrubber::persistence::FileStorage>>,
-    ServerFnError,
+    Box<dyn std::error::Error + Send + Sync>,
 > {
     use scrobble_scrubber::config::ScrobbleScrubberConfig;
     use scrobble_scrubber::persistence::FileStorage;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
-    let config = ScrobbleScrubberConfig::load().to_server_error("Failed to load config")?;
+    let config = ScrobbleScrubberConfig::load().to_box_error("Failed to load config")?;
 
     let storage = FileStorage::new(&config.storage.state_file)
-        .to_server_error("Failed to initialize storage")?;
+        .to_box_error("Failed to initialize storage")?;
 
     Ok(Arc::new(Mutex::new(storage)))
 }
@@ -78,8 +78,8 @@ pub async fn create_storage() -> Result<
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub fn deserialize_session(
     session_str: &str,
-) -> Result<lastfm_edit::LastFmEditSession, ServerFnError> {
-    serde_json::from_str(session_str).to_server_error("Failed to deserialize session")
+) -> Result<lastfm_edit::LastFmEditSession, Box<dyn std::error::Error + Send + Sync>> {
+    serde_json::from_str(session_str).to_box_error("Failed to deserialize session")
 }
 
 /// Helper to create LastFM client from session (legacy)
@@ -121,7 +121,7 @@ pub async fn apply_edit_with_timeout(
 pub async fn remove_pending_edit(
     storage: &std::sync::Arc<tokio::sync::Mutex<scrobble_scrubber::persistence::FileStorage>>,
     edit_id: &str,
-) -> Result<scrobble_scrubber::persistence::PendingEdit, ServerFnError> {
+) -> Result<scrobble_scrubber::persistence::PendingEdit, Box<dyn std::error::Error + Send + Sync>> {
     use scrobble_scrubber::persistence::StateStorage;
 
     log::info!("Removing pending edit with ID: {edit_id}");
@@ -131,7 +131,7 @@ pub async fn remove_pending_edit(
         storage_guard
             .load_pending_edits_state()
             .await
-            .to_server_error("Failed to load pending edits")?
+            .to_box_error("Failed to load pending edits")?
     };
 
     log::debug!(
@@ -149,7 +149,7 @@ pub async fn remove_pending_edit(
                 edit_id,
                 pending_edits_state.pending_edits.len()
             );
-            ServerFnError::new("Edit not found")
+            Box::<dyn std::error::Error + Send + Sync>::from("Edit not found")
         })?;
 
     let removed_edit = pending_edits_state.pending_edits.remove(edit_index);
@@ -164,7 +164,7 @@ pub async fn remove_pending_edit(
         storage_guard
             .save_pending_edits_state(&pending_edits_state)
             .await
-            .to_server_error("Failed to save pending edits")?;
+            .to_box_error("Failed to save pending edits")?;
     }
 
     log::info!("Saved pending edits state to disk");
@@ -176,7 +176,10 @@ pub async fn remove_pending_edit(
 pub async fn remove_pending_rule(
     storage: &std::sync::Arc<tokio::sync::Mutex<scrobble_scrubber::persistence::FileStorage>>,
     rule_id: &str,
-) -> Result<scrobble_scrubber::persistence::PendingRewriteRule, ServerFnError> {
+) -> Result<
+    scrobble_scrubber::persistence::PendingRewriteRule,
+    Box<dyn std::error::Error + Send + Sync>,
+> {
     use scrobble_scrubber::persistence::StateStorage;
 
     log::info!("Removing pending rule with ID: {rule_id}");
@@ -186,7 +189,7 @@ pub async fn remove_pending_rule(
         storage_guard
             .load_pending_rewrite_rules_state()
             .await
-            .to_server_error("Failed to load pending rules")?
+            .to_box_error("Failed to load pending rules")?
     };
 
     log::debug!(
@@ -204,7 +207,7 @@ pub async fn remove_pending_rule(
                 rule_id,
                 pending_rules_state.pending_rules.len()
             );
-            ServerFnError::new("Rule not found")
+            Box::<dyn std::error::Error + Send + Sync>::from("Rule not found")
         })?;
 
     let removed_rule = pending_rules_state.pending_rules.remove(rule_index);
@@ -219,7 +222,7 @@ pub async fn remove_pending_rule(
         storage_guard
             .save_pending_rewrite_rules_state(&pending_rules_state)
             .await
-            .to_server_error("Failed to save pending rules")?;
+            .to_box_error("Failed to save pending rules")?;
     }
 
     log::info!("Saved pending rules state to disk");
@@ -232,7 +235,7 @@ pub async fn remove_pending_rule(
 pub async fn approve_rewrite_rule(
     storage: &std::sync::Arc<tokio::sync::Mutex<scrobble_scrubber::persistence::FileStorage>>,
     rule_id: &str,
-) -> Result<(), ServerFnError> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use scrobble_scrubber::persistence::StateStorage;
 
     // Remove from pending rules
@@ -244,7 +247,7 @@ pub async fn approve_rewrite_rule(
         storage_guard
             .load_rewrite_rules_state()
             .await
-            .to_server_error("Failed to load rewrite rules")?
+            .to_box_error("Failed to load rewrite rules")?
     };
 
     rewrite_rules_state.rewrite_rules.push(approved_rule.rule);
@@ -254,7 +257,7 @@ pub async fn approve_rewrite_rule(
         storage_guard
             .save_rewrite_rules_state(&rewrite_rules_state)
             .await
-            .to_server_error("Failed to save rewrite rules")?;
+            .to_box_error("Failed to save rewrite rules")?;
     }
 
     Ok(())

@@ -7,31 +7,31 @@ use dioxus_router::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+mod api;
 mod components;
 mod error_utils;
-mod server_functions;
 mod types;
 mod utils;
 
+use api::*;
 use components::*;
-use server_functions::*;
 use types::*;
 
 #[derive(Routable, Clone, Debug, PartialEq)]
 pub enum Route {
     #[layout(AppLayout)]
-        #[route("/")]
-        ScrobbleScrubber {},
-        #[route("/rule-workshop")]
-        RuleWorkshop {},
-        #[route("/rewrite-rules")]
-        RewriteRules {},
-        #[route("/pending-edits")]
-        PendingEdits {},
-        #[route("/pending-rules")]
-        PendingRules {},
-        #[route("/cache-management")]
-        CacheManagement {},
+    #[route("/")]
+    ScrobbleScrubber {},
+    #[route("/rule-workshop")]
+    RuleWorkshop {},
+    #[route("/rewrite-rules")]
+    RewriteRules {},
+    #[route("/pending-edits")]
+    PendingEdits {},
+    #[route("/pending-rules")]
+    PendingRules {},
+    #[route("/cache-management")]
+    CacheManagement {},
 }
 
 // Helper function to initialize config and storage

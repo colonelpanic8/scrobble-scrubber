@@ -57,6 +57,13 @@ pub async fn try_restore_session(
     Ok(None)
 }
 
+#[allow(dead_code)]
+pub async fn load_recent_tracks(
+    session_str: String,
+) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
+    load_recent_tracks_from_page(session_str, 1).await
+}
+
 // Helper function to fetch artist albums (not a server function to avoid Send issues)
 #[allow(dead_code)]
 async fn fetch_artist_albums(

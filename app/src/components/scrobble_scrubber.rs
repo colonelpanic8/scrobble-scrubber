@@ -1,4 +1,4 @@
-use crate::server_functions::load_recent_tracks_from_page;
+use crate::api::load_recent_tracks_from_page;
 use crate::types::{event_formatting, AppState, ScrubberStatus};
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::track_cache::TrackCache;

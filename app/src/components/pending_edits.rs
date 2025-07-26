@@ -1,4 +1,4 @@
-use crate::server_functions::{approve_pending_edit, load_pending_edits, reject_pending_edit};
+use crate::api::{approve_pending_edit, load_pending_edits, reject_pending_edit};
 use crate::types::AppState;
 use dioxus::prelude::*;
 use scrobble_scrubber::persistence::PendingEdit;
@@ -12,7 +12,8 @@ fn create_operation_handler<F, Fut>(
 ) -> impl Fn() + 'static
 where
     F: Fn() -> Fut + Clone + 'static,
-    Fut: std::future::Future<Output = Result<String, dioxus::prelude::ServerFnError>> + 'static,
+    Fut: std::future::Future<Output = Result<String, Box<dyn std::error::Error + Send + Sync>>>
+        + 'static,
 {
     move || {
         let operation = operation.clone();
@@ -128,7 +129,7 @@ pub fn PendingEditsPage(state: Signal<AppState>) -> Element {
                                                 if let Some(session_str) = session_str {
                                                     approve_pending_edit(session_str, edit_id).await
                                                 } else {
-                                                    Err(dioxus::prelude::ServerFnError::new("No session available"))
+                                                    Err(Box::<dyn std::error::Error + Send + Sync>::from("No session available"))
                                                 }
                                             }
                                         },

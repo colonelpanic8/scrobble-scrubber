@@ -1,4 +1,4 @@
-use crate::server_functions::{clear_cache, get_cache_stats, load_recent_tracks_from_page};
+use crate::api::{clear_cache, get_cache_stats, load_recent_tracks_from_page};
 use crate::types::AppState;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
