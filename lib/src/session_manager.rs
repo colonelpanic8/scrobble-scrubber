@@ -43,7 +43,9 @@ impl SessionManager {
             }
             Err(e) => {
                 warn!("Failed to save session: {e}");
-                Err(std::io::Error::other(format!("Failed to save session: {e}")))
+                Err(std::io::Error::other(format!(
+                    "Failed to save session: {e}"
+                )))
             }
         }
     }
@@ -118,7 +120,9 @@ impl SessionManager {
             }
             Err(e) => {
                 warn!("Failed to clear session: {e}");
-                Err(std::io::Error::other(format!("Failed to clear session: {e}")))
+                Err(std::io::Error::other(format!(
+                    "Failed to clear session: {e}"
+                )))
             }
         }
     }

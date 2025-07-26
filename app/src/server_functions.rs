@@ -1,6 +1,6 @@
 #[allow(unused_imports)] // Functions are used in #[server] macro-generated code
 use crate::error_utils::{
-    approve_rewrite_rule, create_storage, deserialize_session, create_client_from_session,
+    approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
     remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
 };
 use dioxus::prelude::*;
@@ -17,7 +17,7 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
     // Use SessionManager to create and save session
     use scrobble_scrubber::session_manager::SessionManager;
     let session_manager = SessionManager::new(&username);
-    
+
     let session = session_manager
         .create_and_save_session(&username, &password)
         .await
@@ -35,22 +35,22 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
 #[server(TryRestoreSession)]
 pub async fn try_restore_session() -> Result<Option<String>, ServerFnError> {
     use scrobble_scrubber::recent_user_manager::RecentUserManager;
-    
+
     // Get the most recent username
     let recent_user_manager = RecentUserManager::new();
     if let Some(username) = recent_user_manager.get_recent_username() {
         use scrobble_scrubber::session_manager::SessionManager;
         let session_manager = SessionManager::new(&username);
-        
+
         // Try to restore the session
         if let Some(session) = session_manager.try_restore_session().await {
             // Return serialized session for compatibility
-            let session_str = serde_json::to_string(&session)
-                .to_server_error("Failed to serialize session")?;
+            let session_str =
+                serde_json::to_string(&session).to_server_error("Failed to serialize session")?;
             return Ok(Some(session_str));
         }
     }
-    
+
     Ok(None)
 }
 

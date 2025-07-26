@@ -48,6 +48,88 @@ async fn initialize_app_state() -> Result<
     Ok((config, Some(Arc::new(Mutex::new(storage))), saved_rules))
 }
 
+// Helper function to initialize app state from config and storage
+async fn initialize_app_state_signal(mut state: Signal<AppState>) {
+    match initialize_app_state().await {
+        Ok((config, storage, saved_rules)) => {
+            state.with_mut(|s| {
+                s.config = Some(config);
+                s.storage = storage;
+                s.saved_rules = saved_rules;
+
+                // Initialize artist track states for cached artists (enabled by default)
+                for artist_name in s.track_cache.artist_tracks.keys() {
+                    s.artist_tracks
+                        .insert(artist_name.clone(), TrackSourceState { enabled: true });
+                }
+
+                // With the new cache structure, we default to page 1 if tracks exist
+                if !s.track_cache.recent_tracks.is_empty() {
+                    s.current_page = 1;
+                }
+            });
+        }
+        Err(e) => {
+            eprintln!("Failed to initialize app: {e}");
+        }
+    }
+}
+
+// Helper function to load tracks after successful login/session restore
+async fn load_tracks_after_login(
+    mut state: Signal<AppState>,
+    session_str: String,
+) -> Result<(), String> {
+    load_recent_tracks_from_page(session_str, 1)
+        .await
+        .map_err(|e| format!("Failed to load recent tracks: {e}"))?;
+
+    state.with_mut(|s| {
+        s.current_page = 1;
+        s.track_cache = TrackCache::load();
+    });
+
+    Ok(())
+}
+
+// Helper function to handle successful login
+async fn handle_successful_login(mut state: Signal<AppState>, session_str: String) {
+    state.with_mut(|s| {
+        s.logged_in = true;
+        s.session = Some(session_str.clone());
+    });
+    let _ = load_tracks_after_login(state, session_str).await;
+}
+
+// Helper function to handle session restoration and auto-login
+async fn handle_session_restore_and_login(state: Signal<AppState>) {
+    if state.read().logged_in {
+        return;
+    }
+
+    // First try to restore a saved session
+    match try_restore_session().await {
+        Ok(Some(session_str)) => {
+            handle_successful_login(state, session_str).await;
+        }
+        Ok(None) => {
+            // No saved session, try auto-login with config/env vars
+            let config = state.read().config.as_ref().cloned();
+            if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
+                handle_successful_login(state, session_str).await;
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to restore session: {e}");
+            // Fallback to auto-login
+            let config = state.read().config.as_ref().cloned();
+            if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
+                handle_successful_login(state, session_str).await;
+            }
+        }
+    }
+}
+
 // Helper function to attempt auto-login
 async fn attempt_auto_login(config: Option<&ScrobbleScrubberConfig>) -> Option<String> {
     let (username, password) = match config {
@@ -77,96 +159,16 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let mut state = use_signal(AppState::default);
+    let state = use_signal(AppState::default);
 
     // Initialize config and storage
     use_effect(move || {
-        spawn(async move {
-            match initialize_app_state().await {
-                Ok((config, storage, saved_rules)) => {
-                    state.with_mut(|s| {
-                        s.config = Some(config);
-                        s.storage = storage;
-                        s.saved_rules = saved_rules;
-
-                        // Initialize artist track states for cached artists (enabled by default)
-                        for artist_name in s.track_cache.artist_tracks.keys() {
-                            s.artist_tracks
-                                .insert(artist_name.clone(), TrackSourceState { enabled: true });
-                        }
-
-                        // With the new cache structure, we default to page 1 if tracks exist
-                        if !s.track_cache.recent_tracks.is_empty() {
-                            s.current_page = 1;
-                        }
-                    });
-                }
-                Err(e) => {
-                    eprintln!("Failed to initialize app: {e}");
-                }
-            }
-        });
+        spawn(initialize_app_state_signal(state));
     });
 
     // Try auto-restore session or fallback to auto-login
     use_effect(move || {
-        spawn(async move {
-            if !state.read().logged_in {
-                // First try to restore a saved session
-                match try_restore_session().await {
-                    Ok(Some(session_str)) => {
-                        state.with_mut(|s| {
-                            s.logged_in = true;
-                            s.session = Some(session_str.clone());
-                        });
-
-                        // Load recent tracks using the restored session
-                        if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
-                            state.with_mut(|s| {
-                                s.current_page = 1;
-                                s.track_cache = TrackCache::load();
-                            });
-                        }
-                    },
-                    Ok(None) => {
-                        // No saved session, try auto-login with config/env vars
-                        let config = state.read().config.as_ref().cloned();
-                        if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
-                            state.with_mut(|s| {
-                                s.logged_in = true;
-                                s.session = Some(session_str.clone());
-                            });
-
-                            // Load recent tracks using the session
-                            if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
-                                state.with_mut(|s| {
-                                    s.current_page = 1;
-                                    s.track_cache = TrackCache::load();
-                                });
-                            }
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Failed to restore session: {e}");
-                        // Fallback to auto-login
-                        let config = state.read().config.as_ref().cloned();
-                        if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
-                            state.with_mut(|s| {
-                                s.logged_in = true;
-                                s.session = Some(session_str.clone());
-                            });
-
-                            if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
-                                state.with_mut(|s| {
-                                    s.current_page = 1;
-                                    s.track_cache = TrackCache::load();
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        spawn(handle_session_restore_and_login(state));
     });
 
     rsx! {

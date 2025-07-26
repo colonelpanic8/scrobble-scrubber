@@ -82,7 +82,6 @@ pub fn deserialize_session(
     serde_json::from_str(session_str).to_server_error("Failed to deserialize session")
 }
 
-
 /// Helper to create LastFM client from session (legacy)
 #[allow(dead_code)] // Used in #[server] macro-generated code
 pub fn create_client_from_session(
