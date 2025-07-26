@@ -14,14 +14,25 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
         return Err(ServerFnError::new("Username and password are required"));
     }
 
-    // Use SessionManager to create and save session
-    use scrobble_scrubber::session_manager::SessionManager;
-    let session_manager = SessionManager::new(&username);
+    // Use lastfm-edit's SessionManager directly
+    use lastfm_edit::SessionManager;
+    let session_manager = SessionManager::new("scrobble-scrubber");
     
-    let session = session_manager
-        .create_and_save_session(&username, &password)
-        .await
-        .to_server_error("Login failed")?;
+    // Create HTTP client and login
+    let http_client = http_client::native::NativeClient::new();
+    let client = lastfm_edit::LastFmEditClientImpl::login_with_credentials(
+        Box::new(http_client),
+        &username,
+        &password,
+    )
+    .await
+    .to_server_error("Login failed")?;
+
+    let session = client.get_session();
+    
+    // Save the session
+    session_manager.save_session(&session)
+        .to_server_error("Failed to save session")?;
 
     // Update recent user
     use scrobble_scrubber::recent_user_manager::RecentUserManager;
@@ -39,15 +50,20 @@ pub async fn try_restore_session() -> Result<Option<String>, ServerFnError> {
     // Get the most recent username
     let recent_user_manager = RecentUserManager::new();
     if let Some(username) = recent_user_manager.get_recent_username() {
-        use scrobble_scrubber::session_manager::SessionManager;
-        let session_manager = SessionManager::new(&username);
+        use lastfm_edit::SessionManager;
+        let session_manager = SessionManager::new("scrobble-scrubber");
         
-        // Try to restore the session
-        if let Some(session) = session_manager.try_restore_session().await {
-            // Return serialized session for compatibility
-            let session_str = serde_json::to_string(&session)
-                .to_server_error("Failed to serialize session")?;
-            return Ok(Some(session_str));
+        // Try to load the session
+        match session_manager.load_session(&username) {
+            Ok(session) => {
+                // Return serialized session for compatibility
+                let session_str = serde_json::to_string(&session)
+                    .to_server_error("Failed to serialize session")?;
+                return Ok(Some(session_str));
+            }
+            Err(_) => {
+                // No session found for this user
+            }
         }
     }
     

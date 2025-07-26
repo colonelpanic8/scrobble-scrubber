@@ -9,7 +9,7 @@ use scrobble_scrubber::scrub_action_provider::{
     OrScrubActionProvider, RewriteRulesScrubActionProvider,
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
-use scrobble_scrubber::session_manager::SessionManager;
+use lastfm_edit::SessionManager;
 use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -705,19 +705,21 @@ async fn show_recent_tracks_from_api(client: &LastFmEditClientImpl, limit: usize
 async fn create_authenticated_client(
     config: &ScrobbleScrubberConfig,
 ) -> Result<LastFmEditClientImpl> {
-    let session_manager = SessionManager::new(&config.lastfm.username);
+    let session_manager = SessionManager::new("scrobble-scrubber");
 
     // Try to restore an existing session first
-    if let Some(persisted_session) = session_manager.try_restore_session().await {
-        log::info!(
-            "Using existing session for user: {}",
-            persisted_session.username
-        );
-        let http_client = http_client::native::NativeClient::new();
-        return Ok(LastFmEditClientImpl::from_session(
-            Box::new(http_client),
-            persisted_session.session,
-        ));
+    match session_manager.load_session(&config.lastfm.username) {
+        Ok(session) => {
+            log::info!("Using existing session for user: {}", session.username);
+            let http_client = http_client::native::NativeClient::new();
+            return Ok(LastFmEditClientImpl::from_session(
+                Box::new(http_client),
+                session,
+            ));
+        }
+        Err(_) => {
+            log::info!("No existing session found, creating new one");
+        }
     }
 
     // No valid session found, need to login with credentials
@@ -729,24 +731,25 @@ async fn create_authenticated_client(
         )));
     }
 
-    // Create new session and save it
-    match session_manager
-        .create_and_save_session(&config.lastfm.username, &config.lastfm.password)
-        .await
-    {
-        Ok(persisted_session) => {
-            log::info!("Successfully logged in and saved session for future use");
-            let http_client = http_client::native::NativeClient::new();
-            Ok(LastFmEditClientImpl::from_session(
-                Box::new(http_client),
-                persisted_session.session,
-            ))
-        }
-        Err(e) => {
-            log::error!("Login failed: {e}");
-            Err(e)
-        }
+    // Create HTTP client and login
+    let http_client = http_client::native::NativeClient::new();
+    let client = LastFmEditClientImpl::login_with_credentials(
+        Box::new(http_client),
+        &config.lastfm.username,
+        &config.lastfm.password,
+    )
+    .await?;
+
+    let session = client.get_session();
+    
+    // Save the session for future use
+    if let Err(e) = session_manager.save_session(&session) {
+        log::warn!("Failed to save session: {e}");
+    } else {
+        log::info!("Successfully logged in and saved session for future use");
     }
+
+    Ok(client)
 }
 
 #[tokio::main]
@@ -924,13 +927,17 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         Commands::ClearSession => {
-            let session_manager = SessionManager::new(&config.lastfm.username);
-            if let Err(e) = session_manager.clear_session() {
-                log::error!("Failed to clear session: {e}");
-                return Err(LastFmError::Io(e));
+            let session_manager = SessionManager::new("scrobble-scrubber");
+            match session_manager.remove_session(&config.lastfm.username) {
+                Ok(()) => {
+                    println!("✅ Session cleared successfully");
+                    println!("Next run will require username/password login");
+                }
+                Err(e) => {
+                    log::error!("Failed to clear session: {e}");
+                    return Err(e);
+                }
             }
-            println!("✅ Session cleared successfully");
-            println!("Next run will require username/password login");
             return Ok(());
         }
         _ => {
