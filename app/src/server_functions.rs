@@ -1,6 +1,6 @@
 #[allow(unused_imports)] // Functions are used in #[server] macro-generated code
 use crate::error_utils::{
-    approve_rewrite_rule, create_storage, deserialize_session, create_client_from_session,
+    approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
     remove_pending_edit, remove_pending_rule, with_timeout, ToServerError,
 };
 use dioxus::prelude::*;
@@ -17,7 +17,7 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
     // Use lastfm-edit's SessionManager directly
     use lastfm_edit::SessionManager;
     let session_manager = SessionManager::new("scrobble-scrubber");
-    
+
     // Create HTTP client and login
     let http_client = http_client::native::NativeClient::new();
     let client = lastfm_edit::LastFmEditClientImpl::login_with_credentials(
@@ -29,9 +29,10 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
     .to_server_error("Login failed")?;
 
     let session = client.get_session();
-    
+
     // Save the session
-    session_manager.save_session(&session)
+    session_manager
+        .save_session(&session)
         .to_server_error("Failed to save session")?;
 
     // Update recent user
@@ -46,13 +47,13 @@ pub async fn login_to_lastfm(username: String, password: String) -> Result<Strin
 #[server(TryRestoreSession)]
 pub async fn try_restore_session() -> Result<Option<String>, ServerFnError> {
     use scrobble_scrubber::recent_user_manager::RecentUserManager;
-    
+
     // Get the most recent username
     let recent_user_manager = RecentUserManager::new();
     if let Some(username) = recent_user_manager.get_recent_username() {
         use lastfm_edit::SessionManager;
         let session_manager = SessionManager::new("scrobble-scrubber");
-        
+
         // Try to load the session
         match session_manager.load_session(&username) {
             Ok(session) => {
@@ -66,7 +67,7 @@ pub async fn try_restore_session() -> Result<Option<String>, ServerFnError> {
             }
         }
     }
-    
+
     Ok(None)
 }
 
