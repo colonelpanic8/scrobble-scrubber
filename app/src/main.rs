@@ -33,8 +33,8 @@ pub enum Route {
     PendingRules {},
     #[route("/cache-management")]
     CacheManagement {},
-    #[route("/musicbrainz-lookup")]
-    MusicBrainzLookup {},
+    #[route("/musicbrainz")]
+    MusicBrainz {},
 }
 
 // Helper function to initialize config and storage
@@ -257,7 +257,9 @@ fn CacheManagement() -> Element {
 }
 
 #[component]
-fn MusicBrainzLookup() -> Element {
+fn MusicBrainz() -> Element {
     let state = use_context::<Signal<AppState>>();
-    rsx! { MusicBrainzLookupPage { state } }
+    rsx! { MusicBrainzPage { state } }
+}
+
 }

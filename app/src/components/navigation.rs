@@ -41,8 +41,12 @@ const NAV_ITEMS: &[NavItem] = &[
         label: "Cache Management",
     },
     NavItem {
-        route: Route::MusicBrainzLookup {},
-        label: "MusicBrainz Lookup",
+        route: Route::MusicBrainz {},
+        label: "MusicBrainz",
+    },
+    NavItem {
+        route: Route::Config {},
+        label: "Configuration",
     },
 ];
 

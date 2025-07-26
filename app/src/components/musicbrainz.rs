@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use lastfm_edit::Track;
 
 #[component]
-pub fn MusicBrainzLookupPage(mut state: Signal<AppState>) -> Element {
+pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
     let mut search_artist = use_signal(String::new);
     let mut search_title = use_signal(String::new);
     let mut search_album = use_signal(String::new);
