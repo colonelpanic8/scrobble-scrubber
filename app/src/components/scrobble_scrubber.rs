@@ -265,7 +265,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                         }
                     } else {
                         div { style: "display: flex; flex-direction: column-reverse; gap: 0.25rem;",
-                            for (index, event) in scrubber_state.events.iter().rev().take(100).enumerate() {
+                            for (index, event) in scrubber_state.events.iter().rev().enumerate() {
                                 {
                                     let event = event.clone();
                                     let event_category = event_formatting::get_event_category(&event);
@@ -876,19 +876,7 @@ async fn process_with_scrubber(
     // Run a single processing cycle using cache-based processing
     let processing_result = scrubber.trigger_run().await;
 
-    // Process events after scrubbing completes to collect and compress them
-    let mut tracks_processed = 0;
-    let mut rules_applied = 0;
-    let final_message;
-
-    // Track events per track to compress them
-    use std::collections::HashMap;
-    let mut track_events: HashMap<
-        String,
-        (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool),
-    > = HashMap::new(); // (track, rule_descriptions, had_errors)
-
-    // Process events with a timeout to collect statistics
+    // Process events after scrubbing completes - forward ALL events without compression
     let mut has_cycle_completed = false;
 
     while !has_cycle_completed {
@@ -899,82 +887,26 @@ async fn process_with_scrubber(
         .await
         {
             Ok(Ok(lib_event)) => {
-                // Process events and group by track
+                // Forward ALL events to both broadcast channel and state without any filtering
+                let _ = sender.send(lib_event.clone());
+
+                // Handle special state updates for certain event types
                 match &lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed {
-                        track,
-                        ..
-                    } => {
-                        tracks_processed += 1;
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
-                            name: track.name.clone(),
-                            artist: track.artist.clone(),
-                            album: track.album.clone(),
-                            album_artist: track.album_artist.clone(),
-                            timestamp: track.timestamp,
-                            playcount: track.playcount,
-                        };
-                        track_events
-                            .entry(track_key)
-                            .or_insert((log_track, Vec::new(), false));
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied {
-                        track,
-                        description,
-                        ..
-                    } => {
-                        rules_applied += 1;
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
-                            name: track.name.clone(),
-                            artist: track.artist.clone(),
-                            album: track.album.clone(),
-                            album_artist: track.album_artist.clone(),
-                            timestamp: track.timestamp,
-                            playcount: track.playcount,
-                        };
-                        track_events
-                            .entry(track_key.clone())
-                            .or_insert((log_track, Vec::new(), false))
-                            .1
-                            .push(description.clone());
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed {
-                        track,
-                        ..
-                    } => {
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        track_events
-                            .entry(track_key.clone())
-                            .or_insert((track.clone(), Vec::new(), false))
-                            .2 = true;
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
-                        has_cycle_completed = true;
-                        // Don't forward the library's cycle completed event - we'll create our own summary
-                    }
                     ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
                         anchor_timestamp,
                         ..
                     } => {
-                        // Forward anchor updates immediately as they're important
-                        let _ = sender.send(lib_event.clone());
                         state.with_mut(|s| {
                             s.scrubber_state.events.push(lib_event.clone());
                             s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
                         });
                     }
-                    ::scrobble_scrubber::events::ScrubberEventType::Info(_)
-                    | ::scrobble_scrubber::events::ScrubberEventType::Error(_)
-                    | ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
-                        // Forward non-track events immediately
-                        let _ = sender.send(lib_event.clone());
+                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
+                        has_cycle_completed = true;
                         state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
                     }
                     _ => {
-                        // Forward other events as-is
-                        let _ = sender.send(lib_event.clone());
+                        // Add all other events to state
                         state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
                     }
                 }
@@ -995,55 +927,13 @@ async fn process_with_scrubber(
         }
     }
 
-    // Now create compressed summary events for each track
-    for (track, rule_descriptions, had_errors) in track_events.values() {
-        let summary_message = if rule_descriptions.is_empty() {
-            if *had_errors {
-                format!(
-                    "'{}' by '{}' - processed with errors",
-                    track.name, track.artist
-                )
-            } else {
-                format!("'{}' by '{}' - no changes needed", track.name, track.artist)
-            }
-        } else {
-            let rules_text = if rule_descriptions.len() == 1 {
-                format!("applied rule: {}", rule_descriptions[0])
-            } else {
-                format!(
-                    "applied {} rules: {}",
-                    rule_descriptions.len(),
-                    rule_descriptions.join(", ")
-                )
-            };
-
-            if *had_errors {
-                format!(
-                    "'{}' by '{}' - {} (with errors)",
-                    track.name, track.artist, rules_text
-                )
-            } else {
-                format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
-            }
-        };
-
-        let summary_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
-        };
-
-        let _ = sender.send(summary_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(summary_event));
-    }
-
     match processing_result {
         Ok(()) => {
-            // Always use the local counts we tracked, as they're more reliable
-            final_message = format!("Cache-based processing completed: {tracks_processed} tracks processed, {rules_applied} rules applied");
-
             let success_event = ScrubberEvent {
                 timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(final_message),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                    "Cache-based processing completed successfully".to_string(),
+                ),
             };
             let _ = sender.send(success_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(success_event));
