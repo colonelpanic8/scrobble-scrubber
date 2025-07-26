@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 mod api;
 mod components;
 mod error_utils;
+mod scrubber_manager;
 mod types;
 mod utils;
 
@@ -115,6 +116,8 @@ async fn handle_successful_login(mut state: Signal<AppState>, session_str: Strin
     state.with_mut(|s| {
         s.logged_in = true;
         s.session = Some(session_str.clone());
+        // Clear scrubber instance so it gets recreated with new session
+        s.scrubber_instance = None;
     });
     let _ = load_tracks_after_login(state, session_str).await;
 }

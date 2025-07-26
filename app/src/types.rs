@@ -2,6 +2,8 @@ use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
+use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
+use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
@@ -144,15 +146,14 @@ pub mod event_formatting {
 pub struct ScrubberState {
     pub status: ScrubberStatus,
     pub events: Vec<ScrubberEvent>,
-    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub processed_count: usize,
-    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub rules_applied_count: usize,
-    #[allow(dead_code)] // Will be used when proper scrubber is implemented
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
     pub current_anchor_timestamp: Option<u64>,
     pub next_cycle_timestamp: Option<chrono::DateTime<chrono::Utc>>,
 }
+
+pub type GlobalScrubber = ScrobbleScrubber<FileStorage, RewriteRulesScrubActionProvider>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -167,8 +168,9 @@ pub struct AppState {
     pub storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
+    pub scrubber_instance: Option<Arc<tokio::sync::Mutex<GlobalScrubber>>>, // Global scrubber instance
     #[allow(dead_code)]
-    pub track_cache: TrackCache, // Disk cache for track data
+    pub track_cache: TrackCache,                     // Disk cache for track data
 }
 
 impl Default for AppState {
@@ -193,6 +195,7 @@ impl Default for AppState {
                 current_anchor_timestamp: None,
                 next_cycle_timestamp: None,
             },
+            scrubber_instance: None,         // No scrubber instance initially
             track_cache: TrackCache::load(), // Load cache from disk on startup
         }
     }

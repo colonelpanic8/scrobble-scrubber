@@ -1,4 +1,5 @@
 use crate::api::load_recent_tracks_from_page;
+use crate::scrubber_manager::get_or_create_scrubber;
 use crate::types::{event_formatting, AppState, ScrubberStatus};
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::track_cache::TrackCache;
@@ -434,68 +435,45 @@ async fn start_scrubber(mut state: Signal<AppState>) {
     // Set status to starting
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Starting);
 
-    // Get necessary data from state
-    let (session_json, storage, saved_rules, config) = {
-        let state_read = state.read();
-        (
-            state_read.session.clone(),
-            state_read.storage.clone(),
-            state_read.saved_rules.clone(),
-            state_read.config.clone(),
-        )
-    };
+    match get_or_create_scrubber(state).await {
+        Ok(scrubber) => {
+            // Create event channel for UI updates
+            let (sender, _receiver) = broadcast::channel(1000);
+            let sender_arc = Arc::new(sender);
 
-    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
-        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
-            Ok(scrubber) => {
-                // Create event channel for UI updates
-                let (sender, _receiver) = broadcast::channel(1000);
-                let sender_arc = Arc::new(sender);
+            let start_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Started(
+                    "Scrobble scrubber started".to_string(),
+                ),
+            };
 
-                let start_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Started(
-                        "Scrobble scrubber started".to_string(),
-                    ),
-                };
+            let _ = sender_arc.send(start_event.clone());
 
-                let _ = sender_arc.send(start_event.clone());
+            state.with_mut(|s| {
+                s.scrubber_state.status = ScrubberStatus::Running;
+                s.scrubber_state.events.push(start_event);
+                s.scrubber_state.event_sender = Some(sender_arc.clone());
+            });
 
-                state.with_mut(|s| {
-                    s.scrubber_state.status = ScrubberStatus::Running;
-                    s.scrubber_state.events.push(start_event);
-                    s.scrubber_state.event_sender = Some(sender_arc.clone());
-                });
-
-                // Start the scrubber background task
-                spawn(run_scrubber_with_instance(state, scrubber, sender_arc));
-            }
-            Err(e) => {
-                let error_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Failed to start scrubber: {e}"
-                    )),
-                };
-
-                state.with_mut(|s| {
-                    s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
-                    s.scrubber_state.events.push(error_event);
-                });
-            }
+            // Start the scrubber background task with the shared instance
+            spawn(run_scrubber_with_shared_instance(
+                state, scrubber, sender_arc,
+            ));
         }
-    } else {
-        let error_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
-                "Cannot start scrubber: missing session, storage, or config".to_string(),
-            ),
-        };
+        Err(e) => {
+            let error_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                    "Failed to start scrubber: {e}"
+                )),
+            };
 
-        state.with_mut(|s| {
-            s.scrubber_state.status = ScrubberStatus::Error("Missing configuration".to_string());
-            s.scrubber_state.events.push(error_event);
-        });
+            state.with_mut(|s| {
+                s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
+                s.scrubber_state.events.push(error_event);
+            });
+        }
     }
 }
 
@@ -535,64 +513,40 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
     let _ = sender.send(process_event.clone());
     state.with_mut(|s| s.scrubber_state.events.push(process_event));
 
-    // Get necessary data from state for manual processing
-    let (session_json, storage, saved_rules, config) = {
-        let state_read = state.read();
-        (
-            state_read.session.clone(),
-            state_read.storage.clone(),
-            state_read.saved_rules.clone(),
-            state_read.config.clone(),
-        )
-    };
-
-    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
-        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
-            Ok(mut scrubber) => {
-                match process_with_scrubber(&mut scrubber, &sender, &mut state).await {
-                    Ok(()) => {
-                        let success_event = ScrubberEvent {
-                            timestamp: Utc::now(),
-                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                                "Manual processing completed successfully".to_string(),
-                            ),
-                        };
-                        let _ = sender.send(success_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(success_event));
-                    }
-                    Err(e) => {
-                        let error_event = ScrubberEvent {
-                            timestamp: Utc::now(),
-                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
-                                format!("Manual processing failed: {e}"),
-                            ),
-                        };
-                        let _ = sender.send(error_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(error_event));
-                    }
-                }
+    // Use the global scrubber instance for manual processing
+    match get_or_create_scrubber(state).await {
+        Ok(scrubber) => match process_with_shared_scrubber(&scrubber, &sender, &mut state).await {
+            Ok(()) => {
+                let success_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                        "Manual processing completed successfully".to_string(),
+                    ),
+                };
+                let _ = sender.send(success_event.clone());
+                state.with_mut(|s| s.scrubber_state.events.push(success_event));
             }
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
                     event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Failed to create scrubber: {e}"
+                        "Manual processing failed: {e}"
                     )),
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
             }
+        },
+        Err(e) => {
+            let error_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                    "Failed to get scrubber: {e}"
+                )),
+            };
+            let _ = sender.send(error_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(error_event));
         }
-    } else {
-        let warning_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                "Cannot process: missing session, storage, or config".to_string(),
-            ),
-        };
-
-        let _ = sender.send(warning_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(warning_event));
     }
 }
 
@@ -705,64 +659,102 @@ async fn set_timestamp_anchor_direct(
     Ok(())
 }
 
-// Helper function to create a scrubber instance
-async fn create_scrubber_instance(
-    session_json: String,
-    storage: Arc<tokio::sync::Mutex<::scrobble_scrubber::persistence::FileStorage>>,
-    saved_rules: Vec<::scrobble_scrubber::rewrite::RewriteRule>,
-    config: ::scrobble_scrubber::config::ScrobbleScrubberConfig,
-) -> Result<
-    ::scrobble_scrubber::scrubber::ScrobbleScrubber<
-        ::scrobble_scrubber::persistence::FileStorage,
-        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
-    >,
-    Box<dyn std::error::Error + Send + Sync>,
-> {
-    use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
-    use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
-    use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
+// Helper function to run the scrubber loop with a shared instance
+async fn run_scrubber_with_shared_instance(
+    mut state: Signal<AppState>,
+    scrubber: Arc<tokio::sync::Mutex<crate::types::GlobalScrubber>>,
+    sender: Arc<broadcast::Sender<ScrubberEvent>>,
+) {
+    // Get interval from config
+    let interval_seconds = state
+        .read()
+        .config
+        .as_ref()
+        .map(|c| c.scrubber.interval)
+        .unwrap_or(30);
 
-    // Deserialize the session
-    let session: LastFmEditSession = serde_json::from_str(&session_json)?;
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_seconds));
 
-    // Create a client with the restored session
-    let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
+    loop {
+        // Check if we should stop
+        {
+            let current_status = state.read().scrubber_state.status.clone();
+            if !matches!(
+                current_status,
+                ScrubberStatus::Running | ScrubberStatus::Sleeping { .. }
+            ) {
+                break;
+            }
+        }
 
-    // Create action provider with current rules
-    let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
+        // Log that we're checking for scrobbles
+        let info_event = ScrubberEvent {
+            timestamp: Utc::now(),
+            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                "Checking for new scrobbles...".to_string(),
+            ),
+        };
 
-    // Create scrubber instance
-    let scrubber = ScrobbleScrubber::new(
-        storage.clone(),
-        Box::new(client),
-        action_provider,
-        config.clone(),
-    );
+        let _ = sender.send(info_event.clone());
+        state.with_mut(|s| s.scrubber_state.events.push(info_event));
 
-    // Start event logger for JSON logging of edit attempts
-    {
-        let event_receiver = scrubber.subscribe_events();
-        let log_file_path = ::scrobble_scrubber::config::StorageConfig::get_edit_log_path(
-            &config.storage.state_file,
-        );
-        let mut event_logger = ::scrobble_scrubber::event_logger::EventLogger::new(
-            log_file_path.clone(),
-            true,
-            event_receiver,
-        );
+        // Process with the shared scrubber instance
+        match process_with_shared_scrubber(&scrubber, &sender, &mut state).await {
+            Ok(()) => {
+                let success_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
+                        "Processing cycle completed successfully".to_string(),
+                    ),
+                };
+                let _ = sender.send(success_event.clone());
+                state.with_mut(|s| s.scrubber_state.events.push(success_event));
+            }
+            Err(e) => {
+                let error_event = ScrubberEvent {
+                    timestamp: Utc::now(),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                        "Error during processing: {e}"
+                    )),
+                };
+                let _ = sender.send(error_event.clone());
+                state.with_mut(|s| {
+                    s.scrubber_state.events.push(error_event);
+                    s.scrubber_state.status = ScrubberStatus::Error(e.to_string());
+                });
+                break;
+            }
+        }
 
-        tokio::spawn(async move {
-            // Log to console in web context if needed
-            log::info!("Started edit logging to: {log_file_path}");
-            event_logger.run().await;
+        // Update status to sleeping (don't add sleeping events to activity log)
+        state.with_mut(|s| {
+            let until_timestamp = Utc::now() + chrono::Duration::seconds(interval_seconds as i64);
+            s.scrubber_state.status = ScrubberStatus::Sleeping { until_timestamp };
         });
+
+        // Wait for the next interval
+        interval.tick().await;
     }
 
-    Ok(scrubber)
+    // Mark as stopped when exiting the loop
+    let stop_event = ScrubberEvent {
+        timestamp: Utc::now(),
+        event_type: ::scrobble_scrubber::events::ScrubberEventType::Stopped(
+            "Scrobble scrubber stopped".to_string(),
+        ),
+    };
+
+    let _ = sender.send(stop_event.clone());
+
+    state.with_mut(|s| {
+        s.scrubber_state.status = ScrubberStatus::Stopped;
+        s.scrubber_state.events.push(stop_event);
+        s.scrubber_state.event_sender = None;
+    });
 }
 
-// Helper function to run the scrubber loop with a single instance
+// Helper function to run the scrubber loop with a single instance (UNUSED - kept for reference)
+#[allow(dead_code)]
 async fn run_scrubber_with_instance(
     mut state: Signal<AppState>,
     mut scrubber: ::scrobble_scrubber::scrubber::ScrobbleScrubber<
@@ -850,6 +842,16 @@ async fn run_scrubber_with_instance(
 }
 
 // Renamed from process_scrobbles - now works with a single scrubber instance
+// Helper function to process with a shared scrubber instance
+async fn process_with_shared_scrubber(
+    scrubber: &Arc<tokio::sync::Mutex<crate::types::GlobalScrubber>>,
+    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    state: &mut Signal<AppState>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut scrubber_guard = scrubber.lock().await;
+    process_with_scrubber(&mut scrubber_guard, sender, state).await
+}
+
 async fn process_with_scrubber(
     scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
         ::scrobble_scrubber::persistence::FileStorage,
@@ -1081,73 +1083,60 @@ async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: Str
     let _ = sender.send(start_event.clone());
     state.with_mut(|s| s.scrubber_state.events.push(start_event));
 
-    // Get necessary data from state for artist processing
-    let (session_json, storage, saved_rules, config) = {
-        let state_read = state.read();
-        (
-            state_read.session.clone(),
-            state_read.storage.clone(),
-            state_read.saved_rules.clone(),
-            state_read.config.clone(),
-        )
-    };
-
-    if let (Some(session_json), Some(storage), Some(config)) = (session_json, storage, config) {
-        match create_scrubber_instance(session_json, storage, saved_rules, config).await {
-            Ok(mut scrubber) => {
-                // Use the same event processing pattern as process_with_scrubber
-                match process_artist_with_events(&mut scrubber, &sender, &mut state, &artist_name)
-                    .await
-                {
-                    Ok(()) => {
-                        let success_event = ScrubberEvent {
-                            timestamp: Utc::now(),
-                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                                format!(
-                                    "Artist processing completed successfully for '{artist_name}'"
-                                ),
-                            ),
-                        };
-                        let _ = sender.send(success_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(success_event));
-                    }
-                    Err(e) => {
-                        let error_event = ScrubberEvent {
-                            timestamp: Utc::now(),
-                            event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
-                                format!("Artist processing failed for '{artist_name}': {e}"),
-                            ),
-                        };
-                        let _ = sender.send(error_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(error_event));
-                    }
+    // Use the global scrubber instance for artist processing
+    match get_or_create_scrubber(state).await {
+        Ok(scrubber) => {
+            // Use the same event processing pattern as process_with_scrubber
+            match process_artist_with_shared_scrubber(&scrubber, &sender, &mut state, &artist_name)
+                .await
+            {
+                Ok(()) => {
+                    let success_event = ScrubberEvent {
+                        timestamp: Utc::now(),
+                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
+                            "Artist processing completed successfully for '{artist_name}'"
+                        )),
+                    };
+                    let _ = sender.send(success_event.clone());
+                    state.with_mut(|s| s.scrubber_state.events.push(success_event));
+                }
+                Err(e) => {
+                    let error_event = ScrubberEvent {
+                        timestamp: Utc::now(),
+                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                            "Artist processing failed for '{artist_name}': {e}"
+                        )),
+                    };
+                    let _ = sender.send(error_event.clone());
+                    state.with_mut(|s| s.scrubber_state.events.push(error_event));
                 }
             }
-            Err(e) => {
-                let error_event = ScrubberEvent {
-                    timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Failed to create scrubber for artist processing: {e}"
-                    )),
-                };
-                let _ = sender.send(error_event.clone());
-                state.with_mut(|s| s.scrubber_state.events.push(error_event));
-            }
         }
-    } else {
-        let warning_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                "Cannot process artist: missing session, storage, or config".to_string(),
-            ),
-        };
-
-        let _ = sender.send(warning_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(warning_event));
+        Err(e) => {
+            let error_event = ScrubberEvent {
+                timestamp: Utc::now(),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
+                    "Failed to get scrubber for artist processing: {e}"
+                )),
+            };
+            let _ = sender.send(error_event.clone());
+            state.with_mut(|s| s.scrubber_state.events.push(error_event));
+        }
     }
 }
 
 // Process artist with detailed event handling similar to process_with_scrubber
+// Helper function to process artist with a shared scrubber instance
+async fn process_artist_with_shared_scrubber(
+    scrubber: &Arc<tokio::sync::Mutex<crate::types::GlobalScrubber>>,
+    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    state: &mut Signal<AppState>,
+    artist_name: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut scrubber_guard = scrubber.lock().await;
+    process_artist_with_events(&mut scrubber_guard, sender, state, artist_name).await
+}
+
 async fn process_artist_with_events(
     scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
         ::scrobble_scrubber::persistence::FileStorage,
