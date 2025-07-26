@@ -6,6 +6,7 @@ use ::scrobble_scrubber::track_cache::TrackCache;
 use chrono::Utc;
 use dioxus::html::input_data::keyboard_types::Key;
 use dioxus::prelude::*;
+use dioxus_router::prelude::*;
 use lastfm_edit::Track;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -408,15 +409,32 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
                                                 div { style: "text-align: right; margin-right: 1rem;",
                                                     div { style: "font-size: 0.75rem; color: #6b7280;", "{timestamp_str}" }
                                                 }
-                                                button {
-                                                    style: "background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
-                                                    onclick: move |_| {
-                                                        let track_clone = track.clone();
-                                                        spawn(async move {
-                                                            set_timestamp_anchor(state, track_clone).await;
-                                                        });
-                                                    },
-                                                    "Set Anchor"
+                                                div { style: "display: flex; gap: 0.5rem;",
+                                                    button {
+                                                        style: "background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
+                                                        onclick: move |_| {
+                                                            let track_clone = track.clone();
+                                                            spawn(async move {
+                                                                set_timestamp_anchor(state, track_clone).await;
+                                                            });
+                                                        },
+                                                        "Set Anchor"
+                                                    }
+                                                    {
+                                                        let track_for_mb = track.clone();
+                                                        rsx! {
+                                                            Link {
+                                                                to: format!(
+                                                                    "/musicbrainz-lookup?artist={}&title={}&album={}",
+                                                                    urlencoding::encode(&track_for_mb.artist),
+                                                                    urlencoding::encode(&track_for_mb.name),
+                                                                    urlencoding::encode(track_for_mb.album.as_deref().unwrap_or(""))
+                                                                ),
+                                                                style: "background: #7c3aed; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; text-decoration: none; display: inline-block;",
+                                                                "MusicBrainz →"
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

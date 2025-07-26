@@ -20,6 +20,7 @@ config = "0.14"
 dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
+urlencoding = "2.1"
 
 [features]
 default = ["desktop"]

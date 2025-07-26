@@ -18,31 +18,108 @@ pub struct MusicBrainzScrubActionProvider {
 }
 
 #[derive(Debug, Clone)]
-struct MusicBrainzMatch {
-    artist: String,
-    title: String,
-    album: Option<String>,
-    confidence: f32,
-    mbid: String,
+pub struct MusicBrainzMatch {
+    pub artist: String,
+    pub title: String,
+    pub album: Option<String>,
+    pub confidence: f32,
+    pub mbid: String,
 }
 
 impl MusicBrainzScrubActionProvider {
-    pub fn new() -> Self {
+    /// Select the best release from a recording's releases and return its title
+    fn select_best_release_title(recording: &Recording) -> Option<String> {
+        recording
+            .releases
+            .as_ref()
+            .and_then(|releases| releases.first())
+            .map(|release| release.title.clone())
+    }
+
+    /// Build a MusicBrainz search query for a track
+    fn build_track_query(artist: &str, title: &str, album: Option<&str>) -> String {
+        if let Some(album_name) = album {
+            RecordingSearchQuery::query_builder()
+                .recording(title)
+                .and()
+                .artist(artist)
+                .and()
+                .release(album_name)
+                .build()
+        } else {
+            RecordingSearchQuery::query_builder()
+                .recording(title)
+                .and()
+                .artist(artist)
+                .build()
+        }
+    }
+    pub fn new(confidence_threshold: f32, max_results: usize) -> Self {
         Self {
-            confidence_threshold: 0.8, // Only suggest corrections if we're 80%+ confident
-            max_results: 5,            // Check top 5 results
+            confidence_threshold,
+            max_results,
             cache: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn with_confidence_threshold(mut self, threshold: f32) -> Self {
-        self.confidence_threshold = threshold;
-        self
-    }
+    /// Search MusicBrainz for multiple tracks and return all matches with confidence scores
+    pub async fn search_musicbrainz_multiple(
+        &self,
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+    ) -> Result<Vec<MusicBrainzMatch>, Box<dyn std::error::Error + Send + Sync>> {
+        log::info!("Searching MusicBrainz for: '{title}' by '{artist}'");
 
-    pub fn with_max_results(mut self, max_results: usize) -> Self {
-        self.max_results = max_results;
-        self
+        // Build MusicBrainz search query
+        let query_string = Self::build_track_query(artist, title, album);
+
+        // Perform the search
+        let search_results = Recording::search(query_string)
+            .execute()
+            .await
+            .map_err(|e| format!("MusicBrainz search failed: {e}"))?;
+
+        log::info!(
+            "Found {} MusicBrainz results",
+            search_results.entities.len()
+        );
+
+        let mut results = Vec::new();
+
+        for recording in search_results.entities.iter().take(10) {
+            if let Some(artist_credit) = &recording.artist_credit {
+                let mb_artist = artist_credit
+                    .first()
+                    .map(|ac| ac.artist.name.clone())
+                    .unwrap_or_default();
+
+                let mb_title = recording.title.clone();
+                let mb_album = Self::select_best_release_title(recording);
+
+                // Calculate confidence based on string similarity
+                let artist_confidence = self.calculate_similarity(artist, &mb_artist);
+                let title_confidence = self.calculate_similarity(title, &mb_title);
+                let overall_confidence = (artist_confidence + title_confidence) / 2.0;
+
+                results.push(MusicBrainzMatch {
+                    artist: mb_artist,
+                    title: mb_title,
+                    album: mb_album,
+                    confidence: overall_confidence,
+                    mbid: recording.id.clone(),
+                });
+            }
+        }
+
+        // Sort by confidence (highest first)
+        results.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(results)
     }
 
     /// Search MusicBrainz for a track and return the best match
@@ -63,12 +140,9 @@ impl MusicBrainzScrubActionProvider {
             track.artist
         );
 
-        // Search for recordings using the proper structured query builder
-        let query_string = RecordingSearchQuery::query_builder()
-            .recording(&track.name)
-            .and()
-            .artist(&track.artist)
-            .build();
+        // Build MusicBrainz search query
+        let query_string =
+            Self::build_track_query(&track.artist, &track.name, track.album.as_deref());
 
         let search_results = match Recording::search(query_string).execute().await {
             Ok(results) => results,
@@ -105,11 +179,7 @@ impl MusicBrainzScrubActionProvider {
                     .unwrap_or_default();
 
                 let mb_title = recording.title.clone();
-                let mb_album = recording
-                    .releases
-                    .as_ref()
-                    .and_then(|releases| releases.first())
-                    .map(|release| release.title.clone());
+                let mb_album = Self::select_best_release_title(recording);
 
                 // Calculate confidence based on string similarity
                 let artist_confidence = self.calculate_similarity(&track.artist, &mb_artist);
@@ -186,7 +256,7 @@ impl MusicBrainzScrubActionProvider {
         (common_chars / max_len) - (length_penalty * 0.5)
     }
 
-    /// Check if the MusicBrainz match suggests any corrections
+    /// Suggest corrections based on the MusicBrainz match
     fn suggest_corrections(
         &self,
         track: &Track,
@@ -282,7 +352,7 @@ impl MusicBrainzScrubActionProvider {
 
 impl Default for MusicBrainzScrubActionProvider {
     fn default() -> Self {
-        Self::new()
+        Self::new(0.8, 5) // Default: 80% confidence threshold, 5 max results
     }
 }
 
@@ -337,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_similarity_calculation() {
-        let provider = MusicBrainzScrubActionProvider::new();
+        let provider = MusicBrainzScrubActionProvider::default();
 
         // Exact match
         assert_eq!(provider.calculate_similarity("Hello", "Hello"), 1.0);
@@ -352,7 +422,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_provider_interface() {
-        let provider = MusicBrainzScrubActionProvider::new();
+        let provider = MusicBrainzScrubActionProvider::default();
         assert_eq!(provider.provider_name(), "MusicBrainzScrubActionProvider");
 
         // Test with empty tracks

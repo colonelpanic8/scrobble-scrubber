@@ -122,7 +122,9 @@
       "Bash(RUST_LOG=info cargo run -- --provider musicbrainz show-cache --limit 1 2 >& 1)",
       "Bash(RUST_LOG=debug timeout 10 cargo run -- --provider musicbrainz once --dry-run 2 >& 1)",
       "Bash(RUST_LOG=info cargo run -- show-cache --limit 1 2 >& 1)",
-      "Bash(RUST_LOG=info cargo run --bin scrobble-scrubber -- show-recent-tracks --limit 1)"
+      "Bash(RUST_LOG=info cargo run --bin scrobble-scrubber -- show-recent-tracks --limit 1)",
+      "Bash(./explore_musicbrainz)",
+      "WebFetch(domain:dioxuslabs.github.io)"
     ],
     "deny": [
       "Bash(dx serve:*)"

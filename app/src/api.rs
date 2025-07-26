@@ -353,3 +353,44 @@ pub async fn reject_pending_rewrite_rule(
     remove_pending_rule(&storage, &rule_id).await?;
     Ok("Rule rejected and removed".to_string())
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MusicBrainzResult {
+    pub mbid: String,
+    pub artist: String,
+    pub title: String,
+    pub album: Option<String>,
+    pub confidence: f32,
+}
+
+pub async fn search_musicbrainz_for_track(
+    artist: String,
+    title: String,
+    album: Option<String>,
+) -> Result<Vec<MusicBrainzResult>, Box<dyn std::error::Error + Send + Sync>> {
+    use scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
+
+    log::info!("Searching MusicBrainz for: '{title}' by '{artist}'");
+
+    // Create provider instance
+    let provider = MusicBrainzScrubActionProvider::default();
+
+    // Use the new search method
+    let matches = provider
+        .search_musicbrainz_multiple(&artist, &title, album.as_deref())
+        .await?;
+
+    // Convert to API result format
+    let results = matches
+        .into_iter()
+        .map(|m| MusicBrainzResult {
+            mbid: m.mbid,
+            artist: m.artist,
+            title: m.title,
+            album: m.album,
+            confidence: m.confidence,
+        })
+        .collect();
+
+    Ok(results)
+}

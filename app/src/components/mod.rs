@@ -1,6 +1,7 @@
 pub mod cache_management;
 pub mod live_preview_controls;
 pub mod login;
+pub mod musicbrainz_lookup;
 pub mod navigation;
 pub mod pending_edits;
 pub mod pending_rules;
@@ -13,6 +14,7 @@ pub mod scrobble_scrubber;
 pub use cache_management::CacheManagementPage;
 // pub use live_preview_controls::LivePreviewControls; // TODO: Use this when refactoring rule_workshop and rewrite_rules
 pub use login::LoginPage;
+pub use musicbrainz_lookup::MusicBrainzLookupPage;
 pub use navigation::Navigation;
 pub use pending_edits::PendingEditsPage;
 pub use pending_rules::PendingRulesPage;
