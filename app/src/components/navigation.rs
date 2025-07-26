@@ -1,9 +1,11 @@
-use crate::types::{AppState, Page};
+use crate::types::AppState;
+use crate::Route;
 use dioxus::prelude::*;
+use dioxus_router::prelude::*;
 
 #[component]
-pub fn Navigation(mut state: Signal<AppState>) -> Element {
-    let active_page = state.read().active_page.clone();
+pub fn Navigation(state: Signal<AppState>) -> Element {
+    let current_route = use_route::<Route>();
 
     rsx! {
         nav {
@@ -11,98 +13,86 @@ pub fn Navigation(mut state: Signal<AppState>) -> Element {
             ul {
                 style: "display: flex; justify-content: center; list-style: none; margin: 0; padding: 0; gap: 1rem;",
                 li {
-                    button {
+                    Link {
+                        to: Route::ScrobbleScrubber {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::ScrobbleScrubber {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::ScrobbleScrubber {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::ScrobbleScrubber);
-                        },
                         "Scrubber"
                     }
                 }
                 li {
-                    button {
+                    Link {
+                        to: Route::RuleWorkshop {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::RuleWorkshop {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::RuleWorkshop {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::RuleWorkshop);
-                        },
                         "Rule Workshop"
                     }
                 }
                 li {
-                    button {
+                    Link {
+                        to: Route::RewriteRules {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::RewriteRules {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::RewriteRules {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::RewriteRules);
-                        },
                         "Rewrite Rules"
                     }
                 }
                 li {
-                    button {
+                    Link {
+                        to: Route::PendingEdits {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::PendingEdits {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::PendingEdits {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::PendingEdits);
-                        },
                         "Pending Edits"
                     }
                 }
                 li {
-                    button {
+                    Link {
+                        to: Route::PendingRules {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::PendingRules {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::PendingRules {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::PendingRules);
-                        },
                         "Pending Rules"
                     }
                 }
                 li {
-                    button {
+                    Link {
+                        to: Route::CacheManagement {},
                         style: format!(
-                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; {}",
-                            if active_page == Page::CacheManagement {
+                            "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
+                            if matches!(current_route, Route::CacheManagement {}) {
                                 "background: #2563eb; color: white;"
                             } else {
-                                "background: #f3f4f6; color: #374151; hover:background: #e5e7eb;"
+                                "background: #f3f4f6; color: #374151;"
                             }
                         ),
-                        onclick: move |_| {
-                            state.with_mut(|s| s.active_page = Page::CacheManagement);
-                        },
                         "Cache Management"
                     }
                 }

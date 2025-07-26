@@ -6,15 +6,6 @@ use ::scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Page {
-    ScrobbleScrubber,
-    RuleWorkshop,
-    RewriteRules,
-    PendingEdits,
-    PendingRules,
-    CacheManagement,
-}
 
 #[derive(Clone, Debug)]
 pub struct TrackSourceState {
@@ -173,7 +164,6 @@ pub struct AppState {
     pub current_rule: RewriteRule,
     pub show_all_tracks: bool, // Toggle to show all tracks or only matching ones
     pub current_page: u32,     // Current page for pagination (for recent tracks)
-    pub active_page: Page,     // Current active page
     pub config: Option<ScrobbleScrubberConfig>, // Loaded configuration
     pub storage: Option<Arc<Mutex<FileStorage>>>, // Persistence storage
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
@@ -192,7 +182,6 @@ impl Default for AppState {
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks
             current_page: 1,       // Start at page 1
-            active_page: Page::ScrobbleScrubber,
             config: None,
             storage: None,
             saved_rules: Vec::new(),

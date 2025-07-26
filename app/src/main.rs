@@ -3,6 +3,7 @@ use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
+use dioxus_router::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,6 +16,23 @@ mod utils;
 use components::*;
 use server_functions::*;
 use types::*;
+
+#[derive(Routable, Clone, Debug, PartialEq)]
+pub enum Route {
+    #[layout(AppLayout)]
+        #[route("/")]
+        ScrobbleScrubber {},
+        #[route("/rule-workshop")]
+        RuleWorkshop {},
+        #[route("/rewrite-rules")]
+        RewriteRules {},
+        #[route("/pending-edits")]
+        PendingEdits {},
+        #[route("/pending-rules")]
+        PendingRules {},
+        #[route("/cache-management")]
+        CacheManagement {},
+}
 
 // Helper function to initialize config and storage
 async fn initialize_app_state() -> Result<
@@ -159,7 +177,15 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    rsx! {
+        Router::<Route> {}
+    }
+}
+
+#[component]
+fn AppLayout() -> Element {
     let state = use_signal(AppState::default);
+    use_context_provider(|| state);
 
     // Initialize config and storage
     use_effect(move || {
@@ -181,7 +207,7 @@ fn App() -> Element {
                 } else {
                     div {
                         Navigation { state }
-                        MainContent { state }
+                        Outlet::<Route> {}
                     }
                 }
             }
@@ -190,17 +216,37 @@ fn App() -> Element {
 }
 
 #[component]
-fn MainContent(state: Signal<AppState>) -> Element {
-    let active_page = state.read().active_page.clone();
+fn RuleWorkshop() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { components::RuleWorkshop { state } }
+}
 
-    rsx! {
-        match active_page {
-            Page::RuleWorkshop => rsx! { RuleWorkshop { state } },
-            Page::RewriteRules => rsx! { RewriteRulesPage { state } },
-            Page::ScrobbleScrubber => rsx! { ScrobbleScrubberPage { state } },
-            Page::PendingEdits => rsx! { PendingEditsPage { state } },
-            Page::PendingRules => rsx! { PendingRulesPage { _state: state } },
-            Page::CacheManagement => rsx! { CacheManagementPage { state } },
-        }
-    }
+#[component]
+fn RewriteRules() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { RewriteRulesPage { state } }
+}
+
+#[component]
+fn ScrobbleScrubber() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { ScrobbleScrubberPage { state } }
+}
+
+#[component]
+fn PendingEdits() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { PendingEditsPage { state } }
+}
+
+#[component]
+fn PendingRules() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { PendingRulesPage { _state: state } }
+}
+
+#[component]
+fn CacheManagement() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! { CacheManagementPage { state } }
 }
