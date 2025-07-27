@@ -4,12 +4,14 @@ use crate::types::{AppState, PreviewType, TrackSourceState};
 use crate::utils::get_current_tracks;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
+use futures::FutureExt;
 
 #[component]
 pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks = use_signal(|| false);
     let mut loading_artist_tracks = use_signal(|| false);
     let mut artist_name = use_signal(String::new);
+    let mut artist_error = use_signal(|| Option::<String>::None);
 
     rsx! {
         div {
@@ -59,8 +61,13 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                                     if !artist.is_empty() {
                                         loading_artist_tracks.set(true);
 
-                                        match load_artist_tracks(session_str, artist.clone()).await {
-                                            Ok(_tracks) => {
+                                        // Wrap the call in a panic-catching block
+                                        let result = std::panic::AssertUnwindSafe(load_artist_tracks(session_str, artist.clone()))
+                                            .catch_unwind()
+                                            .await;
+
+                                        match result {
+                                            Ok(Ok(_tracks)) => {
                                                 state.with_mut(|s| {
                                                     s.artist_tracks.insert(artist, TrackSourceState {
                                                         enabled: true,
@@ -68,9 +75,17 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                                                     // Reload cache to get the newly cached tracks
                                                     s.track_cache = TrackCache::load();
                                                 });
+                                                artist_error.set(None); // Clear any previous error
                                             }
-                                            Err(e) => {
-                                                eprintln!("Failed to load artist tracks: {e}");
+                                            Ok(Err(e)) => {
+                                                let error_msg = format!("Failed to load artist tracks: {e}");
+                                                eprintln!("{error_msg}");
+                                                artist_error.set(Some(error_msg));
+                                            }
+                                            Err(panic_err) => {
+                                                let error_msg = format!("PANIC in load_artist_tracks: {panic_err:?}");
+                                                eprintln!("{error_msg}");
+                                                artist_error.set(Some("Function crashed unexpectedly".to_string()));
                                             }
                                         }
 
@@ -83,6 +98,13 @@ pub fn RuleWorkshop(mut state: Signal<AppState>) -> Element {
                             } else {
                                 "Load Artist Tracks"
                             }
+                        }
+                    }
+
+                    // Show error message if there is one
+                    if let Some(error) = artist_error.read().as_ref() {
+                        div { style: "margin-top: 0.5rem; padding: 0.75rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 0.375rem; color: #991b1b; font-size: 0.875rem;",
+                            "❌ {error}"
                         }
                     }
 

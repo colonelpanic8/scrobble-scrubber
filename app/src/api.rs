@@ -99,16 +99,34 @@ pub async fn load_artist_tracks(
 ) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::track_cache::TrackCache;
 
+    println!("🎵 Starting load_artist_tracks for: '{artist_name}'");
+
     // Try to load from cache first
     let mut cache = TrackCache::load();
     if let Some(cached_tracks) = cache.get_artist_tracks(&artist_name) {
-        println!("📂 Using cached tracks for artist '{artist_name}'");
+        println!(
+            "📂 Using cached tracks for artist '{artist_name}' ({} tracks)",
+            cached_tracks.len()
+        );
         return Ok(cached_tracks.clone());
     }
 
+    println!("🔍 No cache found, fetching from Last.fm for: '{artist_name}'");
+
     // Deserialize session and create client for albums
-    let session_for_albums = deserialize_session(&session_str)?;
+    let session_for_albums = match deserialize_session(&session_str) {
+        Ok(session) => {
+            println!("✅ Session deserialized successfully");
+            session
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to deserialize session: {e}");
+            return Err(e);
+        }
+    };
     let client_for_albums = create_client_from_session(session_for_albums);
+
+    println!("🔍 Fetching albums for artist: '{artist_name}'");
 
     // Fetch all albums for the artist with timeout
     let albums = with_timeout(
@@ -118,41 +136,58 @@ pub async fn load_artist_tracks(
     )
     .await
     .unwrap_or_else(|e| {
-        eprintln!("Error fetching artist albums: {e}");
+        eprintln!("❌ Error fetching artist albums: {e}");
         Vec::new()
     });
 
-    // Create separate client for track fetching
-    let session_for_tracks = deserialize_session(&session_str)?;
-    let _client_for_tracks = create_client_from_session(session_for_tracks);
+    println!(
+        "📀 Found {} albums for artist '{artist_name}'",
+        albums.len()
+    );
 
     // Fetch tracks from each album
     let mut all_tracks = Vec::new();
-    for album in albums {
-        // Use spawn_blocking to handle the non-Send iterator
-        let client_clone = create_client_from_session(deserialize_session(&session_str)?);
+    let session_for_tracks = deserialize_session(&session_str)?;
+
+    for (idx, album) in albums.iter().enumerate() {
+        let client = create_client_from_session(session_for_tracks.clone());
         let album_name = album.name.clone();
         let artist_name_clone = artist_name.clone();
 
-        let album_tracks = tokio::task::spawn_blocking(move || {
-            // Create a tokio runtime for this blocking task
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move {
-                let mut tracks = Vec::new();
-                let mut iter = client_clone.album_tracks(&album_name, &artist_name_clone);
+        println!(
+            "🎧 Fetching tracks for album {}/{}: '{album_name}'",
+            idx + 1,
+            albums.len()
+        );
 
-                // Collect all tracks from the iterator
-                while let Ok(Some(track)) = iter.next().await {
-                    tracks.push(track);
-                }
-                tracks
-            })
-        })
+        // Use the proper get_album_tracks method with timeout
+        let album_tracks = match tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client.get_album_tracks(&album_name, &artist_name_clone),
+        )
         .await
-        .map_err(|e| format!("Failed to fetch album tracks: {e}"))?;
+        {
+            Ok(Ok(tracks)) => {
+                println!(
+                    "✅ Successfully fetched {} tracks from album '{album_name}'",
+                    tracks.len()
+                );
+                tracks
+            }
+            Ok(Err(e)) => {
+                eprintln!("❌ Error fetching tracks for album '{album_name}': {e}");
+                Vec::new()
+            }
+            Err(_) => {
+                eprintln!("⏱️ Timeout fetching tracks for album '{album_name}'");
+                Vec::new()
+            }
+        };
 
         all_tracks.extend(album_tracks);
     }
+
+    println!("🎵 Total tracks collected: {}", all_tracks.len());
 
     if all_tracks.is_empty() {
         return Err(Box::<dyn std::error::Error + Send + Sync>::from(format!(

@@ -5770,6 +5770,7 @@ dependencies = [
  "dioxus",
  "dioxus-router",
  "dirs 5.0.1",
+ "futures",
  "http-client-2",
  "lastfm-edit",
  "log",
