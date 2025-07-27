@@ -1,10 +1,8 @@
-#[allow(unused_imports)] // Functions are used in #[server] macro-generated code
 use crate::error_utils::{
     approve_rewrite_rule, create_client_from_session, create_storage, deserialize_session,
     remove_pending_edit, remove_pending_rule, with_timeout, ToBoxError,
 };
-#[allow(unused_imports)] // Traits needed for methods but appear unused to compiler
-use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Track};
+use lastfm_edit::{LastFmEditClient, Track};
 use scrobble_scrubber::persistence::{PendingEdit, PendingRewriteRule};
 
 pub async fn login_to_lastfm(
@@ -65,7 +63,6 @@ pub async fn load_recent_tracks(
 }
 
 // Helper function to fetch artist albums (not a server function to avoid Send issues)
-#[allow(dead_code)]
 async fn fetch_artist_albums(
     client: lastfm_edit::LastFmEditClientImpl,
     artist_name: &str,
@@ -206,7 +203,6 @@ pub async fn load_artist_tracks(
 }
 
 // Helper function to fetch recent tracks (not a server function to avoid Send issues)
-#[allow(dead_code)]
 async fn fetch_recent_tracks_from_page(
     client: lastfm_edit::LastFmEditClientImpl,
     page: u32,
@@ -277,14 +273,6 @@ pub async fn load_recent_tracks_from_page(
     println!("💾 Cached recent tracks for page {page}");
 
     Ok(tracks)
-}
-
-pub async fn get_cache_stats() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::track_cache::TrackCache;
-
-    let cache = TrackCache::load();
-    let stats = cache.stats();
-    Ok(format!("{stats}"))
 }
 
 pub async fn clear_cache() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
