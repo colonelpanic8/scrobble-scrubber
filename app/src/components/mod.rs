@@ -24,4 +24,4 @@ pub use rewrite_rules::RewriteRulesPage;
 pub use rule_editor::RuleEditor;
 pub use rule_preview::RulePreview;
 pub use rule_workshop::RuleWorkshop;
-pub use scrobble_scrubber::ScrobbleScrubberPage;
+pub use scrobble_scrubber::{start_scrubber, ScrobbleScrubberPage};

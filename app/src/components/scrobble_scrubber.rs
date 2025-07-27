@@ -449,7 +449,7 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
     }
 }
 
-async fn start_scrubber(mut state: Signal<AppState>) {
+pub async fn start_scrubber(mut state: Signal<AppState>) {
     // Set status to starting
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Starting);
 

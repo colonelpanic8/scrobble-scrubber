@@ -136,12 +136,16 @@ async fn handle_session_restore_and_login(state: Signal<AppState>) {
     match try_restore_session().await {
         Ok(Some(session_str)) => {
             handle_successful_login(state, session_str).await;
+            // Check for auto-start after successful login
+            check_auto_start_scrubber(state).await;
         }
         Ok(None) => {
             // No saved session, try auto-login with config/env vars
             let config = state.read().config.as_ref().cloned();
             if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
                 handle_successful_login(state, session_str).await;
+                // Check for auto-start after successful login
+                check_auto_start_scrubber(state).await;
             }
         }
         Err(e) => {
@@ -150,6 +154,8 @@ async fn handle_session_restore_and_login(state: Signal<AppState>) {
             let config = state.read().config.as_ref().cloned();
             if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
                 handle_successful_login(state, session_str).await;
+                // Check for auto-start after successful login
+                check_auto_start_scrubber(state).await;
             }
         }
     }
@@ -176,6 +182,20 @@ async fn attempt_auto_login(config: Option<&ScrobbleScrubberConfig>) -> Option<S
         .await
         .map_err(|e| eprintln!("Auto-login failed: {e}"))
         .ok()
+}
+
+// Helper function to check if scrubber should auto-start
+async fn check_auto_start_scrubber(state: Signal<AppState>) {
+    let should_auto_start = state
+        .read()
+        .config
+        .as_ref()
+        .map(|config| config.scrubber.auto_start)
+        .unwrap_or(false);
+
+    if should_auto_start {
+        start_scrubber(state).await;
+    }
 }
 
 fn main() {

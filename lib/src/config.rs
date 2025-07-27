@@ -123,6 +123,8 @@ pub struct ScrubberConfig {
     pub enable_web_interface: bool,
     /// Port for web interface
     pub web_port: u16,
+    /// Automatically start scrubber on application startup
+    pub auto_start: bool,
     /// JSON logging configuration
     pub json_logging: JsonLoggingConfig,
 }
@@ -206,6 +208,7 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             enable_web_interface: false,
             web_port: 8080,
+            auto_start: false,
             json_logging: JsonLoggingConfig::default(),
         }
     }

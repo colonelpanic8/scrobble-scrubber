@@ -716,7 +716,7 @@ async fn create_authenticated_client(
         let http_client = http_client::native::NativeClient::new();
         return Ok(LastFmEditClientImpl::from_session(
             Box::new(http_client),
-            persisted_session.session,
+            persisted_session,
         ));
     }
 
@@ -739,7 +739,7 @@ async fn create_authenticated_client(
             let http_client = http_client::native::NativeClient::new();
             Ok(LastFmEditClientImpl::from_session(
                 Box::new(http_client),
-                persisted_session.session,
+                persisted_session,
             ))
         }
         Err(e) => {
@@ -869,11 +869,12 @@ async fn main() -> Result<()> {
     // Add MusicBrainz provider if enabled and configured
     if config.providers.enable_musicbrainz {
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new()
-                .with_confidence_threshold(mb_config.confidence_threshold)
-                .with_max_results(mb_config.max_results)
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new(
+                mb_config.confidence_threshold,
+                mb_config.max_results,
+            )
         } else {
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new()
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::default()
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);

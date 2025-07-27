@@ -325,14 +325,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .await?;
 
         // Step 3: Find tracks to process from cache using current anchor
-        let tracks_to_process = self
-            .find_tracks_to_process_from_cache(&timestamp_state)
-            .await?;
+        let tracks_to_process = self.find_tracks_to_process(&timestamp_state).await?;
 
-        log::info!(
-            "Found {} tracks to process from cache",
-            tracks_to_process.len()
-        );
+        log::info!("Found {} tracks to process", tracks_to_process.len());
 
         // Step 4: Process all collected tracks (oldest first) and update anchor after processing
         if !tracks_to_process.is_empty() {
@@ -409,7 +404,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// Find tracks to process from cache based on timestamp state. The anchor
     /// points to the last track we processed, so we process all tracks newer
     /// than the anchor
-    async fn find_tracks_to_process_from_cache(
+    async fn find_tracks_to_process(
         &self,
         timestamp_state: &TimestampState,
     ) -> Result<Vec<lastfm_edit::Track>> {
@@ -889,7 +884,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                log::info!(
+                                log::debug!(
                                     "Action provider '{}' suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),

@@ -56,40 +56,66 @@ pub fn Navigation(state: Signal<AppState>) -> Element {
 
     rsx! {
         nav {
-            class: "nav-container",
+            class: "menubar-nav",
             style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1rem; margin-bottom: 1.5rem;",
-            ul {
-                class: "nav-list",
-                style: "display: flex; justify-content: center; list-style: none; margin: 0; padding: 0; gap: 1rem; flex-wrap: wrap;",
+            role: "menubar",
+            aria_label: "Main navigation",
+            div {
+                class: "menubar-container",
+                style: "display: flex; justify-content: center; align-items: center; gap: 0.25rem;",
                 for item in NAV_ITEMS.iter() {
-                    NavLink { item: item.clone(), current_route: current_route.clone() }
+                    MenubarItem {
+                        item: item.clone(),
+                        current_route: current_route.clone()
+                    }
                 }
             }
         }
     }
 }
 
-#[component]
-fn NavLink(item: NavItem, current_route: Route) -> Element {
-    let is_active = std::mem::discriminant(&current_route) == std::mem::discriminant(&item.route);
+#[derive(Props, Clone, PartialEq)]
+struct MenubarItemProps {
+    item: NavItem,
+    current_route: Route,
+}
 
-    let style = format!(
-        "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; text-decoration: none; display: inline-block; {}",
-        if is_active {
-            "background: #2563eb; color: white;"
-        } else {
-            "background: #f3f4f6; color: #374151; hover: background-color: #e5e7eb;"
-        }
-    );
+#[component]
+fn MenubarItem(props: MenubarItemProps) -> Element {
+    let navigator = use_navigator();
+    let is_active =
+        std::mem::discriminant(&props.current_route) == std::mem::discriminant(&props.item.route);
 
     rsx! {
-        li {
-            Link {
-                to: item.route,
-                style,
-                aria_current: if is_active { "page" } else { "false" },
-                {item.label}
-            }
+        button {
+            class: "menubar-item",
+            role: "menuitem",
+            tabindex: "0",
+            style: format!(
+                "padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: all 0.2s; margin: 0; {}",
+                if is_active {
+                    "background: #2563eb; color: white;"
+                } else {
+                    "background: #f3f4f6; color: #374151;"
+                }
+            ),
+            onclick: {
+                let route = props.item.route.clone();
+                move |_| {
+                    navigator.push(route.clone());
+                }
+            },
+            onkeydown: {
+                let route = props.item.route.clone();
+                move |event: KeyboardEvent| {
+                    let key = event.key();
+                    if key == Key::Enter || key == Key::Character(" ".to_string()) {
+                        navigator.push(route.clone());
+                    }
+                }
+            },
+            aria_current: if is_active { "page" } else { "false" },
+            {props.item.label}
         }
     }
 }

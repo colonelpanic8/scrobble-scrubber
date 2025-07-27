@@ -111,7 +111,7 @@ impl TrackCache {
         let path = Self::cache_file_path()?;
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&path, content)?;
-        log::info!("Saved track cache to {}", path.display());
+        log::debug!("Saved track cache to {}", path.display());
         Ok(())
     }
 
@@ -251,7 +251,7 @@ impl TrackCache {
         self.recent_tracks = all_tracks;
         self.update_timestamp();
 
-        log::info!(
+        log::debug!(
             "Cache merge completed: {} tracks total (simplified merge)",
             self.recent_tracks.len()
         );
@@ -310,7 +310,7 @@ impl TrackCache {
             api_tracks.push(track);
         }
 
-        log::info!(
+        log::debug!(
             "Fetched {} tracks from API, merging with cache...",
             api_tracks.len()
         );
