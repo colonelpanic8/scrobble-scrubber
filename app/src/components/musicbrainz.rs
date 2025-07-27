@@ -1,7 +1,8 @@
 use crate::api::{search_musicbrainz_for_track, MusicBrainzResult};
+use crate::error_utils::{apply_edit_with_timeout, deserialize_session};
 use crate::types::AppState;
 use dioxus::prelude::*;
-use lastfm_edit::Track;
+use lastfm_edit::{ScrobbleEdit, Track};
 
 #[component]
 pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
@@ -47,14 +48,62 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
         is_searching.set(false);
     };
 
-    // Function to populate search from a cached track
+    // Function to populate search from a cached track and immediately search
     let mut populate_from_track = move |track: Track| {
         search_artist.set(track.artist.clone());
         search_title.set(track.name.clone());
         search_album.set(track.album.clone().unwrap_or_default());
         selected_track.set(Some(track));
-        // Clear previous results
-        search_results.set(vec![]);
+        // Immediately perform the search
+        spawn(perform_search());
+    };
+
+    // Function to apply track edit to Last.fm
+    let apply_track_edit = move |new_track: Track| {
+        spawn(async move {
+            let original_track = selected_track.read().as_ref().cloned();
+            let session_str = state.read().session.clone();
+            if let Some(original_track) = original_track {
+                if let Some(session_str) = session_str {
+                    match deserialize_session(&session_str) {
+                        Ok(session) => {
+                            let edit = ScrobbleEdit {
+                                track_name_original: Some(original_track.name.clone()),
+                                album_name_original: original_track.album.clone(),
+                                artist_name_original: original_track.artist.clone(),
+                                album_artist_name_original: None,
+                                track_name: Some(new_track.name),
+                                album_name: new_track.album,
+                                artist_name: new_track.artist,
+                                album_artist_name: None,
+                                timestamp: original_track.timestamp,
+                                edit_all: false,
+                            };
+
+                            match apply_edit_with_timeout(session, edit).await {
+                                Ok(_) => {
+                                    log::info!("Successfully applied track edit to Last.fm");
+                                    // Clear the form after successful edit
+                                    search_artist.set(String::new());
+                                    search_title.set(String::new());
+                                    search_album.set(String::new());
+                                    selected_track.set(None);
+                                    search_results.set(vec![]);
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to apply track edit: {e}");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to deserialize session: {e}");
+                        }
+                    }
+                } else {
+                    log::error!("No session available for track edit");
+                }
+            }
+        });
     };
 
     rsx! {
@@ -64,7 +113,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 h2 { style: "font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: #1f2937;", "MusicBrainz Lookup" }
                 p { style: "color: #6b7280; margin: 0;",
-                    "Search MusicBrainz database for track information. You can search manually or select a track from your cached history below."
+                    "Search MusicBrainz database for track information. Select a track from your cached history below to automatically search, or enter details manually. From the results, you can apply edits directly to Last.fm."
                 }
             }
 
@@ -156,16 +205,19 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
             }
 
             // Search Results
-            if !search_results.read().is_empty() {
-                div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                    h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;",
-                        "MusicBrainz Results ({search_results.read().len()} found)"
-                    }
+            {
+                let results = search_results.read().clone();
+                if !results.is_empty() {
+                    rsx! {
+                        div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
+                            h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;",
+                                "MusicBrainz Results ({results.len()} found)"
+                            }
 
-                    div { style: "display: flex; flex-direction: column; gap: 0.75rem;",
-                        for (index, result) in search_results.read().iter().enumerate() {
-                            {
-                                let confidence_color = if result.confidence >= 0.8 {
+                            div { style: "display: flex; flex-direction: column; gap: 0.75rem;",
+                                for (index, result) in results.iter().enumerate() {
+                                    {
+                                        let confidence_color = if result.confidence >= 0.8 {
                                     "#059669" // Green for high confidence
                                 } else if result.confidence >= 0.6 {
                                     "#f59e0b" // Yellow for medium confidence
@@ -191,10 +243,34 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                                                     }
                                                 }
                                             }
-                                            div { style: "text-align: right;",
+                                            div { style: "text-align: right; display: flex; flex-direction: column; gap: 0.5rem;",
                                                 div {
                                                     style: format!("display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; color: white; background: {};", confidence_color),
                                                     "{(result.confidence * 100.0) as u32}% match"
+                                                }
+                                                if selected_track.read().is_some() {
+                                                    button {
+                                                        style: "background: #059669; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; font-weight: 500;",
+                                                        onclick: {
+                                                            let result_artist = result.artist.clone();
+                                                            let result_title = result.title.clone();
+                                                            let result_album = result.album.clone();
+                                                            move |_| {
+                                                                if let Some(selected) = selected_track.read().as_ref() {
+                                                                    let new_track = Track {
+                                                                        artist: result_artist.clone(),
+                                                                        name: result_title.clone(),
+                                                                        album: result_album.clone(),
+                                                                        timestamp: selected.timestamp,
+                                                                        playcount: selected.playcount,
+                                                                        album_artist: None,
+                                                                    };
+                                                                    apply_track_edit(new_track);
+                                                                }
+                                                            }
+                                                        },
+                                                        "Apply Edit"
+                                                    }
                                                 }
                                             }
                                         }
@@ -211,9 +287,13 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                                         }
                                     }
                                 }
+                                    }
+                                }
                             }
                         }
                     }
+                } else {
+                    rsx! { div {} }
                 }
             }
 
@@ -227,7 +307,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                         div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                             h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Quick Lookup from Cached Tracks" }
                             p { style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
-                                "Click on any track below to automatically fill the search form and lookup MusicBrainz information."
+                                "Click on any track below to automatically search MusicBrainz. From the results, you can apply edits directly to Last.fm."
                             }
 
                             div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
@@ -248,7 +328,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                                                         div { style: "font-size: 0.75rem; color: #9ca3af;", "{album}" }
                                                     }
                                                 }
-                                                div { style: "color: #2563eb; font-size: 0.875rem;", "Lookup →" }
+                                                div { style: "color: #2563eb; font-size: 0.875rem;", "Search →" }
                                             }
                                         }
                                     }
