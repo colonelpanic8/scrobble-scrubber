@@ -2,7 +2,7 @@ use crate::persistence::{PendingEdit, PendingRewriteRule};
 use crate::scrub_action_provider::{ScrubActionProvider, SuggestionWithContext};
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
-use log::{trace, warn};
+use log::warn;
 use musicbrainz_rs::entity::recording::RecordingSearchQuery;
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -69,7 +69,7 @@ impl MusicBrainzScrubActionProvider {
         title: &str,
         album: Option<&str>,
     ) -> Result<Vec<MusicBrainzMatch>, Box<dyn std::error::Error + Send + Sync>> {
-        log::info!("Searching MusicBrainz for: '{title}' by '{artist}'");
+        log::debug!("Searching MusicBrainz for: '{title}' by '{artist}'");
 
         // Build MusicBrainz search query
         let query_string = Self::build_track_query(artist, title, album);
@@ -80,14 +80,14 @@ impl MusicBrainzScrubActionProvider {
             .await
             .map_err(|e| format!("MusicBrainz search failed: {e}"))?;
 
-        log::info!(
+        log::debug!(
             "Found {} MusicBrainz results",
             search_results.entities.len()
         );
 
         let mut results = Vec::new();
 
-        for recording in search_results.entities.iter().take(10) {
+        for recording in search_results.entities.iter().take(self.max_results) {
             if let Some(artist_credit) = &recording.artist_credit {
                 let mb_artist = artist_credit
                     .first()
@@ -129,23 +129,45 @@ impl MusicBrainzScrubActionProvider {
         // Check cache first
         if let Ok(cache_read) = self.cache.read() {
             if let Some(cached_result) = cache_read.get(&search_key) {
-                trace!("Using cached MusicBrainz result for '{search_key}'");
+                log::trace!("Using cached MusicBrainz result for '{search_key}'");
                 return cached_result.clone();
             }
         }
 
-        trace!(
-            "Searching MusicBrainz for: '{}' by '{}'",
-            track.name,
-            track.artist
-        );
+        // Use the multiple search function to get all matches
+        match self
+            .search_musicbrainz_multiple(&track.artist, &track.name, track.album.as_deref())
+            .await
+        {
+            Ok(mut matches) => {
+                // Filter by confidence threshold and find the best match
+                matches.retain(|m| m.confidence >= self.confidence_threshold);
+                let best_match = matches.into_iter().next(); // Already sorted by confidence
 
-        // Build MusicBrainz search query
-        let query_string =
-            Self::build_track_query(&track.artist, &track.name, track.album.as_deref());
+                // Cache the result (even if None)
+                if let Ok(mut cache_write) = self.cache.write() {
+                    cache_write.insert(search_key, best_match.clone());
+                }
 
-        let search_results = match Recording::search(query_string).execute().await {
-            Ok(results) => results,
+                if let Some(ref m) = best_match {
+                    log::info!(
+                        "Found MusicBrainz match for '{}' by '{}': '{}' by '{}' (confidence: {:.2})",
+                        track.name,
+                        track.artist,
+                        m.title,
+                        m.artist,
+                        m.confidence
+                    );
+                } else {
+                    log::debug!(
+                        "No confident MusicBrainz match found for '{}' by '{}'",
+                        track.name,
+                        track.artist
+                    );
+                }
+
+                best_match
+            }
             Err(e) => {
                 warn!(
                     "MusicBrainz search failed for '{}' by '{}': {}",
@@ -154,84 +176,9 @@ impl MusicBrainzScrubActionProvider {
                 if let Ok(mut cache_write) = self.cache.write() {
                     cache_write.insert(search_key, None);
                 }
-                return None;
-            }
-        };
-
-        trace!(
-            "Found {} MusicBrainz results",
-            search_results.entities.len()
-        );
-
-        let mut best_match: Option<MusicBrainzMatch> = None;
-        let mut best_confidence = 0.0;
-
-        for (i, recording) in search_results
-            .entities
-            .iter()
-            .take(self.max_results)
-            .enumerate()
-        {
-            if let Some(artist_credit) = &recording.artist_credit {
-                let mb_artist = artist_credit
-                    .first()
-                    .map(|ac| ac.artist.name.clone())
-                    .unwrap_or_default();
-
-                let mb_title = recording.title.clone();
-                let mb_album = Self::select_best_release_title(recording);
-
-                // Calculate confidence based on string similarity
-                let artist_confidence = self.calculate_similarity(&track.artist, &mb_artist);
-                let title_confidence = self.calculate_similarity(&track.name, &mb_title);
-                let overall_confidence = (artist_confidence + title_confidence) / 2.0;
-
-                trace!(
-                    "MusicBrainz result {}: '{}' by '{}' (confidence: {:.2})",
-                    i + 1,
-                    mb_title,
-                    mb_artist,
-                    overall_confidence
-                );
-
-                if overall_confidence > best_confidence
-                    && overall_confidence >= self.confidence_threshold
-                {
-                    best_confidence = overall_confidence;
-                    best_match = Some(MusicBrainzMatch {
-                        artist: mb_artist,
-                        title: mb_title,
-                        album: mb_album,
-                        confidence: overall_confidence,
-                        mbid: recording.id.clone(),
-                    });
-                }
+                None
             }
         }
-
-        // Cache the result (even if None)
-        if let Ok(mut cache_write) = self.cache.write() {
-            cache_write.insert(search_key, best_match.clone());
-        }
-
-        if let Some(ref m) = best_match {
-            log::info!(
-                "Found MusicBrainz match for '{}' by '{}': '{}' by '{}' (confidence: {:.2})",
-                track.name,
-                track.artist,
-                m.title,
-                m.artist,
-                m.confidence
-            );
-        } else {
-            log::debug!(
-                "No confident MusicBrainz match found for '{}' by '{}'",
-                track.name,
-                track.artist
-            );
-        }
-
-        best_match
     }
 
     /// Calculate string similarity between two strings (simple Levenshtein-based approach)
@@ -373,7 +320,7 @@ impl ScrubActionProvider for MusicBrainzScrubActionProvider {
         let mut results = Vec::new();
 
         for (index, track) in tracks.iter().enumerate() {
-            trace!(
+            log::trace!(
                 "MusicBrainzScrubActionProvider analyzing track {}: '{}' by '{}'",
                 index,
                 track.name,
@@ -391,7 +338,7 @@ impl ScrubActionProvider for MusicBrainzScrubActionProvider {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
 
-        trace!(
+        log::trace!(
             "MusicBrainzScrubActionProvider completed analysis of {} tracks, found {} suggestions",
             tracks.len(),
             results.len()
