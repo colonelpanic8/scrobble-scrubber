@@ -10,6 +10,7 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
     let mut loading_artist_tracks = use_signal(|| false);
     let mut artist_name = use_signal(String::new);
     let mut show_cache_info = use_signal(|| false);
+    let mut cache_stats = use_signal(String::new);
 
     rsx! {
         div {
@@ -277,7 +278,6 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                     onclick: move |_| {
                         let current_state = *show_cache_info.read();
                         show_cache_info.set(!current_state);
-<<<<<<< HEAD
                         if !current_state {
                             spawn(async move {
                                 let cache = TrackCache::load();
@@ -294,17 +294,6 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                                 cache_stats.set(stats);
                             });
                         }
-||||||| parent of 1a7ac31 (Remove web interface)
-                        if !current_state {
-                            spawn(async move {
-                                match get_cache_stats().await {
-                                    Ok(stats) => cache_stats.set(stats),
-                                    Err(e) => cache_stats.set(format!("Error: {e}")),
-                                }
-                            });
-                        }
-=======
->>>>>>> 1a7ac31 (Remove web interface)
                     },
                     if *show_cache_info.read() { "Hide Controls" } else { "Show Controls" }
                 }
@@ -320,51 +309,6 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                                     Ok(msg) => {
                                         println!("✅ {msg}");
                                     }
-<<<<<<< HEAD
-                                });
-                            },
-                            "Clear All Cache"
-                        }
-
-                        button {
-                            style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                            onclick: move |_| {
-                                spawn(async move {
-                                    let cache = TrackCache::load();
-                                    let recent_count = cache.recent_tracks.len();
-                                    let artist_count = cache.artist_tracks.len();
-                                    let total_artist_tracks: usize = cache
-                                        .artist_tracks
-                                        .values()
-                                        .map(|tracks| tracks.len())
-                                        .sum();
-                                    let stats = format!(
-                                        "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
-                                    );
-                                    cache_stats.set(stats);
-                                });
-                            },
-                            "Refresh Stats"
-                        }
-||||||| parent of 1a7ac31 (Remove web interface)
-                                });
-                            },
-                            "Clear All Cache"
-                        }
-
-                        button {
-                            style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                            onclick: move |_| {
-                                spawn(async move {
-                                    match get_cache_stats().await {
-                                        Ok(stats) => cache_stats.set(stats),
-                                        Err(e) => cache_stats.set(format!("Error: {e}")),
-                                    }
-                                });
-                            },
-                            "Refresh Stats"
-                        }
-=======
                                     Err(e) => {
                                         eprintln!("❌ Failed to clear cache: {e}");
                                     }
@@ -372,7 +316,27 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                             });
                         },
                         "Clear All Cache"
->>>>>>> 1a7ac31 (Remove web interface)
+                    }
+
+                    button {
+                        style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                        onclick: move |_| {
+                            spawn(async move {
+                                let cache = TrackCache::load();
+                                let recent_count = cache.recent_tracks.len();
+                                let artist_count = cache.artist_tracks.len();
+                                let total_artist_tracks: usize = cache
+                                    .artist_tracks
+                                    .values()
+                                    .map(|tracks| tracks.len())
+                                    .sum();
+                                let stats = format!(
+                                    "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
+                                );
+                                cache_stats.set(stats);
+                            });
+                        },
+                        "Refresh Stats"
                     }
                 }
             }
