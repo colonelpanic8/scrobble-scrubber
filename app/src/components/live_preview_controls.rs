@@ -1,4 +1,4 @@
-use crate::api::{clear_cache, get_cache_stats, load_artist_tracks, load_recent_tracks_from_page};
+use crate::api::{clear_cache, load_artist_tracks, load_recent_tracks_from_page};
 use crate::types::{AppState, TrackSourceState};
 use crate::utils::get_current_tracks;
 use ::scrobble_scrubber::track_cache::TrackCache;
@@ -280,10 +280,18 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                         show_cache_info.set(!current_state);
                         if !current_state {
                             spawn(async move {
-                                match get_cache_stats().await {
-                                    Ok(stats) => cache_stats.set(stats),
-                                    Err(e) => cache_stats.set(format!("Error: {e}")),
-                                }
+                                let cache = TrackCache::load();
+                                let recent_count = cache.recent_tracks.len();
+                                let artist_count = cache.artist_tracks.len();
+                                let total_artist_tracks: usize = cache
+                                    .artist_tracks
+                                    .values()
+                                    .map(|tracks| tracks.len())
+                                    .sum();
+                                let stats = format!(
+                                    "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
+                                );
+                                cache_stats.set(stats);
                             });
                         }
                     },
@@ -323,10 +331,18 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                             style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
                             onclick: move |_| {
                                 spawn(async move {
-                                    match get_cache_stats().await {
-                                        Ok(stats) => cache_stats.set(stats),
-                                        Err(e) => cache_stats.set(format!("Error: {e}")),
-                                    }
+                                    let cache = TrackCache::load();
+                                    let recent_count = cache.recent_tracks.len();
+                                    let artist_count = cache.artist_tracks.len();
+                                    let total_artist_tracks: usize = cache
+                                        .artist_tracks
+                                        .values()
+                                        .map(|tracks| tracks.len())
+                                        .sum();
+                                    let stats = format!(
+                                        "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
+                                    );
+                                    cache_stats.set(stats);
                                 });
                             },
                             "Refresh Stats"

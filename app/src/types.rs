@@ -8,7 +8,7 @@ use ::scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TrackSourceState {
     pub enabled: bool,
     // tracks are now stored only in the cache, not duplicated here
@@ -151,6 +151,17 @@ pub struct ScrubberState {
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
     pub current_anchor_timestamp: Option<u64>,
     pub next_cycle_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl PartialEq for ScrubberState {
+    fn eq(&self, other: &Self) -> bool {
+        self.status == other.status
+            && self.processed_count == other.processed_count
+            && self.rules_applied_count == other.rules_applied_count
+            && self.current_anchor_timestamp == other.current_anchor_timestamp
+            && self.next_cycle_timestamp == other.next_cycle_timestamp
+            && self.events.len() == other.events.len()
+    }
 }
 
 pub type GlobalScrubber = ScrobbleScrubber<FileStorage, RewriteRulesScrubActionProvider>;

@@ -1,3 +1,5 @@
+pub mod activity_log;
+pub mod artist_processing;
 pub mod cache_management;
 pub mod config_page;
 pub mod live_preview_controls;
@@ -11,7 +13,13 @@ pub mod rule_editor;
 pub mod rule_preview;
 pub mod rule_workshop;
 pub mod scrobble_scrubber;
+pub mod scrubber_controls;
+pub mod scrubber_statistics;
+pub mod timestamp_management;
+pub mod track_sources;
 
+pub use activity_log::ActivityLogSection;
+pub use artist_processing::ArtistProcessingSection;
 pub use cache_management::CacheManagementPage;
 pub use config_page::ConfigPage;
 // pub use live_preview_controls::LivePreviewControls; // TODO: Use this when refactoring rule_workshop and rewrite_rules
@@ -25,3 +33,7 @@ pub use rule_editor::RuleEditor;
 pub use rule_preview::RulePreview;
 pub use rule_workshop::RuleWorkshop;
 pub use scrobble_scrubber::{start_scrubber, ScrobbleScrubberPage};
+pub use scrubber_controls::ScrubberControlsSection;
+pub use scrubber_statistics::ScrubberStatisticsSection;
+pub use timestamp_management::TimestampManagementSection;
+pub use track_sources::TrackSourcesSection;

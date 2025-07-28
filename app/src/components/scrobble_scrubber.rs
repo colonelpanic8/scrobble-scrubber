@@ -1,450 +1,28 @@
-use crate::api::load_recent_tracks_from_page;
+use crate::components::{
+    ActivityLogSection, ArtistProcessingSection, ScrubberControlsSection,
+    ScrubberStatisticsSection, TimestampManagementSection,
+};
 use crate::scrubber_manager::get_or_create_scrubber;
-use crate::types::{event_formatting, AppState, ScrubberStatus};
+use crate::types::{AppState, ScrubberStatus};
 use ::scrobble_scrubber::events::ScrubberEvent;
-use ::scrobble_scrubber::track_cache::TrackCache;
 use chrono::Utc;
-use dioxus::html::input_data::keyboard_types::Key;
 use dioxus::prelude::*;
-use dioxus_router::prelude::*;
 use lastfm_edit::Track;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
 #[component]
 pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
-    let scrubber_state = state.read().scrubber_state.clone();
-
-    // Create a timer that ticks every second - following dioxus-timer pattern
-    let mut timer_tick = use_signal(chrono::Utc::now);
-
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            // Always update the tick - let the component decide if it needs the current time
-            timer_tick.set(chrono::Utc::now());
-        }
-    });
-
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
-            // Header with controls
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                div { style: "display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;",
-                    div { style: "display: flex; align-items: center; gap: 1rem;",
-                        // Status indicator
-                        div {
-                            style: format!(
-                                "padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; {}",
-                                match scrubber_state.status {
-                                    ScrubberStatus::Stopped => "background: #fee2e2; color: #991b1b;",
-                                    ScrubberStatus::Starting => "background: #fef3c7; color: #92400e;",
-                                    ScrubberStatus::Running => "background: #dcfce7; color: #166534;",
-                                    ScrubberStatus::Sleeping { .. } => "background: #e0e7ff; color: #3730a3;",
-                                    ScrubberStatus::Stopping => "background: #fef3c7; color: #92400e;",
-                                    ScrubberStatus::Error(_) => "background: #fecaca; color: #dc2626;",
-                                }
-                            ),
-                            {match &scrubber_state.status {
-                                ScrubberStatus::Stopped => "Stopped".to_string(),
-                                ScrubberStatus::Starting => "Starting...".to_string(),
-                                ScrubberStatus::Running => "Running".to_string(),
-                                ScrubberStatus::Sleeping { until_timestamp } => {
-                                    // Read timer_tick to ensure re-renders happen during countdown
-                                    let _tick = timer_tick.read();
-                                    let now = chrono::Utc::now();
-                                    let remaining_seconds = (*until_timestamp - now).num_seconds().max(0);
+            ScrubberControlsSection { state }
+            ScrubberStatisticsSection { state }
 
-                                    if remaining_seconds > 0 {
-                                        format!("💤 Sleeping ({remaining_seconds}s)")
-                                    } else {
-                                        "💤 Sleeping".to_string()
-                                    }
-                                },
-                                ScrubberStatus::Stopping => "Stopping...".to_string(),
-                                ScrubberStatus::Error(err) => format!("Error: {err}"),
-                            }}
-                        }
+            ArtistProcessingSection { state }
 
-                        // Control buttons
-                        match scrubber_state.status {
-                            ScrubberStatus::Stopped | ScrubberStatus::Error(_) => rsx! {
-                                button {
-                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-right: 0.5rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            start_scrubber(state).await;
-                                        });
-                                    },
-                                    "Start Scrubber"
-                                }
-                                button {
-                                    style: "background: #2563eb; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            trigger_manual_processing(state).await;
-                                        });
-                                    },
-                                    "Process Now"
-                                }
-                            },
-                            ScrubberStatus::Running | ScrubberStatus::Sleeping { .. } => rsx! {
-                                button {
-                                    style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; margin-right: 0.5rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            stop_scrubber(state).await;
-                                        });
-                                    },
-                                    "Stop Scrubber"
-                                }
-                                button {
-                                    style: "background: #7c3aed; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            trigger_manual_processing(state).await;
-                                        });
-                                    },
-                                    "Process Now"
-                                }
-                            },
-                            ScrubberStatus::Starting | ScrubberStatus::Stopping => rsx! {
-                                button {
-                                    style: "background: #6b7280; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: not-allowed; font-size: 0.875rem;",
-                                    disabled: true,
-                                    "Please wait..."
-                                }
-                            },
-                        }
-                    }
-                }
+            ActivityLogSection { state }
 
-                p { style: "color: #6b7280; margin: 0;",
-                    "Monitor and control the scrobble scrubber. The scrubber processes your scrobbles and applies rewrite rules automatically."
-                }
-            }
-
-            // Statistics
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Statistics" }
-                div { style: "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;",
-                    div { style: "padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                        div { style: "font-size: 1.5rem; font-weight: bold; color: #2563eb;", "{scrubber_state.processed_count}" }
-                        div { style: "font-size: 0.875rem; color: #6b7280;", "Tracks Processed" }
-                    }
-                    div { style: "padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                        div { style: "font-size: 1.5rem; font-weight: bold; color: #059669;", "{scrubber_state.rules_applied_count}" }
-                        div { style: "font-size: 0.875rem; color: #6b7280;", "Rules Applied" }
-                    }
-                    div { style: "padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                        div { style: "font-size: 1.5rem; font-weight: bold; color: #dc2626;", "{scrubber_state.events.len()}" }
-                        div { style: "font-size: 0.875rem; color: #6b7280;", "Total Events" }
-                    }
-                }
-            }
-
-            // Artist-Specific Processing
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Process Specific Artist" }
-                p { style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
-                    "Enter an artist name to process only tracks by that artist. This will apply your saved rules to all tracks by the specified artist in your cache."
-                }
-
-                {
-                    let mut artist_input = use_signal(String::new);
-
-                    rsx! {
-                        div { style: "display: flex; gap: 0.75rem; align-items: flex-end;",
-                            div { style: "flex: 1;",
-                                label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;",
-                                    "Artist Name"
-                                }
-                                input {
-                                    r#type: "text",
-                                    placeholder: "Enter artist name...",
-                                    value: "{artist_input.read()}",
-                                    style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; focus:outline-none; focus:ring-2; focus:ring-blue-500; focus:border-transparent;",
-                                    oninput: move |event| {
-                                        artist_input.set(event.value());
-                                    },
-                                    onkeypress: move |event| {
-                                        if event.key() == Key::Enter {
-                                            let artist_name = artist_input.read().trim().to_string();
-                                            if !artist_name.is_empty() {
-                                                spawn(async move {
-                                                    trigger_artist_processing(state, artist_name).await;
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            button {
-                                style: format!(
-                                    "padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; {}",
-                                    if artist_input.read().trim().is_empty() {
-                                        "background: #9ca3af; color: white; cursor: not-allowed;"
-                                    } else {
-                                        "background: #7c3aed; color: white; cursor: pointer; hover:background: #6d28d9;"
-                                    }
-                                ),
-                                disabled: artist_input.read().trim().is_empty(),
-                                onclick: move |_| {
-                                    let artist_name = artist_input.read().trim().to_string();
-                                    if !artist_name.is_empty() {
-                                        spawn(async move {
-                                            trigger_artist_processing(state, artist_name).await;
-                                        });
-                                    }
-                                },
-                                "Process Artist"
-                            }
-                        }
-
-                        // Show helpful info about cached artists
-                        {
-                            let state_read = state.read();
-                            let artist_tracks = &state_read.track_cache.recent_tracks;
-                            let mut artist_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-
-                            for track in artist_tracks {
-                                *artist_counts.entry(track.artist.clone()).or_insert(0) += 1;
-                            }
-
-                            let mut sorted_artists: Vec<_> = artist_counts.into_iter().collect();
-                            sorted_artists.sort_by(|a, b| b.1.cmp(&a.1));
-
-                            if !sorted_artists.is_empty() {
-                                rsx! {
-                                    div { style: "margin-top: 1rem; border-top: 1px solid #e5e7eb; padding-top: 1rem;",
-                                        p { style: "font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;",
-                                            "Top artists in cache (click to auto-fill):"
-                                        }
-                                        div { style: "display: flex; flex-wrap: wrap; gap: 0.5rem;",
-                                            for (artist, count) in sorted_artists.iter().take(8) {
-                                                {
-                                                    let artist_name = artist.clone();
-                                                    rsx! {
-                                                        button {
-                                                            style: "background: #f3f4f6; color: #374151; padding: 0.25rem 0.5rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; hover:background: #e5e7eb;",
-                                                            onclick: move |_| {
-                                                                artist_input.set(artist_name.clone());
-                                                            },
-                                                            "{artist} ({count})"
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                rsx! { div {} }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Activity Log
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    h3 { style: "font-size: 1.25rem; font-weight: bold; margin: 0;", "Activity Log" }
-                    button {
-                        style: "background: #6b7280; color: white; padding: 0.25rem 0.5rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
-                        onclick: move |_| {
-                            state.with_mut(|s| s.scrubber_state.events.clear());
-                        },
-                        "Clear Log"
-                    }
-                }
-
-                div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem;",
-                    if scrubber_state.events.is_empty() {
-                        div { style: "text-center; color: #6b7280; padding: 2rem;",
-                            "No events yet. Start the scrubber to see activity."
-                        }
-                    } else {
-                        div { style: "display: flex; flex-direction: column-reverse; gap: 0.25rem;",
-                            for (index, event) in scrubber_state.events.iter().rev().enumerate() {
-                                {
-                                    let event = event.clone();
-                                    let event_category = event_formatting::get_event_category(&event);
-                                    let (icon, color) = match event_category {
-                                        "started" => ("🟢", "#059669"),
-                                        "stopped" => ("🔴", "#dc2626"),
-                                        "sleeping" => ("💤", "#3730a3"),
-                                        "track_processed" => ("🎵", "#2563eb"),
-                                        "rule_applied" => ("✏️", "#059669"),
-                                        "error" => ("❌", "#dc2626"),
-                                        "info" => ("ℹ️", "#6b7280"),
-                                        "cycle_completed" => ("✅", "#059669"),
-                                        "cycle_started" => ("🔄", "#2563eb"),
-                                        "anchor_updated" => ("📍", "#f59e0b"),
-                                        "tracks_found" => ("🔍", "#7c3aed"),
-                                        "track_edited" => ("✅", "#059669"),
-                                        "track_edit_failed" => ("❌", "#dc2626"),
-                                        "track_skipped" => ("⏭️", "#f59e0b"),
-                                        _ => ("ℹ️", "#6b7280"),
-                                    };
-                                    let formatted_time = event.timestamp.format("%H:%M:%S").to_string();
-                                    let message = event_formatting::format_event_message(&event);
-
-                                    rsx! {
-                                        div {
-                                            key: "{index}",
-                                            style: "display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; hover:background: #f9fafb;",
-                                            span { style: "color: {color}; font-weight: 500; min-width: 16ch; text-align: right;", "{formatted_time}" }
-                                            span { style: "font-size: 1rem; min-width: 1.5rem; text-align: center;", "{icon}" }
-                                            span { style: "color: #374151; flex: 1;", "{message}" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Timestamp Management
-            div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
-                div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
-                    h3 { style: "font-size: 1.25rem; font-weight: bold; margin: 0;", "Processing Anchor" }
-                    {
-                        let state_read = state.read();
-                        let total_tracks: usize = state_read.track_cache.recent_tracks.len();
-                        let recent_tracks_loaded = total_tracks > 0;
-                        if recent_tracks_loaded {
-                            rsx! {
-                                div { style: "display: flex; align-items: center; gap: 0.5rem;",
-                                    span { style: "font-size: 0.875rem; color: #059669; background: #d1fae5; padding: 0.25rem 0.5rem; border-radius: 0.25rem;",
-                                        "📂 Using cached recent tracks ({total_tracks} tracks)"
-                                    }
-                                    button {
-                                        style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                        onclick: move |_| async move {
-                                            let (session_str, current_page) = {
-                                                let s = state.read();
-                                                (s.session.clone(), s.current_page)
-                                            };
-                                            if let Some(session_str) = session_str {
-                                                let next_page = current_page + 1;
-                                                if load_recent_tracks_from_page(session_str, next_page).await.is_ok() {
-                                                    state.with_mut(|s| {
-                                                        s.current_page = next_page;
-                                                        // Reload cache to get the newly cached tracks
-                                                        s.track_cache = TrackCache::load();
-                                                    });
-                                                }
-                                            }
-                                        },
-                                        "Load More Tracks"
-                                    }
-                                }
-                            }
-                        } else {
-                            rsx! {
-                                button {
-                                    style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                    onclick: move |_| async move {
-                                        let session_str = state.read().session.clone();
-                                        if let Some(session_str) = session_str {
-                                            if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
-                                                state.with_mut(|s| {
-                                                    s.current_page = 1;
-                                                    // Reload cache to get the newly cached tracks
-                                                    s.track_cache = TrackCache::load();
-                                                });
-                                            }
-                                        }
-                                    },
-                                    "Load Recent Tracks"
-                                }
-                            }
-                        }
-                    }
-                }
-
-                p { style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
-                    "Set the processing anchor to control where the scrubber starts processing. Moving the anchor backwards will cause the scrubber to reprocess older tracks."
-                }
-
-                {
-                    let state_read = state.read();
-                    let all_cached_tracks = state_read.track_cache.recent_tracks.clone();
-
-                    if all_cached_tracks.is_empty() {
-                        rsx! {
-                            div { style: "text-align: center; color: #6b7280; padding: 2rem;",
-                                p { "No recent tracks loaded yet." }
-                                p { style: "font-size: 0.875rem; margin-top: 0.5rem;",
-                                    "Load recent tracks in the Rule Workshop or click 'Load Recent Tracks' above to see your scrobbles and set the processing anchor."
-                                }
-                            }
-                        }
-                    } else {
-                        rsx! {
-                            div { style: "max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem;",
-                                for (index, track) in all_cached_tracks.iter().enumerate() {
-                                    {
-                                        let track = track.clone();
-                                        let timestamp_str = if let Some(ts) = track.timestamp {
-                                            let dt = chrono::DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(chrono::Utc::now);
-                                            dt.format("%Y-%m-%d %H:%M:%S").to_string()
-                                        } else {
-                                            "No timestamp".to_string()
-                                        };
-
-                                        rsx! {
-                                            div {
-                                                key: "{index}",
-                                                style: "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #f3f4f6; hover:background: #f9fafb;",
-                                                div { style: "flex-grow: 1;",
-                                                    div { style: "font-weight: 500; color: #1f2937;", "{track.name}" }
-                                                    div { style: "font-size: 0.875rem; color: #6b7280;", "{track.artist}" }
-                                                    if let Some(album) = &track.album {
-                                                        div { style: "font-size: 0.75rem; color: #9ca3af;", "{album}" }
-                                                    }
-                                                }
-                                                div { style: "text-align: right; margin-right: 1rem;",
-                                                    div { style: "font-size: 0.75rem; color: #6b7280;", "{timestamp_str}" }
-                                                }
-                                                div { style: "display: flex; gap: 0.5rem;",
-                                                    button {
-                                                        style: "background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;",
-                                                        onclick: move |_| {
-                                                            let track_clone = track.clone();
-                                                            spawn(async move {
-                                                                set_timestamp_anchor(state, track_clone).await;
-                                                            });
-                                                        },
-                                                        "Set Anchor"
-                                                    }
-                                                    {
-                                                        let track_for_mb = track.clone();
-                                                        rsx! {
-                                                            Link {
-                                                                to: format!(
-                                                                    "/musicbrainz-lookup?artist={}&title={}&album={}",
-                                                                    urlencoding::encode(&track_for_mb.artist),
-                                                                    urlencoding::encode(&track_for_mb.name),
-                                                                    urlencoding::encode(track_for_mb.album.as_deref().unwrap_or(""))
-                                                                ),
-                                                                style: "background: #7c3aed; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; text-decoration: none; display: inline-block;",
-                                                                "MusicBrainz →"
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            TimestampManagementSection { state }
         }
     }
 }
@@ -495,7 +73,7 @@ pub async fn start_scrubber(mut state: Signal<AppState>) {
     }
 }
 
-async fn stop_scrubber(mut state: Signal<AppState>) {
+pub async fn stop_scrubber(mut state: Signal<AppState>) {
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Stopping);
 
     let stop_event = ScrubberEvent {
@@ -512,7 +90,7 @@ async fn stop_scrubber(mut state: Signal<AppState>) {
     });
 }
 
-async fn trigger_manual_processing(mut state: Signal<AppState>) {
+pub async fn trigger_manual_processing(mut state: Signal<AppState>) {
     let process_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
@@ -568,7 +146,7 @@ async fn trigger_manual_processing(mut state: Signal<AppState>) {
     }
 }
 
-async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
+pub async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
     let set_anchor_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
@@ -972,7 +550,7 @@ async fn process_with_scrubber(
     Ok(())
 }
 
-async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: String) {
+pub async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: String) {
     let start_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(

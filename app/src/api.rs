@@ -300,34 +300,6 @@ pub async fn clear_cache() -> Result<String, Box<dyn std::error::Error + Send + 
     Ok("Cache cleared successfully".to_string())
 }
 
-pub async fn get_cache_stats() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::track_cache::TrackCache;
-
-    let cache = TrackCache::load();
-    let recent_count = cache.recent_tracks.len();
-    let artist_count = cache.artist_tracks.len();
-    let total_artist_tracks: usize = cache
-        .artist_tracks
-        .values()
-        .map(|tracks| tracks.len())
-        .sum();
-
-    Ok(format!(
-        "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
-    ))
-}
-
-pub async fn clear_artist_cache(
-    artist_name: String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::track_cache::TrackCache;
-
-    let mut cache = TrackCache::load();
-    cache.clear_artist(&artist_name);
-    cache.save().to_box_error("Failed to clear artist cache")?;
-    Ok(format!("Cleared cache for artist '{artist_name}'"))
-}
-
 pub async fn load_pending_edits(
 ) -> Result<Vec<PendingEdit>, Box<dyn std::error::Error + Send + Sync>> {
     use scrobble_scrubber::persistence::StateStorage;
