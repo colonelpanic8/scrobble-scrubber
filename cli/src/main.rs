@@ -13,7 +13,6 @@ use scrobble_scrubber::scrub_action_provider::{
 };
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
 use scrobble_scrubber::session_manager::SessionManager;
-use scrobble_scrubber::web_interface;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -62,7 +61,7 @@ struct Args {
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+enum ScrubberCommands {
     /// Run continuously, monitoring for new tracks (default mode)
     Run {
         /// Check interval in seconds
@@ -80,14 +79,6 @@ enum Commands {
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
-
-        /// Enable web interface for managing pending rules and edits
-        #[arg(long)]
-        enable_web_interface: bool,
-
-        /// Port for web interface (default: 8080)
-        #[arg(long)]
-        web_port: Option<u16>,
     },
     /// Run once and exit after processing new tracks since last run
     Once {
@@ -106,14 +97,6 @@ enum Commands {
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
-
-        /// Enable web interface for managing pending rules and edits
-        #[arg(long)]
-        enable_web_interface: bool,
-
-        /// Port for web interface (default: 8080)
-        #[arg(long)]
-        web_port: Option<u16>,
     },
     /// Process the last N tracks without updating timestamp state
     LastN {
@@ -140,14 +123,6 @@ enum Commands {
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
-
-        /// Enable web interface for managing pending rules and edits
-        #[arg(long)]
-        enable_web_interface: bool,
-
-        /// Port for web interface (default: 8080)
-        #[arg(long)]
-        web_port: Option<u16>,
     },
     /// Process tracks for a specific artist or album
     Artist {
@@ -170,25 +145,13 @@ enum Commands {
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
-
-        /// Enable web interface for managing pending rules and edits
-        #[arg(long)]
-        enable_web_interface: bool,
-
-        /// Port for web interface (default: 8080)
-        #[arg(long)]
-        web_port: Option<u16>,
     },
-    /// Start only the web interface for managing pending rules and edits
-    Web {
-        /// Port for web interface (default: 8080)
-        #[arg(short, long)]
-        port: Option<u16>,
-    },
-    /// Clear saved session data (forces fresh login on next run)
-    ClearSession,
+}
+
+#[derive(Subcommand, Debug)]
+enum TrackCacheCommands {
     /// Show recent tracks cache state (track names, artists, timestamps)
-    ShowCache {
+    Show {
         /// Limit the number of tracks to show (default: 50)
         #[arg(short, long, default_value = "50")]
         limit: usize,
@@ -196,10 +159,32 @@ enum Commands {
         #[arg(long)]
         all_pages: bool,
     },
+    /// Refresh track cache from Last.fm API (overwrites existing cache)
+    Refresh {
+        /// Number of pages to fetch (default: 1, ~50 tracks per page)
+        #[arg(short, long, default_value = "1")]
+        pages: usize,
+    },
+    /// Extend track cache by fetching more tracks from Last.fm API
+    Extend {
+        /// Number of pages to fetch (default: 1, ~50 tracks per page)
+        #[arg(short, long, default_value = "1")]
+        pages: usize,
+    },
+    /// Show recent tracks directly from Last.fm API
+    ShowRecent {
+        /// Number of tracks to show (default: 50)
+        #[arg(short, long, default_value = "50")]
+        limit: usize,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RulesCommands {
     /// Show current active rewrite rules
-    ShowRules,
+    Show,
     /// Add a new rewrite rule
-    AddRule {
+    Add {
         /// Rule name (optional)
         #[arg(short, long)]
         name: Option<String>,
@@ -245,7 +230,7 @@ enum Commands {
         require_confirmation: bool,
     },
     /// Remove a rewrite rule
-    RemoveRule {
+    Remove {
         /// Rule index to remove (1-based, as shown in show-rules)
         #[arg(short, long)]
         index: Option<usize>,
@@ -258,6 +243,10 @@ enum Commands {
         #[arg(long)]
         all: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum TimestampCommands {
     /// Set timestamp anchor back N tracks from current position
     SetAnchor {
         /// Number of tracks to go back
@@ -265,29 +254,29 @@ enum Commands {
         tracks: u32,
     },
     /// Set timestamp anchor to a specific timestamp
-    SetAnchorTimestamp {
+    SetTimestamp {
         /// Timestamp in ISO 8601 format (e.g., "2025-07-22T07:08:00Z")
         #[arg(short, long)]
         timestamp: String,
     },
-    /// Show recent tracks directly from Last.fm API
-    ShowRecentTracks {
-        /// Number of tracks to show (default: 50)
-        #[arg(short, long, default_value = "50")]
-        limit: usize,
-    },
-    /// Refresh track cache from Last.fm API (overwrites existing cache)
-    RefreshCache {
-        /// Number of pages to fetch (default: 1, ~50 tracks per page)
-        #[arg(short, long, default_value = "1")]
-        pages: usize,
-    },
-    /// Extend track cache by fetching more tracks from Last.fm API
-    ExtendCache {
-        /// Number of pages to fetch (default: 1, ~50 tracks per page)
-        #[arg(short, long, default_value = "1")]
-        pages: usize,
-    },
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Core scrubbing operations
+    #[command(subcommand)]
+    Scrubber(ScrubberCommands),
+    /// Track cache management
+    #[command(subcommand)]
+    TrackCache(TrackCacheCommands),
+    /// Rewrite rule management
+    #[command(subcommand)]
+    Rules(RulesCommands),
+    /// Timestamp anchor management
+    #[command(subcommand)]
+    Timestamp(TimestampCommands),
+    /// Clear saved session data (forces fresh login on next run)
+    ClearSession,
 }
 
 /// Load configuration from args with optional config file override
@@ -308,143 +297,86 @@ fn merge_args_into_config(
 ) -> ScrobbleScrubberConfig {
     // Apply command-specific overrides
     match &args.command {
-        Commands::Run {
-            interval,
-            dry_run,
-            require_confirmation,
-            require_proposed_rule_confirmation,
-            enable_web_interface,
-            web_port,
-        } => {
-            if let Some(interval) = interval {
-                config.scrubber.interval = *interval;
+        Commands::Scrubber(scrubber_cmd) => match scrubber_cmd {
+            ScrubberCommands::Run {
+                interval,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if let Some(interval) = interval {
+                    config.scrubber.interval = *interval;
+                }
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
             }
-            if *dry_run {
-                config.scrubber.dry_run = true;
+            ScrubberCommands::Once {
+                set_anchor_timestamp: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
             }
-            if *require_confirmation {
-                config.scrubber.require_confirmation = true;
+            ScrubberCommands::LastN {
+                tracks: _,
+                rule_focus: _,
+                no_existing_rules: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
             }
-            if *require_proposed_rule_confirmation {
-                config.scrubber.require_proposed_rule_confirmation = true;
+            ScrubberCommands::Artist {
+                name: _,
+                album: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
             }
-            if *enable_web_interface {
-                config.scrubber.enable_web_interface = true;
-            }
-            if let Some(web_port) = web_port {
-                config.scrubber.web_port = *web_port;
-            }
+        },
+        Commands::TrackCache(_) => {
+            // No specific configuration needed for track cache commands
         }
-        Commands::Once {
-            set_anchor_timestamp: _,
-            dry_run,
-            require_confirmation,
-            require_proposed_rule_confirmation,
-            enable_web_interface,
-            web_port,
-        } => {
-            if *dry_run {
-                config.scrubber.dry_run = true;
-            }
-            if *require_confirmation {
-                config.scrubber.require_confirmation = true;
-            }
-            if *require_proposed_rule_confirmation {
-                config.scrubber.require_proposed_rule_confirmation = true;
-            }
-            if *enable_web_interface {
-                config.scrubber.enable_web_interface = true;
-            }
-            if let Some(web_port) = web_port {
-                config.scrubber.web_port = *web_port;
-            }
+        Commands::Rules(_) => {
+            // No specific configuration needed for rules commands
         }
-        Commands::LastN {
-            tracks: _,
-            rule_focus: _,
-            no_existing_rules: _,
-            dry_run,
-            require_confirmation,
-            require_proposed_rule_confirmation,
-            enable_web_interface,
-            web_port,
-        } => {
-            if *dry_run {
-                config.scrubber.dry_run = true;
-            }
-            if *require_confirmation {
-                config.scrubber.require_confirmation = true;
-            }
-            if *require_proposed_rule_confirmation {
-                config.scrubber.require_proposed_rule_confirmation = true;
-            }
-            if *enable_web_interface {
-                config.scrubber.enable_web_interface = true;
-            }
-            if let Some(web_port) = web_port {
-                config.scrubber.web_port = *web_port;
-            }
-            // Note: tracks count, rule_focus, and no_existing_rules are handled in main.rs, not stored in config
-        }
-        Commands::Artist {
-            name: _,
-            album: _,
-            dry_run,
-            require_confirmation,
-            require_proposed_rule_confirmation,
-            enable_web_interface,
-            web_port,
-        } => {
-            if *dry_run {
-                config.scrubber.dry_run = true;
-            }
-            if *require_confirmation {
-                config.scrubber.require_confirmation = true;
-            }
-            if *require_proposed_rule_confirmation {
-                config.scrubber.require_proposed_rule_confirmation = true;
-            }
-            if *enable_web_interface {
-                config.scrubber.enable_web_interface = true;
-            }
-            if let Some(web_port) = web_port {
-                config.scrubber.web_port = *web_port;
-            }
-            // Note: artist name and album are handled in main.rs, not stored in config
-        }
-        Commands::Web { port } => {
-            // Enable web interface for web-only mode
-            config.scrubber.enable_web_interface = true;
-            if let Some(web_port) = port {
-                config.scrubber.web_port = *web_port;
-            }
-        }
-        Commands::ShowCache { .. } => {
-            // No specific configuration needed for cache inspection
-        }
-        Commands::ShowRules => {
-            // No specific configuration needed for rules inspection
-        }
-        Commands::AddRule { .. } => {
-            // No specific configuration needed for adding rules
-        }
-        Commands::RemoveRule { .. } => {
-            // No specific configuration needed for removing rules
-        }
-        Commands::SetAnchor { .. } => {
-            // No specific configuration needed for setting anchor
-        }
-        Commands::SetAnchorTimestamp { .. } => {
-            // No specific configuration needed for setting anchor by timestamp
-        }
-        Commands::ShowRecentTracks { .. } => {
-            // No specific configuration needed for showing recent tracks
-        }
-        Commands::RefreshCache { .. } => {
-            // No specific configuration needed for refreshing cache
-        }
-        Commands::ExtendCache { .. } => {
-            // No specific configuration needed for extending cache
+        Commands::Timestamp(_) => {
+            // No specific configuration needed for timestamp commands
         }
         Commands::ClearSession => {
             // No specific configuration needed for clearing session
@@ -588,10 +520,10 @@ async fn main() -> Result<()> {
     // Check if we should skip existing rewrite rules (for pattern analysis)
     let skip_existing_rules = matches!(
         &args.command,
-        Commands::LastN {
+        Commands::Scrubber(ScrubberCommands::LastN {
             no_existing_rules: true,
             ..
-        }
+        })
     );
 
     // Create action provider
@@ -647,10 +579,10 @@ async fn main() -> Result<()> {
                     // Enable rule focus mode if requested
                     if matches!(
                         &args.command,
-                        Commands::LastN {
+                        Commands::Scrubber(ScrubberCommands::LastN {
                             rule_focus: true,
                             ..
-                        }
+                        })
                     ) {
                         openai_provider.enable_rule_focus_mode();
                         log::info!(
@@ -709,68 +641,74 @@ async fn main() -> Result<()> {
 
     // Handle commands that don't need a scrubber instance first
     match &args.command {
-        Commands::ShowCache { limit, all_pages } => {
-            show_cache_state(*limit, *all_pages)?;
-            return Ok(());
-        }
-        Commands::ShowRules => {
-            show_active_rules(&storage).await?;
-            return Ok(());
-        }
-        Commands::AddRule {
-            name,
-            track_find,
-            track_replace,
-            artist_find,
-            artist_replace,
-            album_find,
-            album_replace,
-            album_artist_find,
-            album_artist_replace,
-            flags,
-            require_confirmation,
-        } => {
-            add_rewrite_rule(
-                &storage,
-                name.as_deref(),
-                track_find.as_deref(),
-                track_replace.as_deref(),
-                artist_find.as_deref(),
-                artist_replace.as_deref(),
-                album_find.as_deref(),
-                album_replace.as_deref(),
-                album_artist_find.as_deref(),
-                album_artist_replace.as_deref(),
-                flags.as_deref(),
-                *require_confirmation,
-            )
-            .await?;
-            return Ok(());
-        }
-        Commands::RemoveRule { index, name, all } => {
-            remove_rewrite_rule(&storage, *index, name.as_deref(), *all).await?;
-            return Ok(());
-        }
-        Commands::SetAnchor { tracks } => {
-            set_timestamp_anchor(&storage, *tracks).await?;
-            return Ok(());
-        }
-        Commands::SetAnchorTimestamp { timestamp } => {
-            set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
-            return Ok(());
-        }
-        Commands::ShowRecentTracks { limit } => {
-            show_recent_tracks_from_api(&client, *limit).await?;
-            return Ok(());
-        }
-        Commands::RefreshCache { pages } => {
-            refresh_cache(&client, *pages).await?;
-            return Ok(());
-        }
-        Commands::ExtendCache { pages } => {
-            extend_cache(&client, *pages).await?;
-            return Ok(());
-        }
+        Commands::TrackCache(cache_cmd) => match cache_cmd {
+            TrackCacheCommands::Show { limit, all_pages } => {
+                show_cache_state(*limit, *all_pages)?;
+                return Ok(());
+            }
+            TrackCacheCommands::Refresh { pages } => {
+                refresh_cache(&client, *pages).await?;
+                return Ok(());
+            }
+            TrackCacheCommands::Extend { pages } => {
+                extend_cache(&client, *pages).await?;
+                return Ok(());
+            }
+            TrackCacheCommands::ShowRecent { limit } => {
+                show_recent_tracks_from_api(&client, *limit).await?;
+                return Ok(());
+            }
+        },
+        Commands::Rules(rules_cmd) => match rules_cmd {
+            RulesCommands::Show => {
+                show_active_rules(&storage).await?;
+                return Ok(());
+            }
+            RulesCommands::Add {
+                name,
+                track_find,
+                track_replace,
+                artist_find,
+                artist_replace,
+                album_find,
+                album_replace,
+                album_artist_find,
+                album_artist_replace,
+                flags,
+                require_confirmation,
+            } => {
+                add_rewrite_rule(
+                    &storage,
+                    name.as_deref(),
+                    track_find.as_deref(),
+                    track_replace.as_deref(),
+                    artist_find.as_deref(),
+                    artist_replace.as_deref(),
+                    album_find.as_deref(),
+                    album_replace.as_deref(),
+                    album_artist_find.as_deref(),
+                    album_artist_replace.as_deref(),
+                    flags.as_deref(),
+                    *require_confirmation,
+                )
+                .await?;
+                return Ok(());
+            }
+            RulesCommands::Remove { index, name, all } => {
+                remove_rewrite_rule(&storage, *index, name.as_deref(), *all).await?;
+                return Ok(());
+            }
+        },
+        Commands::Timestamp(timestamp_cmd) => match timestamp_cmd {
+            TimestampCommands::SetAnchor { tracks } => {
+                set_timestamp_anchor(&storage, *tracks).await?;
+                return Ok(());
+            }
+            TimestampCommands::SetTimestamp { timestamp } => {
+                set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
+                return Ok(());
+            }
+        },
         Commands::ClearSession => {
             let session_manager = SessionManager::new(&config.lastfm.username);
             if let Err(e) = session_manager.clear_session() {
@@ -781,8 +719,8 @@ async fn main() -> Result<()> {
             println!("Next run will require username/password login");
             return Ok(());
         }
-        _ => {
-            // Continue to create scrubber for other commands
+        Commands::Scrubber(_) => {
+            // Continue to create scrubber for scrubber commands
         }
     }
 
@@ -806,162 +744,62 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Start web interface if enabled
-    if config.scrubber.enable_web_interface {
-        let web_storage = storage.clone();
-        let web_scrubber = scrubber.clone();
-        let web_port = config.scrubber.web_port;
+    // Web interface has been removed
 
-        tokio::spawn(async move {
-            if let Err(e) =
-                web_interface::start_web_server(web_storage, web_scrubber, web_port).await
-            {
-                log::error!("Web interface error: {e}");
-            }
-        });
-
-        log::info!("Web interface started on port {}", config.scrubber.web_port);
-    }
-
-    // Run based on the command
-    match &args.command {
-        Commands::ShowCache { .. } => {
-            // This case is handled above
-            unreachable!("ShowCache command should have been handled earlier");
-        }
-        Commands::ShowRules => {
-            // This case is handled above
-            unreachable!("ShowRules command should have been handled earlier");
-        }
-        Commands::AddRule { .. } => {
-            // This case is handled above
-            unreachable!("AddRule command should have been handled earlier");
-        }
-        Commands::RemoveRule { .. } => {
-            // This case is handled above
-            unreachable!("RemoveRule command should have been handled earlier");
-        }
-        Commands::SetAnchor { .. } => {
-            // This case is handled above
-            unreachable!("SetAnchor command should have been handled earlier");
-        }
-        Commands::SetAnchorTimestamp { .. } => {
-            // This case is handled above
-            unreachable!("SetAnchorTimestamp command should have been handled earlier");
-        }
-        Commands::ShowRecentTracks { .. } => {
-            // This case is handled above
-            unreachable!("ShowRecentTracks command should have been handled earlier");
-        }
-        Commands::ClearSession => {
-            // This case is handled above
-            unreachable!("ClearSession command should have been handled earlier");
-        }
-        _ => {
-            // For other commands, we need to acquire the lock
-        }
-    }
+    // For scrubber commands, we need to acquire the lock and execute them
+    // All other commands have been handled above
 
     let mut scrubber_guard = scrubber.lock().await;
     match &args.command {
-        Commands::Run { .. } => {
-            log::info!("Starting continuous monitoring mode");
-            scrubber_guard.run().await?;
-        }
-        Commands::Once {
-            set_anchor_timestamp,
-            ..
-        } => {
-            if let Some(timestamp_str) = set_anchor_timestamp {
-                log::info!("Setting timestamp anchor before processing");
-                drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
-                set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
-                scrubber_guard = scrubber.lock().await; // Re-acquire lock
+        Commands::Scrubber(scrubber_cmd) => match scrubber_cmd {
+            ScrubberCommands::Run { .. } => {
+                log::info!("Starting continuous monitoring mode");
+                scrubber_guard.run().await?;
             }
-            log::info!("Running single pass");
-            scrubber_guard.trigger_run().await?;
-        }
-        Commands::LastN {
-            tracks,
-            rule_focus,
-            no_existing_rules,
-            ..
-        } => {
-            let mode_info = match (rule_focus, no_existing_rules) {
-                (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
-                (true, false) => " (rule focus mode)",
-                (false, true) => " (no existing rules)",
-                (false, false) => "",
-            };
-            log::info!("Processing last {tracks} tracks{mode_info}");
-            scrubber_guard.process_last_n_tracks(*tracks).await?;
-        }
-        Commands::Artist { name, album, .. } => {
-            if let Some(album_name) = album {
-                log::info!("Processing tracks for album '{album_name}' by artist '{name}'");
-                scrubber_guard.process_album(name, album_name).await?;
-            } else {
-                log::info!("Processing all tracks for artist '{name}'");
-                scrubber_guard.process_artist(name).await?;
+            ScrubberCommands::Once {
+                set_anchor_timestamp,
+                ..
+            } => {
+                if let Some(timestamp_str) = set_anchor_timestamp {
+                    log::info!("Setting timestamp anchor before processing");
+                    drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
+                    set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
+                    scrubber_guard = scrubber.lock().await; // Re-acquire lock
+                }
+                log::info!("Running single pass");
+                scrubber_guard.trigger_run().await?;
             }
-        }
-        Commands::Web { .. } => {
-            log::info!(
-                "Starting web interface only mode on port {}",
-                config.scrubber.web_port
-            );
-            log::info!(
-                "Web interface available at: http://localhost:{}",
-                config.scrubber.web_port
-            );
-            log::info!("Press Ctrl+C to stop");
-
-            // The web interface is already started above if enable_web_interface is true
-            // Wait for shutdown signal
-            if let Err(e) = tokio::signal::ctrl_c().await {
-                log::error!("Failed to listen for shutdown signal: {e}");
+            ScrubberCommands::LastN {
+                tracks,
+                rule_focus,
+                no_existing_rules,
+                ..
+            } => {
+                let mode_info = match (rule_focus, no_existing_rules) {
+                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                    (true, false) => " (rule focus mode)",
+                    (false, true) => " (no existing rules)",
+                    (false, false) => "",
+                };
+                log::info!("Processing last {tracks} tracks{mode_info}");
+                scrubber_guard.process_last_n_tracks(*tracks).await?;
             }
-            log::info!("Received shutdown signal, stopping web interface...");
-        }
-        Commands::ShowCache { .. } => {
-            // This case is handled above
-            unreachable!("ShowCache command should have been handled earlier");
-        }
-        Commands::ShowRules => {
-            // This case is handled above
-            unreachable!("ShowRules command should have been handled earlier");
-        }
-        Commands::AddRule { .. } => {
-            // This case is handled above
-            unreachable!("AddRule command should have been handled earlier");
-        }
-        Commands::RemoveRule { .. } => {
-            // This case is handled above
-            unreachable!("RemoveRule command should have been handled earlier");
-        }
-        Commands::SetAnchor { .. } => {
-            // This case is handled above
-            unreachable!("SetAnchor command should have been handled earlier");
-        }
-        Commands::SetAnchorTimestamp { .. } => {
-            // This case is handled above
-            unreachable!("SetAnchorTimestamp command should have been handled earlier");
-        }
-        Commands::ShowRecentTracks { .. } => {
-            // This case is handled above
-            unreachable!("ShowRecentTracks command should have been handled earlier");
-        }
-        Commands::RefreshCache { .. } => {
-            // This case is handled above
-            unreachable!("RefreshCache command should have been handled earlier");
-        }
-        Commands::ExtendCache { .. } => {
-            // This case is handled above
-            unreachable!("ExtendCache command should have been handled earlier");
-        }
-        Commands::ClearSession => {
-            // This case is handled above
-            unreachable!("ClearSession command should have been handled earlier");
+            ScrubberCommands::Artist { name, album, .. } => {
+                if let Some(album_name) = album {
+                    log::info!("Processing tracks for album '{album_name}' by artist '{name}'");
+                    scrubber_guard.process_album(name, album_name).await?;
+                } else {
+                    log::info!("Processing all tracks for artist '{name}'");
+                    scrubber_guard.process_artist(name).await?;
+                }
+            }
+        },
+        Commands::TrackCache(_)
+        | Commands::Rules(_)
+        | Commands::Timestamp(_)
+        | Commands::ClearSession => {
+            // These cases are handled above
+            unreachable!("Non-scrubber commands should have been handled earlier");
         }
     }
 
