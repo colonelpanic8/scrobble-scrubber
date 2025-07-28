@@ -300,16 +300,23 @@ pub async fn clear_cache() -> Result<String, Box<dyn std::error::Error + Send + 
     Ok("Cache cleared successfully".to_string())
 }
 
-#[allow(dead_code)]
 pub async fn get_cache_stats() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::track_cache::TrackCache;
 
     let cache = TrackCache::load();
-    let stats = cache.stats();
-    Ok(format!("{stats}"))
+    let recent_count = cache.recent_tracks.len();
+    let artist_count = cache.artist_tracks.len();
+    let total_artist_tracks: usize = cache
+        .artist_tracks
+        .values()
+        .map(|tracks| tracks.len())
+        .sum();
+
+    Ok(format!(
+        "Recent tracks: {recent_count}\nArtist caches: {artist_count} artists\nTotal artist tracks: {total_artist_tracks}"
+    ))
 }
 
-#[allow(dead_code)]
 pub async fn clear_artist_cache(
     artist_name: String,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
@@ -441,4 +448,126 @@ pub async fn search_musicbrainz_for_track(
         .collect();
 
     Ok(results)
+}
+
+pub async fn suggest_rule_for_track(
+    _session_str: String,
+    track: Track,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    use scrobble_scrubber::config::ScrobbleScrubberConfig;
+    use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
+    use scrobble_scrubber::persistence::{PendingRewriteRule, StateStorage};
+    use scrobble_scrubber::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
+    use uuid::Uuid;
+
+    log::info!(
+        "Requesting LLM rule suggestion for: '{}' by '{}'",
+        track.name,
+        track.artist
+    );
+
+    // Load configuration to get OpenAI settings
+    let config =
+        ScrobbleScrubberConfig::load().unwrap_or_else(|_| ScrobbleScrubberConfig::default());
+
+    let openai_config = match config.providers.openai {
+        Some(config) => config,
+        None => return Err("OpenAI provider not configured".into()),
+    };
+
+    if openai_config.api_key.trim().is_empty() {
+        return Err("OpenAI API key not configured".into());
+    }
+
+    // Load existing rules and pending items for context
+    let storage = create_storage().await?;
+    let saved_rules = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| format!("Failed to load saved rules: {e}"))?
+        .rewrite_rules;
+    let pending_edits = storage
+        .lock()
+        .await
+        .load_pending_edits_state()
+        .await
+        .map_err(|e| format!("Failed to load pending edits: {e}"))?
+        .pending_edits;
+    let pending_rules = storage
+        .lock()
+        .await
+        .load_pending_rewrite_rules_state()
+        .await
+        .map_err(|e| format!("Failed to load pending rules: {e}"))?
+        .pending_rules;
+
+    // Create OpenAI provider with rule focus mode
+    let mut provider = OpenAIScrubActionProvider::new(
+        openai_config.api_key,
+        openai_config.model,
+        openai_config.system_prompt,
+        saved_rules,
+    )
+    .map_err(|e| format!("Failed to create OpenAI provider: {e}"))?;
+
+    // Enable rule focus mode for pattern analysis
+    provider.enable_rule_focus_mode();
+
+    // Analyze the single track for rule suggestions
+    let suggestions = provider
+        .analyze_tracks(&[track.clone()], Some(&pending_edits), Some(&pending_rules))
+        .await
+        .map_err(|e| format!("Failed to get LLM suggestions: {e}"))?;
+
+    // Process suggestions and add rule suggestions to pending rules
+    let mut rules_added = 0;
+    for (track_index, track_suggestions) in suggestions {
+        if track_index != 0 {
+            continue; // Should only be index 0 since we passed one track
+        }
+
+        for suggestion_with_context in track_suggestions {
+            if let ScrubActionSuggestion::ProposeRule { rule, motivation } =
+                suggestion_with_context.suggestion
+            {
+                let pending_rule = PendingRewriteRule {
+                    id: Uuid::new_v4().to_string(),
+                    rule,
+                    reason: motivation.clone(),
+                    example_track_name: track.name.clone(),
+                    example_artist_name: track.artist.clone(),
+                    example_album_name: track.album.clone(),
+                    example_album_artist_name: track.album_artist.clone(),
+                };
+
+                // Load current pending rules, add the new one, and save back
+                let mut current_pending_rules = storage
+                    .lock()
+                    .await
+                    .load_pending_rewrite_rules_state()
+                    .await
+                    .map_err(|e| format!("Failed to load pending rules: {e}"))?;
+                current_pending_rules.pending_rules.push(pending_rule);
+                storage
+                    .lock()
+                    .await
+                    .save_pending_rewrite_rules_state(&current_pending_rules)
+                    .await
+                    .map_err(|e| format!("Failed to save pending rule: {e}"))?;
+
+                rules_added += 1;
+                log::info!("Added pending rule suggestion: {motivation}");
+            }
+        }
+    }
+
+    if rules_added == 0 {
+        Ok("No rule suggestions generated for this track".to_string())
+    } else {
+        Ok(format!(
+            "Added {rules_added} rule suggestion(s) to pending rules"
+        ))
+    }
 }
