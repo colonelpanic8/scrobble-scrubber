@@ -119,10 +119,6 @@ pub struct ScrubberConfig {
     pub require_confirmation: bool,
     /// Require confirmation for proposed rewrite rules (deprecated - use persistent state)
     pub require_proposed_rule_confirmation: bool,
-    /// Enable web interface for managing pending items
-    pub enable_web_interface: bool,
-    /// Port for web interface
-    pub web_port: u16,
     /// Automatically start scrubber on application startup
     pub auto_start: bool,
     /// JSON logging configuration
@@ -206,8 +202,6 @@ impl Default for ScrubberConfig {
             dry_run: false,
             require_confirmation: false,
             require_proposed_rule_confirmation: true,
-            enable_web_interface: false,
-            web_port: 8080,
             auto_start: false,
             json_logging: JsonLoggingConfig::default(),
         }

@@ -115,25 +115,11 @@ fn ScrubberConfigSection(config: Signal<ScrubberConfig>) -> Element {
                 help: "How often to check for new tracks to process"
             }
 
-            NumberInput {
-                label: "Web Interface Port",
-                value: config.read().web_port as u64,
-                onchange: move |value| config.with_mut(|c| c.web_port = value as u16),
-                help: "Port number for the web interface"
-            }
-
             CheckboxInput {
                 label: "Dry Run Mode",
                 checked: config.read().dry_run,
                 onchange: move |checked| config.with_mut(|c| c.dry_run = checked),
                 help: "Preview changes without actually making edits"
-            }
-
-            CheckboxInput {
-                label: "Enable Web Interface",
-                checked: config.read().enable_web_interface,
-                onchange: move |checked| config.with_mut(|c| c.enable_web_interface = checked),
-                help: "Enable the web interface for managing pending items"
             }
 
             CheckboxInput {

@@ -7,8 +7,6 @@ fn test_default_config() {
     assert!(!config.scrubber.dry_run);
     assert!(!config.scrubber.require_confirmation);
     assert!(config.scrubber.require_proposed_rule_confirmation);
-    assert!(!config.scrubber.enable_web_interface);
-    assert_eq!(config.scrubber.web_port, 8080);
     assert!(config.providers.enable_rewrite_rules);
     assert!(!config.providers.enable_openai);
 }

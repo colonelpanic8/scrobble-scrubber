@@ -9,7 +9,6 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks = use_signal(|| false);
     let mut loading_artist_tracks = use_signal(|| false);
     let mut artist_name = use_signal(String::new);
-    let mut cache_stats = use_signal(String::new);
     let mut show_cache_info = use_signal(|| false);
 
     rsx! {
@@ -278,6 +277,7 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                     onclick: move |_| {
                         let current_state = *show_cache_info.read();
                         show_cache_info.set(!current_state);
+<<<<<<< HEAD
                         if !current_state {
                             spawn(async move {
                                 let cache = TrackCache::load();
@@ -294,34 +294,33 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                                 cache_stats.set(stats);
                             });
                         }
+||||||| parent of 1a7ac31 (Remove web interface)
+                        if !current_state {
+                            spawn(async move {
+                                match get_cache_stats().await {
+                                    Ok(stats) => cache_stats.set(stats),
+                                    Err(e) => cache_stats.set(format!("Error: {e}")),
+                                }
+                            });
+                        }
+=======
+>>>>>>> 1a7ac31 (Remove web interface)
                     },
-                    if *show_cache_info.read() { "Hide Info" } else { "Show Info" }
+                    if *show_cache_info.read() { "Hide Controls" } else { "Show Controls" }
                 }
             }
 
             if *show_cache_info.read() {
                 div { style: "margin-bottom: 1rem;",
-                    if !cache_stats.read().is_empty() {
-                        div { style: "font-size: 0.875rem; color: #4b5563; margin-bottom: 1rem; padding: 0.5rem; background: #f9fafb; border-radius: 0.375rem;",
-                            "{cache_stats}"
-                        }
-                    }
-
-                    div { style: "display: flex; gap: 0.5rem; flex-wrap: wrap;",
-                        button {
-                            style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                            onclick: move |_| {
-                                spawn(async move {
-                                    match clear_cache().await {
-                                        Ok(msg) => {
-                                            println!("✅ {msg}");
-                                            cache_stats.set("Cache cleared".to_string());
-                                        }
-                                        Err(e) => {
-                                            eprintln!("❌ Failed to clear cache: {e}");
-                                            cache_stats.set(format!("Error: {e}"));
-                                        }
+                    button {
+                        style: "background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                        onclick: move |_| {
+                            spawn(async move {
+                                match clear_cache().await {
+                                    Ok(msg) => {
+                                        println!("✅ {msg}");
                                     }
+<<<<<<< HEAD
                                 });
                             },
                             "Clear All Cache"
@@ -347,6 +346,33 @@ pub fn LivePreviewControls(mut state: Signal<AppState>) -> Element {
                             },
                             "Refresh Stats"
                         }
+||||||| parent of 1a7ac31 (Remove web interface)
+                                });
+                            },
+                            "Clear All Cache"
+                        }
+
+                        button {
+                            style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                            onclick: move |_| {
+                                spawn(async move {
+                                    match get_cache_stats().await {
+                                        Ok(stats) => cache_stats.set(stats),
+                                        Err(e) => cache_stats.set(format!("Error: {e}")),
+                                    }
+                                });
+                            },
+                            "Refresh Stats"
+                        }
+=======
+                                    Err(e) => {
+                                        eprintln!("❌ Failed to clear cache: {e}");
+                                    }
+                                }
+                            });
+                        },
+                        "Clear All Cache"
+>>>>>>> 1a7ac31 (Remove web interface)
                     }
                 }
             }
