@@ -150,14 +150,86 @@ pub async fn extend_cache(client: &LastFmEditClientImpl, pages: usize) -> Result
         .and_then(|track| track.timestamp)
         .and_then(|ts| chrono::DateTime::from_timestamp(ts as i64, 0));
 
-    let mut recent_iterator = client.recent_tracks();
+    // Calculate educated guess for starting page based on cache size
+    let estimated_start_page = if initial_count > 0 {
+        ((initial_count / 50) + 1) as u32 // 50 tracks per page, start from next estimated page
+    } else {
+        1u32
+    };
+
+    let mut recent_iterator = if let Some(oldest_time) = oldest_cached {
+        println!("Starting search from estimated page {estimated_start_page} (based on {initial_count} cached tracks)...");
+        println!("Looking for tracks older than {oldest_time}...");
+
+        // Start from our estimated page instead of page 1
+        let mut search_page = estimated_start_page;
+
+        loop {
+            println!("Checking page {search_page} for continuation point...");
+            let mut page_iterator = client.recent_tracks_from_page(search_page);
+            let mut found_tracks_in_page = false;
+
+            // Check this page for tracks older than our cache
+            while let Some(track) = page_iterator.next().await? {
+                found_tracks_in_page = true;
+                if let Some(track_ts) = track.timestamp {
+                    if let Some(track_time) = chrono::DateTime::from_timestamp(track_ts as i64, 0) {
+                        if track_time < oldest_time {
+                            // Found older tracks! Use iterator starting from this page
+                            println!("Found continuation point at page {search_page}");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if !found_tracks_in_page {
+                // No more tracks available
+                println!("📄 No older tracks available");
+                return Ok(());
+            }
+
+            // Check if we found older tracks on this page
+            let page_iterator = client.recent_tracks_from_page(search_page);
+            let mut found_older_track = false;
+
+            // Quick check to see if this page has tracks older than our cache
+            let mut temp_iterator = client.recent_tracks_from_page(search_page);
+            while let Some(track) = temp_iterator.next().await? {
+                if let Some(track_ts) = track.timestamp {
+                    if let Some(track_time) = chrono::DateTime::from_timestamp(track_ts as i64, 0) {
+                        if track_time < oldest_time {
+                            found_older_track = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if found_older_track {
+                // This page contains our continuation point
+                break page_iterator;
+            } else {
+                // This page is still in our cached range, try next page
+                search_page += 1;
+                println!(
+                    "Page {} still contains cached tracks, trying page {}...",
+                    search_page - 1,
+                    search_page
+                );
+            }
+        }
+    } else {
+        println!("No cached data, starting from page 1...");
+        client.recent_tracks_from_page(1u32)
+    };
+
     let mut fetched_tracks = Vec::new();
     let mut current_page = 0;
     let mut new_tracks_found = 0;
 
     // Skip to where we left off (if we have cached data)
     if let Some(oldest_time) = oldest_cached {
-        println!("Skipping to tracks older than {oldest_time}...");
         loop {
             if let Some(track) = recent_iterator.next().await? {
                 if let Some(track_ts) = track.timestamp {
