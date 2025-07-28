@@ -96,19 +96,11 @@ pub async fn load_artist_tracks(
 ) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
     use ::scrobble_scrubber::track_cache::TrackCache;
 
-    println!("🎵 Starting load_artist_tracks for: '{artist_name}'");
-
     // Try to load from cache first
     let mut cache = TrackCache::load();
     if let Some(cached_tracks) = cache.get_artist_tracks(&artist_name) {
-        println!(
-            "📂 Using cached tracks for artist '{artist_name}' ({} tracks)",
-            cached_tracks.len()
-        );
         return Ok(cached_tracks.clone());
     }
-
-    println!("🔍 No cache found, fetching from Last.fm for: '{artist_name}'");
 
     // Deserialize session and create client for albums
     let session_for_albums = match deserialize_session(&session_str) {
@@ -227,18 +219,42 @@ pub async fn load_recent_tracks_from_page(
     let page_size = 50; // Standard page size
     let start_index = ((page - 1) * page_size) as usize;
 
-    if !cache.recent_tracks.is_empty() && start_index < cache.recent_tracks.len() {
-        let cached_tracks: Vec<_> = cache
-            .recent_tracks
-            .iter()
-            .skip(start_index)
-            .take(page_size as usize)
-            .cloned()
-            .collect();
+    // Make educated guess: if we have enough tracks cached for this page, use cache
+    // If we have 1000 tracks, we likely have pages 1-20 (1000/50)
+    let cached_page_count = cache.recent_tracks.len() / (page_size as usize);
 
-        if !cached_tracks.is_empty() {
-            println!("📂 Using cached recent tracks for page {page}");
-            return Ok(cached_tracks);
+    if !cache.recent_tracks.is_empty() {
+        // If requested page is within our cached range, serve from cache
+        if page <= cached_page_count as u32 && start_index < cache.recent_tracks.len() {
+            let cached_tracks: Vec<_> = cache
+                .recent_tracks
+                .iter()
+                .skip(start_index)
+                .take(page_size as usize)
+                .cloned()
+                .collect();
+
+            if !cached_tracks.is_empty() {
+                println!("📂 Using cached recent tracks for page {page} (cache has ~{cached_page_count} pages)");
+                return Ok(cached_tracks);
+            }
+        }
+
+        // If we're requesting a page that's likely beyond our cache, but close enough,
+        // still check if we have partial data
+        if start_index < cache.recent_tracks.len() {
+            let cached_tracks: Vec<_> = cache
+                .recent_tracks
+                .iter()
+                .skip(start_index)
+                .take(page_size as usize)
+                .cloned()
+                .collect();
+
+            if cached_tracks.len() == page_size as usize {
+                println!("📂 Using cached recent tracks for page {page} (partial cache hit)");
+                return Ok(cached_tracks);
+            }
         }
     }
 
@@ -282,6 +298,15 @@ pub async fn clear_cache() -> Result<String, Box<dyn std::error::Error + Send + 
     cache.clear();
     cache.save().to_box_error("Failed to clear cache")?;
     Ok("Cache cleared successfully".to_string())
+}
+
+#[allow(dead_code)]
+pub async fn get_cache_stats() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    use ::scrobble_scrubber::track_cache::TrackCache;
+
+    let cache = TrackCache::load();
+    let stats = cache.stats();
+    Ok(format!("{stats}"))
 }
 
 #[allow(dead_code)]

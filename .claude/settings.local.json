@@ -124,7 +124,10 @@
       "Bash(RUST_LOG=info cargo run -- show-cache --limit 1 2 >& 1)",
       "Bash(RUST_LOG=info cargo run --bin scrobble-scrubber -- show-recent-tracks --limit 1)",
       "Bash(./explore_musicbrainz)",
-      "WebFetch(domain:dioxuslabs.github.io)"
+      "WebFetch(domain:dioxuslabs.github.io)",
+      "Bash(./cli/target/debug/scrobble-scrubber --help)",
+      "Bash(do cargo run --bin scrobble-scrubber -- extend-cache --limit 1000)",
+      "Bash(do echo \"=== Run $i ===\")"
     ],
     "deny": [
       "Bash(dx serve:*)"
