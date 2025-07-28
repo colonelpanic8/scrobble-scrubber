@@ -5,6 +5,7 @@ use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig, St
 use scrobble_scrubber::event_logger::EventLogger;
 use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
 use scrobble_scrubber::persistence::{FileStorage, StateStorage};
+use scrobble_scrubber::rewrite::{RewriteRule, SdRule};
 use scrobble_scrubber::scrub_action_provider::{
     OrScrubActionProvider, RewriteRulesScrubActionProvider,
 };
@@ -195,6 +196,66 @@ enum Commands {
     },
     /// Show current active rewrite rules
     ShowRules,
+    /// Add a new rewrite rule
+    AddRule {
+        /// Rule name (optional)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Track name pattern to find (regex)
+        #[arg(long)]
+        track_find: Option<String>,
+
+        /// Track name replacement text
+        #[arg(long)]
+        track_replace: Option<String>,
+
+        /// Artist name pattern to find (regex)
+        #[arg(long)]
+        artist_find: Option<String>,
+
+        /// Artist name replacement text
+        #[arg(long)]
+        artist_replace: Option<String>,
+
+        /// Album name pattern to find (regex)
+        #[arg(long)]
+        album_find: Option<String>,
+
+        /// Album name replacement text
+        #[arg(long)]
+        album_replace: Option<String>,
+
+        /// Album artist name pattern to find (regex)
+        #[arg(long)]
+        album_artist_find: Option<String>,
+
+        /// Album artist name replacement text
+        #[arg(long)]
+        album_artist_replace: Option<String>,
+
+        /// Regex flags (e.g., 'i' for case insensitive)
+        #[arg(long)]
+        flags: Option<String>,
+
+        /// Require confirmation before applying this rule
+        #[arg(long)]
+        require_confirmation: bool,
+    },
+    /// Remove a rewrite rule
+    RemoveRule {
+        /// Rule index to remove (1-based, as shown in show-rules)
+        #[arg(short, long)]
+        index: Option<usize>,
+
+        /// Rule name to remove (alternative to index)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Remove all rules (requires confirmation)
+        #[arg(long)]
+        all: bool,
+    },
     /// Set timestamp anchor back N tracks from current position
     SetAnchor {
         /// Number of tracks to go back
@@ -361,6 +422,12 @@ fn merge_args_into_config(
         }
         Commands::ShowRules => {
             // No specific configuration needed for rules inspection
+        }
+        Commands::AddRule { .. } => {
+            // No specific configuration needed for adding rules
+        }
+        Commands::RemoveRule { .. } => {
+            // No specific configuration needed for removing rules
         }
         Commands::SetAnchor { .. } => {
             // No specific configuration needed for setting anchor
@@ -726,6 +793,279 @@ async fn show_active_rules(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+/// Add a new rewrite rule
+async fn add_rewrite_rule(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    name: Option<&str>,
+    track_find: Option<&str>,
+    track_replace: Option<&str>,
+    artist_find: Option<&str>,
+    artist_replace: Option<&str>,
+    album_find: Option<&str>,
+    album_replace: Option<&str>,
+    album_artist_find: Option<&str>,
+    album_artist_replace: Option<&str>,
+    flags: Option<&str>,
+    require_confirmation: bool,
+) -> Result<()> {
+    use scrobble_scrubber::persistence::StateStorage;
+
+    println!("📝 Adding New Rewrite Rule");
+    println!("==========================");
+
+    // Validate that at least one field is specified
+    let has_track_rule = track_find.is_some() && track_replace.is_some();
+    let has_artist_rule = artist_find.is_some() && artist_replace.is_some();
+    let has_album_rule = album_find.is_some() && album_replace.is_some();
+    let has_album_artist_rule = album_artist_find.is_some() && album_artist_replace.is_some();
+
+    if !has_track_rule && !has_artist_rule && !has_album_rule && !has_album_artist_rule {
+        println!("❌ Error: At least one field rule must be specified");
+        println!("   Use --track-find/--track-replace, --artist-find/--artist-replace,");
+        println!("   --album-find/--album-replace, or --album-artist-find/--album-artist-replace");
+        return Ok(());
+    }
+
+    // Validate that find/replace pairs are complete
+    if (track_find.is_some() && track_replace.is_none())
+        || (track_find.is_none() && track_replace.is_some())
+    {
+        println!("❌ Error: Track rule requires both --track-find and --track-replace");
+        return Ok(());
+    }
+    if (artist_find.is_some() && artist_replace.is_none())
+        || (artist_find.is_none() && artist_replace.is_some())
+    {
+        println!("❌ Error: Artist rule requires both --artist-find and --artist-replace");
+        return Ok(());
+    }
+    if (album_find.is_some() && album_replace.is_none())
+        || (album_find.is_none() && album_replace.is_some())
+    {
+        println!("❌ Error: Album rule requires both --album-find and --album-replace");
+        return Ok(());
+    }
+    if (album_artist_find.is_some() && album_artist_replace.is_none())
+        || (album_artist_find.is_none() && album_artist_replace.is_some())
+    {
+        println!("❌ Error: Album artist rule requires both --album-artist-find and --album-artist-replace");
+        return Ok(());
+    }
+
+    // Create SdRule helper function
+    let create_sd_rule = |find: &str, replace: &str, flags: Option<&str>| -> SdRule {
+        SdRule {
+            find: find.to_string(),
+            replace: replace.to_string(),
+            flags: flags.map(|f| f.to_string()),
+        }
+    };
+
+    // Create the new rule
+    let new_rule = RewriteRule {
+        name: name.map(|n| n.to_string()),
+        track_name: if has_track_rule {
+            Some(create_sd_rule(
+                track_find.unwrap(),
+                track_replace.unwrap(),
+                flags,
+            ))
+        } else {
+            None
+        },
+        artist_name: if has_artist_rule {
+            Some(create_sd_rule(
+                artist_find.unwrap(),
+                artist_replace.unwrap(),
+                flags,
+            ))
+        } else {
+            None
+        },
+        album_name: if has_album_rule {
+            Some(create_sd_rule(
+                album_find.unwrap(),
+                album_replace.unwrap(),
+                flags,
+            ))
+        } else {
+            None
+        },
+        album_artist_name: if has_album_artist_rule {
+            Some(create_sd_rule(
+                album_artist_find.unwrap(),
+                album_artist_replace.unwrap(),
+                flags,
+            ))
+        } else {
+            None
+        },
+        requires_confirmation: require_confirmation,
+    };
+
+    // Load existing rules
+    let mut rules_state = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load rewrite rules: {e}"
+            )))
+        })?;
+
+    // Add the new rule
+    rules_state.rewrite_rules.push(new_rule.clone());
+
+    // Save updated rules
+    storage
+        .lock()
+        .await
+        .save_rewrite_rules_state(&rules_state)
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to save rewrite rules: {e}"
+            )))
+        })?;
+
+    // Display what was added
+    println!("✅ Successfully added rewrite rule:");
+    println!("   Name: {}", name.unwrap_or("(unnamed)"));
+    if let Some(track_rule) = &new_rule.track_name {
+        println!("   Track: '{}' → '{}'", track_rule.find, track_rule.replace);
+    }
+    if let Some(artist_rule) = &new_rule.artist_name {
+        println!(
+            "   Artist: '{}' → '{}'",
+            artist_rule.find, artist_rule.replace
+        );
+    }
+    if let Some(album_rule) = &new_rule.album_name {
+        println!("   Album: '{}' → '{}'", album_rule.find, album_rule.replace);
+    }
+    if let Some(album_artist_rule) = &new_rule.album_artist_name {
+        println!(
+            "   Album Artist: '{}' → '{}'",
+            album_artist_rule.find, album_artist_rule.replace
+        );
+    }
+    if let Some(flags) = flags {
+        println!("   Flags: {flags}");
+    }
+    if require_confirmation {
+        println!("   Requires confirmation: yes");
+    }
+
+    Ok(())
+}
+
+/// Remove a rewrite rule
+async fn remove_rewrite_rule(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    index: Option<usize>,
+    name: Option<&str>,
+    all: bool,
+) -> Result<()> {
+    use scrobble_scrubber::persistence::StateStorage;
+    use std::io::{self, Write};
+
+    println!("🗑️ Removing Rewrite Rule");
+    println!("========================");
+
+    // Load existing rules
+    let mut rules_state = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load rewrite rules: {e}"
+            )))
+        })?;
+
+    if rules_state.rewrite_rules.is_empty() {
+        println!("❌ No rewrite rules found to remove");
+        return Ok(());
+    }
+
+    // Handle different removal methods
+    if all {
+        // Remove all rules (with confirmation)
+        println!(
+            "⚠️ This will remove ALL {} rewrite rules.",
+            rules_state.rewrite_rules.len()
+        );
+        print!("Are you sure you want to continue? (y/N): ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!("Failed to read input: {e}")))
+        })?;
+
+        if input.trim().to_lowercase() != "y" && input.trim().to_lowercase() != "yes" {
+            println!("❌ Operation cancelled");
+            return Ok(());
+        }
+
+        rules_state.rewrite_rules.clear();
+        println!("✅ Removed all rewrite rules");
+    } else if let Some(rule_index) = index {
+        // Remove by index (1-based)
+        if rule_index == 0 || rule_index > rules_state.rewrite_rules.len() {
+            println!("❌ Invalid rule index: {rule_index}");
+            println!("   Valid range: 1-{}", rules_state.rewrite_rules.len());
+            return Ok(());
+        }
+
+        let removed_rule = rules_state.rewrite_rules.remove(rule_index - 1);
+        println!(
+            "✅ Removed rule #{rule_index}: {}",
+            removed_rule.name.as_deref().unwrap_or("(unnamed)")
+        );
+    } else if let Some(rule_name) = name {
+        // Remove by name
+        let original_len = rules_state.rewrite_rules.len();
+        rules_state
+            .rewrite_rules
+            .retain(|rule| rule.name.as_deref() != Some(rule_name));
+
+        let removed_count = original_len - rules_state.rewrite_rules.len();
+        if removed_count == 0 {
+            println!("❌ No rule found with name: '{rule_name}'");
+            return Ok(());
+        } else if removed_count == 1 {
+            println!("✅ Removed rule: '{rule_name}'");
+        } else {
+            println!("✅ Removed {removed_count} rules with name: '{rule_name}'");
+        }
+    } else {
+        // No removal method specified
+        println!("❌ Error: Must specify --index, --name, or --all");
+        println!("   Use 'show-rules' to see rule indices and names");
+        return Ok(());
+    }
+
+    // Save updated rules
+    storage
+        .lock()
+        .await
+        .save_rewrite_rules_state(&rules_state)
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to save rewrite rules: {e}"
+            )))
+        })?;
+
+    println!("Remaining rules: {}", rules_state.rewrite_rules.len());
+    Ok(())
+}
+
 /// Set timestamp anchor back N tracks from current position
 async fn set_timestamp_anchor(
     storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
@@ -1086,6 +1426,40 @@ async fn main() -> Result<()> {
             show_active_rules(&storage).await?;
             return Ok(());
         }
+        Commands::AddRule {
+            name,
+            track_find,
+            track_replace,
+            artist_find,
+            artist_replace,
+            album_find,
+            album_replace,
+            album_artist_find,
+            album_artist_replace,
+            flags,
+            require_confirmation,
+        } => {
+            add_rewrite_rule(
+                &storage,
+                name.as_deref(),
+                track_find.as_deref(),
+                track_replace.as_deref(),
+                artist_find.as_deref(),
+                artist_replace.as_deref(),
+                album_find.as_deref(),
+                album_replace.as_deref(),
+                album_artist_find.as_deref(),
+                album_artist_replace.as_deref(),
+                flags.as_deref(),
+                *require_confirmation,
+            )
+            .await?;
+            return Ok(());
+        }
+        Commands::RemoveRule { index, name, all } => {
+            remove_rewrite_rule(&storage, *index, name.as_deref(), *all).await?;
+            return Ok(());
+        }
         Commands::SetAnchor { tracks } => {
             set_timestamp_anchor(&storage, *tracks).await?;
             return Ok(());
@@ -1167,6 +1541,14 @@ async fn main() -> Result<()> {
         Commands::ShowRules => {
             // This case is handled above
             unreachable!("ShowRules command should have been handled earlier");
+        }
+        Commands::AddRule { .. } => {
+            // This case is handled above
+            unreachable!("AddRule command should have been handled earlier");
+        }
+        Commands::RemoveRule { .. } => {
+            // This case is handled above
+            unreachable!("RemoveRule command should have been handled earlier");
         }
         Commands::SetAnchor { .. } => {
             // This case is handled above
@@ -1257,6 +1639,14 @@ async fn main() -> Result<()> {
         Commands::ShowRules => {
             // This case is handled above
             unreachable!("ShowRules command should have been handled earlier");
+        }
+        Commands::AddRule { .. } => {
+            // This case is handled above
+            unreachable!("AddRule command should have been handled earlier");
+        }
+        Commands::RemoveRule { .. } => {
+            // This case is handled above
+            unreachable!("RemoveRule command should have been handled earlier");
         }
         Commands::SetAnchor { .. } => {
             // This case is handled above
