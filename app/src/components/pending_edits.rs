@@ -96,8 +96,15 @@ pub fn PendingEditsPage(state: Signal<AppState>) -> Element {
             div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
                 div { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;",
                     h2 { style: "font-size: 1.5rem; font-weight: bold;", "All Pending Edits" }
-                    span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
-                        "{pending_edits.read().len()} items"
+                    div { style: "display: flex; gap: 0.5rem; align-items: center;",
+                        span { style: "background: #e5e7eb; color: #374151; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;",
+                            "{pending_edits.read().len()} items"
+                        }
+                        button {
+                            style: "background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;",
+                            onclick: move |_| reload_data(),
+                            "🔄 Reload"
+                        }
                     }
                 }
 
