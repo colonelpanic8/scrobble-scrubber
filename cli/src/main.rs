@@ -272,6 +272,9 @@ enum Commands {
     /// Rewrite rule management
     #[command(subcommand)]
     Rules(RulesCommands),
+    /// Pending edit management
+    #[command(subcommand)]
+    Pending(PendingCommands),
     /// Timestamp anchor management
     #[command(subcommand)]
     Timestamp(TimestampCommands),
@@ -374,6 +377,9 @@ fn merge_args_into_config(
         }
         Commands::Rules(_) => {
             // No specific configuration needed for rules commands
+        }
+        Commands::Pending(_) => {
+            // No specific configuration needed for pending commands
         }
         Commands::Timestamp(_) => {
             // No specific configuration needed for timestamp commands
@@ -699,6 +705,21 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
         },
+        Commands::Pending(pending_cmd) => {
+            let data_dir = std::path::PathBuf::from(&config.storage.state_file)
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            let pending_args = PendingArgs {
+                command: pending_cmd.clone(),
+            };
+            if let Err(e) = handle_pending_command(pending_args, data_dir).await {
+                return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                    format!("Pending command failed: {e}"),
+                )));
+            }
+            return Ok(());
+        }
         Commands::Timestamp(timestamp_cmd) => match timestamp_cmd {
             TimestampCommands::SetAnchor { tracks } => {
                 set_timestamp_anchor(&storage, *tracks).await?;
@@ -796,6 +817,7 @@ async fn main() -> Result<()> {
         },
         Commands::TrackCache(_)
         | Commands::Rules(_)
+        | Commands::Pending(_)
         | Commands::Timestamp(_)
         | Commands::ClearSession => {
             // These cases are handled above
