@@ -605,21 +605,26 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             for suggestion in suggestions {
                 match &suggestion.suggestion {
-                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(_) => {
-                        if suggestion.requires_confirmation
-                            || self
-                                .storage
-                                .lock()
-                                .await
-                                .load_settings_state()
-                                .await
-                                .map(|s| s.require_confirmation || s.require_confirmation_for_edits)
-                                .unwrap_or(false)
-                            || self.config.scrubber.require_confirmation
-                        {
-                            pending_count += 1;
-                        } else {
-                            applied_count += 1;
+                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
+                        // Only count edits that have actual changes
+                        if Self::has_changes(edit) {
+                            if suggestion.requires_confirmation
+                                || self
+                                    .storage
+                                    .lock()
+                                    .await
+                                    .load_settings_state()
+                                    .await
+                                    .map(|s| {
+                                        s.require_confirmation || s.require_confirmation_for_edits
+                                    })
+                                    .unwrap_or(false)
+                                || self.config.scrubber.require_confirmation
+                            {
+                                pending_count += 1;
+                            } else {
+                                applied_count += 1;
+                            }
                         }
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
@@ -651,17 +656,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
 
             log::info!(
-                "Processed: {} - {} [{}] | {} ({})",
-                track.name,
+                "Processed: {} - {} {} | {}",
                 track.artist,
+                track.name,
                 album_info,
                 summary,
-                track
-                    .timestamp
-                    .map(|ts| DateTime::from_timestamp(ts as i64, 0)
-                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                        .unwrap_or_else(|| "unknown time".to_string()))
-                    .unwrap_or_else(|| "no timestamp".to_string())
             );
         }
 
@@ -1007,6 +1006,27 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .await
     }
 
+    /// Check if a ScrobbleEdit contains any actual changes
+    fn has_changes(edit: &ScrobbleEdit) -> bool {
+        // Check track name change
+        if edit.track_name.as_ref() != edit.track_name_original.as_ref() {
+            return true;
+        }
+        // Check artist name change
+        if Some(&edit.artist_name) != Some(&edit.artist_name_original) {
+            return true;
+        }
+        // Check album name change
+        if edit.album_name.as_ref() != edit.album_name_original.as_ref() {
+            return true;
+        }
+        // Check album artist name change
+        if edit.album_artist_name.as_ref() != edit.album_artist_name_original.as_ref() {
+            return true;
+        }
+        false
+    }
+
     async fn apply_suggestion_with_context(
         &mut self,
         track: &lastfm_edit::Track,
@@ -1032,6 +1052,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 let mut edit = edit.clone();
                 if context.as_ref().is_some_and(|c| c.is_artist_processing) {
                     edit.edit_all = true;
+                }
+
+                // Check if there are actually any changes - if not, skip the edit entirely
+                if !Self::has_changes(&edit) {
+                    log::trace!(
+                        "Skipping edit for track '{}' by '{}' - no actual changes detected",
+                        track.name,
+                        track.artist
+                    );
+                    return Ok(());
                 }
 
                 // Check if global settings require confirmation (persistent state takes precedence over config)
