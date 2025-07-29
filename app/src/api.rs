@@ -300,6 +300,95 @@ pub async fn clear_cache() -> Result<String, Box<dyn std::error::Error + Send + 
     Ok("Cache cleared successfully".to_string())
 }
 
+// Load tracks at the end of the cache (for Load Next Page button)
+pub async fn load_tracks_at_cache_end(
+    session_str: String,
+) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
+    use ::scrobble_scrubber::track_cache::TrackCache;
+
+    let mut cache = TrackCache::load();
+
+    // Calculate which page to load based on cache size
+    let current_count = cache.recent_tracks.len();
+    let estimated_page = if current_count > 0 {
+        ((current_count / 50) + 1) as u32 // 50 tracks per page, load next page
+    } else {
+        1u32
+    };
+
+    // Deserialize session and create client
+    let session = deserialize_session(&session_str)?;
+    let client = create_client_from_session(session);
+
+    // Fetch tracks with timeout
+    const LIMIT: u32 = 50;
+    let tracks = with_timeout(
+        std::time::Duration::from_secs(10),
+        fetch_recent_tracks_from_page(client, estimated_page, LIMIT),
+        "fetching tracks at cache end",
+    )
+    .await
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        eprintln!("Error fetching tracks at cache end: {e}");
+        format!("Failed to load tracks at cache end from page {estimated_page}").into()
+    })?;
+
+    if tracks.is_empty() {
+        return Err(Box::<dyn std::error::Error + Send + Sync>::from(format!(
+            "No tracks found at cache end (page {estimated_page})"
+        )));
+    }
+
+    // Cache the successfully fetched tracks
+    cache.merge_recent_tracks(tracks.clone());
+    cache
+        .save()
+        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
+    println!("💾 Cached tracks at end from page {estimated_page}");
+
+    Ok(tracks)
+}
+
+// Load newer tracks, always bypassing cache and forcing fresh API request
+pub async fn load_newer_tracks_fresh(
+    session_str: String,
+) -> Result<Vec<Track>, Box<dyn std::error::Error + Send + Sync>> {
+    use ::scrobble_scrubber::track_cache::TrackCache;
+
+    // Deserialize session and create client
+    let session = deserialize_session(&session_str)?;
+    let client = create_client_from_session(session);
+
+    // Always fetch fresh tracks from page 1 (newest tracks)
+    const LIMIT: u32 = 50;
+    let tracks = with_timeout(
+        std::time::Duration::from_secs(10),
+        fetch_recent_tracks_from_page(client, 1, LIMIT),
+        "fetching fresh newer tracks",
+    )
+    .await
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        eprintln!("Error fetching fresh newer tracks: {e}");
+        "Failed to load fresh newer tracks from page 1".into()
+    })?;
+
+    if tracks.is_empty() {
+        return Err(Box::<dyn std::error::Error + Send + Sync>::from(
+            "No newer tracks found on page 1",
+        ));
+    }
+
+    // Cache the fresh tracks (this will merge with existing cache)
+    let mut cache = TrackCache::load();
+    cache.merge_recent_tracks(tracks.clone());
+    cache
+        .save()
+        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
+    println!("💾 Cached fresh newer tracks from page 1");
+
+    Ok(tracks)
+}
+
 pub async fn load_pending_edits(
 ) -> Result<Vec<PendingEdit>, Box<dyn std::error::Error + Send + Sync>> {
     use scrobble_scrubber::persistence::StateStorage;

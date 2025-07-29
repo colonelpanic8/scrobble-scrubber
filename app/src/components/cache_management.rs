@@ -1,4 +1,6 @@
-use crate::api::{clear_cache, load_recent_tracks_from_page};
+use crate::api::{
+    clear_cache, load_newer_tracks_fresh, load_recent_tracks_from_page, load_tracks_at_cache_end,
+};
 use crate::types::AppState;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
@@ -6,7 +8,11 @@ use dioxus::prelude::*;
 #[component]
 pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
     let mut loading_tracks_for_stats = use_signal(|| false);
+    let mut loading_next_page = use_signal(|| false);
+    let mut loading_newer_tracks = use_signal(|| false);
     let mut tracks_display_count = use_signal(|| 50usize);
+    let mut error_message = use_signal(String::new);
+    let mut success_message = use_signal(String::new);
 
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
@@ -18,6 +24,19 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
 
                 p { style: "color: #6b7280; margin: 0 0 1.5rem 0;",
                     "Manage cached track data with infinite scrolling. Load more tracks from both ends of the cache."
+                }
+
+                // Success/Error Messages
+                if !error_message.read().is_empty() {
+                    div { style: "background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;",
+                        p { "Error: {error_message}" }
+                    }
+                }
+
+                if !success_message.read().is_empty() {
+                    div { style: "background: #d1fae5; border: 1px solid #6ee7b7; color: #059669; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;",
+                        p { "{success_message}" }
+                    }
                 }
 
                 // Cache Actions
@@ -78,28 +97,37 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
 
                     button {
                         style: format!("background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
-                            if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
+                            if *loading_next_page.read() || *loading_tracks_for_stats.read() { "0.5" } else { "1" }
                         ),
-                        disabled: *loading_tracks_for_stats.read(),
+                        disabled: *loading_next_page.read() || *loading_tracks_for_stats.read(),
                         onclick: move |_| {
                             spawn(async move {
-                                loading_tracks_for_stats.set(true);
+                                loading_next_page.set(true);
+                                error_message.set(String::new());
+                                success_message.set(String::new());
+
                                 let session_json = state.read().session.clone();
                                 if let Some(session_json) = session_json {
-                                    // Load older tracks (higher page number)
-                                    let current_page = state.read().current_page;
-                                    if let Ok(_tracks) = load_recent_tracks_from_page(session_json, current_page + 1).await {
-                                        state.with_mut(|s| {
-                                            s.current_page += 1;
-                                            s.track_cache = TrackCache::load();
-                                        });
+                                    // Load tracks at the end of the cache
+                                    match load_tracks_at_cache_end(session_json).await {
+                                        Ok(tracks) => {
+                                            state.with_mut(|s| {
+                                                s.track_cache = TrackCache::load();
+                                            });
+                                            success_message.set(format!("Loaded {} older tracks at cache end", tracks.len()));
+                                        }
+                                        Err(e) => {
+                                            error_message.set(format!("Failed to load tracks at cache end: {e}"));
+                                        }
                                     }
+                                } else {
+                                    error_message.set("No session available - please log in first".to_string());
                                 }
-                                loading_tracks_for_stats.set(false);
+                                loading_next_page.set(false);
                             });
                         },
-                        if *loading_tracks_for_stats.read() {
-                            "Loading Next Page..."
+                        if *loading_next_page.read() {
+                            "⏳ Loading Next Page..."
                         } else {
                             "📄 Load Next Page"
                         }
@@ -107,26 +135,37 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
 
                     button {
                         style: format!("background: #10b981; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
-                            if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
+                            if *loading_newer_tracks.read() || *loading_tracks_for_stats.read() { "0.5" } else { "1" }
                         ),
-                        disabled: *loading_tracks_for_stats.read(),
+                        disabled: *loading_newer_tracks.read() || *loading_tracks_for_stats.read(),
                         onclick: move |_| {
                             spawn(async move {
-                                loading_tracks_for_stats.set(true);
+                                loading_newer_tracks.set(true);
+                                error_message.set(String::new());
+                                success_message.set(String::new());
+
                                 let session_json = state.read().session.clone();
                                 if let Some(session_json) = session_json {
-                                    // Load newer tracks (page 1)
-                                    if let Ok(_tracks) = load_recent_tracks_from_page(session_json, 1).await {
-                                        state.with_mut(|s| {
-                                            s.track_cache = TrackCache::load();
-                                        });
+                                    // Load fresh newer tracks (always bypass cache)
+                                    match load_newer_tracks_fresh(session_json).await {
+                                        Ok(tracks) => {
+                                            state.with_mut(|s| {
+                                                s.track_cache = TrackCache::load();
+                                            });
+                                            success_message.set(format!("Loaded {} fresh newer tracks", tracks.len()));
+                                        }
+                                        Err(e) => {
+                                            error_message.set(format!("Failed to load fresh newer tracks: {e}"));
+                                        }
                                     }
+                                } else {
+                                    error_message.set("No session available - please log in first".to_string());
                                 }
-                                loading_tracks_for_stats.set(false);
+                                loading_newer_tracks.set(false);
                             });
                         },
-                        if *loading_tracks_for_stats.read() {
-                            "Loading Newer Tracks..."
+                        if *loading_newer_tracks.read() {
+                            "⏳ Loading Newer Tracks..."
                         } else {
                             "⬆️ Load Newer Tracks"
                         }
