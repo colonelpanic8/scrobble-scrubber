@@ -199,11 +199,80 @@ async fn check_auto_start_scrubber(state: Signal<AppState>) {
 }
 
 fn main() {
-    dioxus::launch(App);
+    use dioxus::desktop::tao::window::Icon;
+    use dioxus::desktop::{Config, LogicalSize, WindowBuilder};
+
+    // Load custom icon for window
+    let icon_bytes = include_bytes!("../assets/icon.png");
+    let window_icon = match image::load_from_memory(icon_bytes) {
+        Ok(img) => {
+            let rgba_img = img.to_rgba8();
+            let (width, height) = rgba_img.dimensions();
+            match Icon::from_rgba(rgba_img.into_raw(), width, height) {
+                Ok(icon) => Some(icon),
+                Err(e) => {
+                    eprintln!("Failed to create window icon: {e}");
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to load window icon image: {e}");
+            None
+        }
+    };
+
+    let mut window = WindowBuilder::new()
+        .with_title("Scrobble Scrubber")
+        .with_resizable(true)
+        .with_inner_size(LogicalSize::new(1200.0, 800.0));
+
+    if let Some(icon) = window_icon {
+        window = window.with_window_icon(Some(icon));
+    }
+
+    let config = Config::new().with_window(window);
+
+    // Create VirtualDom and launch with desktop config
+    use dioxus::prelude::VirtualDom;
+    let vdom = VirtualDom::new(App);
+    dioxus::desktop::launch::launch_virtual_dom(vdom, config);
 }
 
 #[component]
 fn App() -> Element {
+    use dioxus::desktop::trayicon::{default_tray_icon, init_tray_icon, DioxusTrayIcon};
+
+    // Initialize tray icon with custom menu and icon
+    use_effect(|| {
+        let menu = default_tray_icon();
+
+        // Create custom icon from PNG bytes
+        let icon_bytes = include_bytes!("../assets/icon.png");
+        let icon = match image::load_from_memory(icon_bytes) {
+            Ok(img) => {
+                // Convert to RGBA and get dimensions
+                let rgba_img = img.to_rgba8();
+                let (width, height) = rgba_img.dimensions();
+
+                // Create tray icon from RGBA data
+                match DioxusTrayIcon::from_rgba(rgba_img.into_raw(), width, height) {
+                    Ok(icon) => Some(icon),
+                    Err(e) => {
+                        eprintln!("Failed to create tray icon: {e}");
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to load icon image: {e}");
+                None
+            }
+        };
+
+        init_tray_icon(menu, icon);
+    });
+
     rsx! {
         Router::<Route> {}
     }
