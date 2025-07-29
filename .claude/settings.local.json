@@ -127,7 +127,8 @@
       "WebFetch(domain:dioxuslabs.github.io)",
       "Bash(./cli/target/debug/scrobble-scrubber --help)",
       "Bash(do cargo run --bin scrobble-scrubber -- extend-cache --limit 1000)",
-      "Bash(do echo \"=== Run $i ===\")"
+      "Bash(do echo \"=== Run $i ===\")",
+      "Bash(dx run:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
