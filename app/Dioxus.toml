@@ -1,9 +1,12 @@
+[bundle]
+identifier = "com.scrobble-scrubber"
+
 [application]
 
 [web.app]
 
 # HTML title tag content
-title = "rule-editor"
+title = "scrobble-scrubber"
 
 # include `assets` in web platform
 [web.resource]
