@@ -12,6 +12,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
     let mut search_results = use_signal(Vec::<MusicBrainzResult>::new);
     let mut is_searching = use_signal(|| false);
     let mut selected_track = use_signal(|| Option::<Track>::None);
+    let mut is_applying_edit = use_signal(|| false);
 
     // Check for URL parameters to auto-populate the form
     use_effect(move || {
@@ -61,6 +62,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
     // Function to apply track edit to Last.fm
     let apply_track_edit = move |new_track: Track| {
         spawn(async move {
+            is_applying_edit.set(true);
             let original_track = selected_track.read().as_ref().cloned();
             let session_str = state.read().session.clone();
             if let Some(original_track) = original_track {
@@ -103,6 +105,7 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                     log::error!("No session available for track edit");
                 }
             }
+            is_applying_edit.set(false);
         });
     };
 
@@ -250,26 +253,40 @@ pub fn MusicBrainzPage(mut state: Signal<AppState>) -> Element {
                                                 }
                                                 if selected_track.read().is_some() {
                                                     button {
-                                                        style: "background: #059669; color: white; padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; font-weight: 500;",
+                                                        style: format!(
+                                                            "padding: 0.25rem 0.75rem; border: none; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; {}",
+                                                            if *is_applying_edit.read() {
+                                                                "background: #9ca3af; color: white; cursor: not-allowed;"
+                                                            } else {
+                                                                "background: #059669; color: white; cursor: pointer;"
+                                                            }
+                                                        ),
+                                                        disabled: *is_applying_edit.read(),
                                                         onclick: {
                                                             let result_artist = result.artist.clone();
                                                             let result_title = result.title.clone();
                                                             let result_album = result.album.clone();
                                                             move |_| {
-                                                                if let Some(selected) = selected_track.read().as_ref() {
-                                                                    let new_track = Track {
-                                                                        artist: result_artist.clone(),
-                                                                        name: result_title.clone(),
-                                                                        album: result_album.clone(),
-                                                                        timestamp: selected.timestamp,
-                                                                        playcount: selected.playcount,
-                                                                        album_artist: None,
-                                                                    };
-                                                                    apply_track_edit(new_track);
+                                                                if !*is_applying_edit.read() {
+                                                                    if let Some(selected) = selected_track.read().as_ref() {
+                                                                        let new_track = Track {
+                                                                            artist: result_artist.clone(),
+                                                                            name: result_title.clone(),
+                                                                            album: result_album.clone(),
+                                                                            timestamp: selected.timestamp,
+                                                                            playcount: selected.playcount,
+                                                                            album_artist: None,
+                                                                        };
+                                                                        apply_track_edit(new_track);
+                                                                    }
                                                                 }
                                                             }
                                                         },
-                                                        "Apply Edit"
+                                                        if *is_applying_edit.read() {
+                                                            "Applying..."
+                                                        } else {
+                                                            "Apply Edit"
+                                                        }
                                                     }
                                                 }
                                             }
