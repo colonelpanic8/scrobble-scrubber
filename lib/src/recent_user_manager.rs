@@ -1,4 +1,3 @@
-use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -63,7 +62,7 @@ impl RecentUserManager {
     /// Load the most recent user from disk
     pub fn load_recent_user(&self) -> Option<RecentUserData> {
         if !self.recent_user_file_path.exists() {
-            debug!(
+            log::debug!(
                 "No recent user file found at: {}",
                 self.recent_user_file_path.display()
             );
@@ -74,11 +73,11 @@ impl RecentUserManager {
             Ok(content) => {
                 match serde_json::from_str::<RecentUserData>(&content) {
                     Ok(recent_user) => {
-                        info!("Loaded recent user: {}", recent_user.username);
+                        log::info!("Loaded recent user: {}", recent_user.username);
                         Some(recent_user)
                     }
                     Err(e) => {
-                        warn!("Failed to parse recent user file: {e}. Starting fresh.");
+                        log::warn!("Failed to parse recent user file: {e}. Starting fresh.");
                         // Remove corrupted file
                         let _ = fs::remove_file(&self.recent_user_file_path);
                         None
@@ -86,7 +85,7 @@ impl RecentUserManager {
                 }
             }
             Err(e) => {
-                warn!("Failed to read recent user file: {e}. Starting fresh.");
+                log::warn!("Failed to read recent user file: {e}. Starting fresh.");
                 None
             }
         }
@@ -105,7 +104,7 @@ impl RecentUserManager {
             .map_err(|e| std::io::Error::other(format!("Failed to serialize recent user: {e}")))?;
 
         fs::write(&self.recent_user_file_path, content)?;
-        info!("Recent user saved: {username}");
+        log::info!("Recent user saved: {username}");
         Ok(())
     }
 
@@ -123,7 +122,7 @@ impl RecentUserManager {
     pub fn clear_recent_user(&self) -> Result<(), std::io::Error> {
         if self.recent_user_file_path.exists() {
             fs::remove_file(&self.recent_user_file_path)?;
-            info!("Cleared recent user file");
+            log::info!("Cleared recent user file");
         }
         Ok(())
     }

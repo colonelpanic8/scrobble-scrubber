@@ -2,7 +2,6 @@ use lastfm_edit::{
     LastFmEditClientImpl, LastFmEditSession, Result as LastFmResult,
     SessionManager as LastFmSessionManager,
 };
-use log::{debug, info, warn};
 
 /// Manages session persistence and validation using lastfm-edit's SessionManager
 pub struct SessionManager {
@@ -24,11 +23,11 @@ impl SessionManager {
     pub fn load_session(&self) -> Option<LastFmEditSession> {
         match self.inner.load_session(&self.username) {
             Ok(session) => {
-                info!("Loaded existing session for user: {}", session.username);
+                log::info!("Loaded existing session for user: {}", session.username);
                 Some(session)
             }
             Err(e) => {
-                debug!("No existing session found: {e}");
+                log::debug!("No existing session found: {e}");
                 None
             }
         }
@@ -38,11 +37,11 @@ impl SessionManager {
     pub fn save_session(&self, session: &LastFmEditSession) -> Result<(), std::io::Error> {
         match self.inner.save_session(session) {
             Ok(()) => {
-                info!("Session saved for user: {}", session.username);
+                log::info!("Session saved for user: {}", session.username);
                 Ok(())
             }
             Err(e) => {
-                warn!("Failed to save session: {e}");
+                log::warn!("Failed to save session: {e}");
                 Err(std::io::Error::other(format!(
                     "Failed to save session: {e}"
                 )))
@@ -52,7 +51,7 @@ impl SessionManager {
 
     /// Validate if a session is still working by making a test request to settings page
     pub async fn validate_session(&self, session: &LastFmEditSession) -> bool {
-        debug!("Validating existing session...");
+        log::debug!("Validating existing session...");
 
         match tokio::time::timeout(
             std::time::Duration::from_secs(10),
@@ -61,15 +60,15 @@ impl SessionManager {
         .await
         {
             Ok(true) => {
-                info!("Session validation successful");
+                log::info!("Session validation successful");
                 true
             }
             Ok(false) => {
-                warn!("Session validation failed - redirected to login");
+                log::warn!("Session validation failed - redirected to login");
                 false
             }
             Err(_) => {
-                warn!("Session validation timed out");
+                log::warn!("Session validation timed out");
                 false
             }
         }
@@ -98,14 +97,14 @@ impl SessionManager {
         match request_builder.send().await {
             Ok(response) => {
                 let final_url = response.url().to_string();
-                debug!("Session validation response URL: {final_url}");
+                log::debug!("Session validation response URL: {final_url}");
 
                 // If we're redirected to login, the session is invalid
                 // If we stay on the settings page, the session is valid
                 !final_url.contains("/login")
             }
             Err(e) => {
-                warn!("Session validation request failed: {e}");
+                log::warn!("Session validation request failed: {e}");
                 false
             }
         }
@@ -115,11 +114,11 @@ impl SessionManager {
     pub fn clear_session(&self) -> Result<(), std::io::Error> {
         match self.inner.remove_session(&self.username) {
             Ok(()) => {
-                info!("Cleared session for user: {}", self.username);
+                log::info!("Cleared session for user: {}", self.username);
                 Ok(())
             }
             Err(e) => {
-                warn!("Failed to clear session: {e}");
+                log::warn!("Failed to clear session: {e}");
                 Err(std::io::Error::other(format!(
                     "Failed to clear session: {e}"
                 )))
@@ -132,17 +131,17 @@ impl SessionManager {
         let session = self.load_session()?;
 
         // Always validate the session since lastfm-edit's SessionManager doesn't track staleness
-        info!("Validating loaded session...");
+        log::info!("Validating loaded session...");
 
         if self.validate_session(&session).await {
             // Session is still valid, re-save it to update any metadata
             if let Err(e) = self.save_session(&session) {
-                warn!("Failed to update session: {e}");
+                log::warn!("Failed to update session: {e}");
             }
             Some(session)
         } else {
             // Session is invalid, clear it
-            warn!("Session validation failed, clearing stored session");
+            log::warn!("Session validation failed, clearing stored session");
             let _ = self.clear_session();
             None
         }
@@ -154,7 +153,7 @@ impl SessionManager {
         username: &str,
         password: &str,
     ) -> LastFmResult<LastFmEditSession> {
-        info!("Creating new Last.fm session...");
+        log::info!("Creating new Last.fm session...");
 
         let http_client = http_client::native::NativeClient::new();
         let client =
@@ -165,7 +164,7 @@ impl SessionManager {
 
         // Save the session
         if let Err(e) = self.save_session(&session) {
-            warn!("Failed to save session: {e}");
+            log::warn!("Failed to save session: {e}");
         }
 
         Ok(session)

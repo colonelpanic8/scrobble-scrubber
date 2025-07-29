@@ -154,27 +154,25 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
         let mut results = Vec::new();
 
         for (index, track) in tracks.iter().enumerate() {
-            use log::trace;
-
-            trace!("RewriteRulesScrubActionProvider analyzing track {index}: '{track_name}' by '{track_artist}' against {rules_count} rules",
+            log::trace!("RewriteRulesScrubActionProvider analyzing track {index}: '{track_name}' by '{track_artist}' against {rules_count} rules",
                    track_name = track.name, track_artist = track.artist, rules_count = self.rules.len());
 
             let mut suggestions = Vec::new();
 
             // Check if any rules would apply
             let rules_apply = crate::rewrite::any_rules_apply(&self.rules, track)?;
-            trace!("RewriteRulesScrubActionProvider track {index}: rules_apply={rules_apply}");
+            log::trace!("RewriteRulesScrubActionProvider track {index}: rules_apply={rules_apply}");
 
             if rules_apply {
                 // Apply all rules to see what changes would be made
                 let mut edit = crate::rewrite::create_no_op_edit(track);
                 let changes_made = crate::rewrite::apply_all_rules(&self.rules, &mut edit)?;
-                trace!(
+                log::trace!(
                     "RewriteRulesScrubActionProvider track {index}: changes_made={changes_made}"
                 );
 
                 if changes_made {
-                    trace!(
+                    log::trace!(
                         "RewriteRulesScrubActionProvider track {index}: creating edit suggestion"
                     );
 
@@ -182,7 +180,7 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
                     let requires_confirmation = self.rules.iter().any(|rule| {
                         let applies = rule.matches(track).unwrap_or(false);
                         let requires_conf = rule.requires_confirmation;
-                        trace!(
+                        log::trace!(
                             "Rule '{}' applies: {}, requires confirmation: {}",
                             rule.name.as_deref().unwrap_or("Unnamed"),
                             applies,
@@ -198,7 +196,9 @@ impl ScrubActionProvider for RewriteRulesScrubActionProvider {
                     ));
                 }
             } else {
-                trace!("RewriteRulesScrubActionProvider track {index}: no rules apply, skipping");
+                log::trace!(
+                    "RewriteRulesScrubActionProvider track {index}: no rules apply, skipping"
+                );
             }
 
             if !suggestions.is_empty() {

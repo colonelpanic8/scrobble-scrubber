@@ -2,7 +2,6 @@ use crate::persistence::{PendingEdit, PendingRewriteRule};
 use crate::scrub_action_provider::{ScrubActionProvider, SuggestionWithContext};
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
-use log::warn;
 use musicbrainz_rs::entity::recording::RecordingSearchQuery;
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -170,9 +169,11 @@ impl MusicBrainzScrubActionProvider {
                 best_match
             }
             Err(e) => {
-                warn!(
+                log::warn!(
                     "MusicBrainz search failed for '{}' by '{}': {}",
-                    track.name, track.artist, e
+                    track.name,
+                    track.artist,
+                    e
                 );
                 if let Ok(mut cache_write) = self.cache.write() {
                     cache_write.insert(search_key, None);

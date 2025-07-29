@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
-use log::{trace, warn};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
@@ -286,7 +285,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let result = self.check_and_process_tracks_inner().await;
 
         if let Err(ref e) = result {
-            warn!("Error during track processing: {e}");
+            log::warn!("Error during track processing: {e}");
             self.emit_event(ScrubberEvent::error(format!(
                 "Error during track processing: {e}"
             )));
@@ -331,11 +330,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Step 4: Process all collected tracks (oldest first) and update anchor after processing
         if !tracks_to_process.is_empty() {
-            log::info!(
-                "Processing {} tracks one at a time (oldest first)...",
-                tracks_to_process.len()
-            );
-
             self.process_tracks_and_update_anchor(&tracks_to_process)
                 .await?;
         }
@@ -415,9 +409,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Debug: Show anchor timestamp
         if let Some(anchor) = timestamp_state.last_processed_timestamp {
-            trace!("Using anchor timestamp: {anchor}");
+            log::trace!("Using anchor timestamp: {anchor}");
         } else {
-            trace!("No anchor timestamp set (first run)");
+            log::trace!("No anchor timestamp set (first run)");
         }
 
         for cached_track in cached_tracks {
@@ -426,7 +420,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 if let Some(track_ts) = cached_track.timestamp {
                     let track_time = DateTime::from_timestamp(track_ts as i64, 0);
                     if let Some(track_time) = track_time {
-                        trace!(
+                        log::trace!(
                             "Examining cached track '{}' by '{}' at {} vs anchor at {}",
                             cached_track.name,
                             cached_track.artist,
@@ -441,9 +435,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         }
                     }
                 } else {
-                    warn!(
+                    log::warn!(
                         "Cached track '{}' by '{}' has no timestamp",
-                        cached_track.name, cached_track.artist
+                        cached_track.name,
+                        cached_track.artist
                     );
                 }
             } else {
@@ -555,7 +550,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         track_index: usize,
         is_artist_processing: bool,
     ) -> Result<()> {
-        trace!(
+        log::trace!(
             "Starting analysis for track: {} - {}",
             track.artist,
             track.name
@@ -656,7 +651,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
 
             log::info!(
-                "Processed: '{}' by '{}'{} - {} ({})",
+                "Processed: {} - {} [{}] | {} ({})",
                 track.name,
                 track.artist,
                 album_info,
@@ -730,7 +725,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )
                 }
                 crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {
-                    trace!("No action taken for track");
+                    log::trace!("No action taken for track");
                     format!("No action taken by {}", suggestion.provider_name)
                 }
             };
@@ -912,7 +907,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         suggestions
                     }
                     Err(e) => {
-                        warn!("Error from context-aware action provider: {e}, falling back to regular analysis");
+                        log::warn!("Error from context-aware action provider: {e}, falling back to regular analysis");
                         // Fall back to no context
                         match self
                             .action_provider
@@ -934,7 +929,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                                 suggestions
                             }
                             Err(e) => {
-                                warn!("Error from action provider: {e}");
+                                log::warn!("Error from action provider: {e}");
                                 Vec::new()
                             }
                         }
@@ -942,7 +937,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
             }
             (Err(e1), Err(e2)) => {
-                warn!(
+                log::warn!(
                     "Failed to load pending items: {e1} and {e2}, using analysis without context"
                 );
                 match self
@@ -965,13 +960,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         suggestions
                     }
                     Err(e) => {
-                        warn!("Error from action provider: {e}");
+                        log::warn!("Error from action provider: {e}");
                         Vec::new()
                     }
                 }
             }
             (Err(e), _) | (_, Err(e)) => {
-                warn!("Failed to load some pending items: {e}, using analysis without context");
+                log::warn!(
+                    "Failed to load some pending items: {e}, using analysis without context"
+                );
                 match self
                     .action_provider
                     .analyze_tracks(tracks, None, None)
@@ -992,7 +989,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         suggestions
                     }
                     Err(e) => {
-                        warn!("Error from action provider: {e}");
+                        log::warn!("Error from action provider: {e}");
                         Vec::new()
                     }
                 }
@@ -1042,7 +1039,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     || settings_state.require_confirmation_for_edits
                     || self.config.scrubber.require_confirmation;
 
-                trace!(
+                log::trace!(
                     "Confirmation settings - Global: {}, Provider suggests confirmation: {}, Config dry_run: {}",
                     global_confirmation,
                     suggestion.requires_confirmation,
@@ -1064,7 +1061,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 }
 
                 if requires_confirmation {
-                    trace!("Edit requires confirmation, creating pending edit");
+                    log::trace!("Edit requires confirmation, creating pending edit");
                     self.create_pending_edit(track, &edit, context.clone())
                         .await?;
 
@@ -1116,7 +1113,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         "Dry run mode - would apply edit".to_string(),
                     ));
                 } else {
-                    trace!("Applying edit directly to track");
+                    log::trace!("Applying edit directly to track");
                     self.apply_edit_with_context(track, &edit, context).await?;
                 }
             }
@@ -1321,7 +1318,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             let log_context = context.unwrap_or(default_context);
 
             match self.client.edit_scrobble(edit).await {
-                Ok(response) => {
+                Ok(_response) => {
                     // Emit event for successful edit
                     let track_info = LogTrackInfo {
                         name: track.name.clone(),
@@ -1349,7 +1346,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     ));
                 }
                 Err(e) => {
-                    warn!("Failed to apply edit: {e}");
+                    log::warn!("Failed to apply edit: {e}");
 
                     // Emit event for failed edit
                     let track_info = LogTrackInfo {
