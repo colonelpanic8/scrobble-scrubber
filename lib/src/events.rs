@@ -106,6 +106,13 @@ pub enum ScrubberEventType {
     },
     /// Client event forwarded from lastfm-edit client
     ClientEvent(ClientEvent),
+    /// A pending edit was created requiring confirmation
+    PendingEditCreated {
+        pending_edit_id: String,
+        track: LogTrackInfo,
+        edit: LogEditInfo,
+        context: ProcessingContext,
+    },
 }
 
 impl ScrubberEvent {
@@ -260,5 +267,19 @@ impl ScrubberEvent {
 
     pub fn client_event(client_event: ClientEvent) -> Self {
         Self::new(ScrubberEventType::ClientEvent(client_event))
+    }
+
+    pub fn pending_edit_created(
+        pending_edit_id: String,
+        track: &LogTrackInfo,
+        edit: &LogEditInfo,
+        context: ProcessingContext,
+    ) -> Self {
+        Self::new(ScrubberEventType::PendingEditCreated {
+            pending_edit_id,
+            track: track.clone(),
+            edit: edit.clone(),
+            context,
+        })
     }
 }

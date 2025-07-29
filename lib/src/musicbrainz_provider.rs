@@ -150,10 +150,11 @@ impl MusicBrainzScrubActionProvider {
                 }
 
                 if let Some(ref m) = best_match {
-                    log::info!(
-                        "Found MusicBrainz match for '{}' by '{}': '{}' by '{}' (confidence: {:.2})",
+                    log::debug!(
+                        "Found MusicBrainz match for '{} - {} [{}]': '{}' by '{}' (confidence: {:.2})",
                         track.name,
                         track.artist,
+                        track.album.clone().unwrap_or("No Album".to_string()),
                         m.title,
                         m.artist,
                         m.confidence
@@ -279,7 +280,7 @@ impl MusicBrainzScrubActionProvider {
             ));
         }
 
-        log::info!(
+        log::debug!(
             "MusicBrainz suggests corrections for '{}' by '{}': {} (confidence: {:.2}, mbid: {})",
             track.name,
             track.artist,

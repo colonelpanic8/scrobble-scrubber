@@ -103,6 +103,16 @@ pub mod event_formatting {
             ScrubberEventType::ClientEvent(client_event) => {
                 format!("Client: {client_event:?}")
             }
+            ScrubberEventType::PendingEditCreated {
+                pending_edit_id,
+                track,
+                ..
+            } => {
+                format!(
+                    "Created pending edit (ID: {}) for '{}' by '{}'",
+                    pending_edit_id, track.name, track.artist
+                )
+            }
         }
     }
 
@@ -138,6 +148,7 @@ pub mod event_formatting {
             ScrubberEventType::TrackEditFailed { .. } => "track_edit_failed",
             ScrubberEventType::TrackSkipped { .. } => "track_skipped",
             ScrubberEventType::ClientEvent(_) => "client_event",
+            ScrubberEventType::PendingEditCreated { .. } => "pending_edit_created",
         }
     }
 }

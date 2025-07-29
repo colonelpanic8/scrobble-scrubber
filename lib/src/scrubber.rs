@@ -532,7 +532,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         is_artist_processing: bool,
     ) -> Result<()> {
         for (track_index, track) in tracks.iter().enumerate() {
-            log::info!(
+            log::debug!(
                 "Processing track {} of {}: {} - {}",
                 track_index + 1,
                 tracks.len(),
@@ -596,6 +596,80 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         )
         .await?;
 
+        // Generate summary log after processing
+        let album_info = track
+            .album
+            .as_ref()
+            .map(|a| format!(" [{a}]"))
+            .unwrap_or_default();
+
+        if !suggestions.is_empty() {
+            let mut summary_parts = Vec::new();
+            let mut pending_count = 0;
+            let mut applied_count = 0;
+
+            for suggestion in suggestions {
+                match &suggestion.suggestion {
+                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(_) => {
+                        if suggestion.requires_confirmation
+                            || self
+                                .storage
+                                .lock()
+                                .await
+                                .load_settings_state()
+                                .await
+                                .map(|s| s.require_confirmation || s.require_confirmation_for_edits)
+                                .unwrap_or(false)
+                            || self.config.scrubber.require_confirmation
+                        {
+                            pending_count += 1;
+                        } else {
+                            applied_count += 1;
+                        }
+                    }
+                    crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
+                        summary_parts.push("proposed rule".to_string());
+                    }
+                    crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
+                }
+            }
+
+            if applied_count > 0 {
+                summary_parts.push(format!(
+                    "{} edit{} applied",
+                    applied_count,
+                    if applied_count == 1 { "" } else { "s" }
+                ));
+            }
+            if pending_count > 0 {
+                summary_parts.push(format!(
+                    "{} edit{} pending confirmation",
+                    pending_count,
+                    if pending_count == 1 { "" } else { "s" }
+                ));
+            }
+
+            let summary = if summary_parts.is_empty() {
+                "processed".to_string()
+            } else {
+                summary_parts.join(", ")
+            };
+
+            log::info!(
+                "Processed: '{}' by '{}'{} - {} ({})",
+                track.name,
+                track.artist,
+                album_info,
+                summary,
+                track
+                    .timestamp
+                    .map(|ts| DateTime::from_timestamp(ts as i64, 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                        .unwrap_or_else(|| "unknown time".to_string()))
+                    .unwrap_or_else(|| "no timestamp".to_string())
+            );
+        }
+
         Ok(())
     }
 
@@ -609,15 +683,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         is_artist_processing: bool,
     ) -> Result<()> {
         if suggestions.is_empty() {
-            log::info!(
-                "No suggestions for track: {} - {}",
-                track.artist,
-                track.name
-            );
             return Ok(());
         }
 
-        log::info!(
+        log::trace!(
             "Applying {} suggestions to track: {} - {}",
             suggestions.len(),
             track.artist,
@@ -625,7 +694,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         );
 
         for (i, suggestion) in suggestions.iter().enumerate() {
-            trace!(
+            log::trace!(
                 "Applying suggestion {}/{} for track '{}' by '{}': {:?}",
                 i + 1,
                 suggestions.len(),
@@ -647,14 +716,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             // Emit rule applied event based on suggestion type
             let description = match &suggestion.suggestion {
                 crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
-                    trace!("Applied edit: {edit:?}");
+                    log::trace!("Applied edit: {edit:?}");
                     format!("Applied edit from {}", suggestion.provider_name)
                 }
                 crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule {
                     rule,
                     motivation,
                 } => {
-                    trace!("Proposed rule: {rule:?} with motivation: {motivation}");
+                    log::trace!("Proposed rule: {rule:?} with motivation: {motivation}");
                     format!(
                         "Proposed rule from {}: {motivation}",
                         suggestion.provider_name
@@ -831,7 +900,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                log::info!(
+                                log::debug!(
                                     "Action provider '{}' (with context) suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
@@ -853,7 +922,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                             Ok(suggestions) => {
                                 for (track_idx, track_suggestions) in &suggestions {
                                     if let Some(track) = tracks.get(*track_idx) {
-                                        log::info!(
+                                        log::debug!(
                                             "Action provider '{}' suggested {} actions for track '{} - {}'",
                                             self.action_provider.provider_name(),
                                             track_suggestions.len(),
@@ -911,7 +980,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     Ok(suggestions) => {
                         for (track_idx, track_suggestions) in &suggestions {
                             if let Some(track) = tracks.get(*track_idx) {
-                                log::info!(
+                                log::debug!(
                                     "Action provider '{}' suggested {} actions for track '{} - {}'",
                                     self.action_provider.provider_name(),
                                     track_suggestions.len(),
@@ -982,9 +1051,22 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 let requires_confirmation = global_confirmation || suggestion.requires_confirmation;
 
+                if self.config.scrubber.dry_run {
+                    if requires_confirmation {
+                        log::debug!("DRY RUN: Would have created pending edit {edit:?}");
+                    } else {
+                        log::trace!(
+                            "DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}",
+                            track.name,
+                            track.artist
+                        );
+                    }
+                }
+
                 if requires_confirmation {
                     trace!("Edit requires confirmation, creating pending edit");
-                    self.create_pending_edit(track, &edit).await?;
+                    self.create_pending_edit(track, &edit, context.clone())
+                        .await?;
 
                     // Emit event for pending edit skip
                     let default_context = ProcessingContext {
@@ -1009,22 +1091,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         log_context,
                         "Edit requires confirmation - created as pending".to_string(),
                     ));
-
-                    if self.config.scrubber.dry_run {
-                        log::info!(
-                            "DRY RUN: Created pending edit for track '{}' by '{}'",
-                            track.name,
-                            track.artist
-                        );
-                    }
                 } else if self.config.scrubber.dry_run {
-                    trace!("Dry run mode, would apply edit directly");
-                    log::info!(
-                        "DRY RUN: Would apply edit to track '{}' by '{}': {edit:?}",
-                        track.name,
-                        track.artist
-                    );
-
                     // Emit event for dry run skip
                     let default_context = ProcessingContext {
                         run_id: "dry_run".to_string(),
@@ -1071,7 +1138,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
             ScrubActionSuggestion::NoAction => {
                 // This shouldn't happen since we filter NoAction in analyze_track
-                log::info!("Provider suggested no action needed");
+                log::debug!("Provider suggested no action needed");
             }
         }
         Ok(())
@@ -1081,6 +1148,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         &self,
         track: &lastfm_edit::Track,
         edit: &ScrobbleEdit,
+        context: Option<ProcessingContext>,
     ) -> Result<()> {
         let new_track_name = if edit.track_name.as_ref() == edit.track_name_original.as_ref() {
             None
@@ -1145,10 +1213,48 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        log::info!(
+        log::trace!(
             "Created pending edit requiring confirmation (ID: {})",
             pending_edit.id
         );
+
+        // Emit pending edit created event
+        let default_context = ProcessingContext {
+            run_id: "pending_edit".to_string(),
+            batch_id: None,
+            track_index: None,
+            batch_size: None,
+            is_artist_processing: false,
+        };
+        let log_context = context.unwrap_or(default_context);
+
+        let track_info = LogTrackInfo {
+            name: track.name.clone(),
+            artist: track.artist.clone(),
+            album: track.album.clone(),
+            album_artist: track.album_artist.clone(),
+            timestamp: track.timestamp,
+            playcount: track.playcount,
+        };
+
+        let edit_info = LogEditInfo {
+            original_track_name: edit.track_name_original.clone(),
+            original_artist_name: Some(edit.artist_name_original.clone()),
+            original_album_name: edit.album_name_original.clone(),
+            original_album_artist_name: edit.album_artist_name_original.clone(),
+            new_track_name: edit.track_name.clone(),
+            new_artist_name: Some(edit.artist_name.clone()),
+            new_album_name: edit.album_name.clone(),
+            new_album_artist_name: edit.album_artist_name.clone(),
+        };
+
+        self.emit_event(ScrubberEvent::pending_edit_created(
+            pending_edit.id,
+            &track_info,
+            &edit_info,
+            log_context,
+        ));
+
         Ok(())
     }
 
@@ -1197,7 +1303,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         if !changes.is_empty() {
-            log::info!(
+            log::debug!(
                 "Applying edit to track '{}' by '{}': {}",
                 edit.track_name_original.as_deref().unwrap_or("unknown"),
                 &edit.artist_name_original,
@@ -1216,8 +1322,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             match self.client.edit_scrobble(edit).await {
                 Ok(response) => {
-                    log::info!("Edit applied successfully: {response:?}");
-
                     // Emit event for successful edit
                     let track_info = LogTrackInfo {
                         name: track.name.clone(),
