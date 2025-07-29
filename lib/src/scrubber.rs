@@ -602,12 +602,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             let mut summary_parts = Vec::new();
             let mut pending_count = 0;
             let mut applied_count = 0;
+            let mut has_changes = false;
 
             for suggestion in suggestions {
                 match &suggestion.suggestion {
                     crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
-                        // Only count edits that have actual changes
                         if Self::has_changes(edit) {
+                            has_changes = true;
                             if suggestion.requires_confirmation
                                 || self
                                     .storage
@@ -650,18 +651,22 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
 
             let summary = if summary_parts.is_empty() {
-                "processed".to_string()
+                "no changes".to_string()
             } else {
                 summary_parts.join(", ")
             };
 
-            log::info!(
-                "Processed: {} - {} {} | {}",
-                track.artist,
-                track.name,
-                album_info,
-                summary,
-            );
+            // Only log if there are actual changes or rule proposals
+            if has_changes || summary_parts.iter().any(|p| p.contains("proposed rule")) {
+                log::info!(
+                    "Processed [{}]: '{}' by '{}'{} - {}",
+                    track_index + 1,
+                    track.name,
+                    track.artist,
+                    album_info,
+                    summary,
+                );
+            }
         }
 
         Ok(())
@@ -1052,16 +1057,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 let mut edit = edit.clone();
                 if context.as_ref().is_some_and(|c| c.is_artist_processing) {
                     edit.edit_all = true;
-                }
-
-                // Check if there are actually any changes - if not, skip the edit entirely
-                if !Self::has_changes(&edit) {
-                    log::trace!(
-                        "Skipping edit for track '{}' by '{}' - no actual changes detected",
-                        track.name,
-                        track.artist
-                    );
-                    return Ok(());
                 }
 
                 // Check if global settings require confirmation (persistent state takes precedence over config)
