@@ -294,6 +294,155 @@ pub async fn extend_cache(client: &LastFmEditClientImpl, pages: usize) -> Result
     Ok(())
 }
 
+/// Load tracks for a specific artist (for debugging artist track loading)
+pub async fn load_artist_tracks_cli(
+    client: &LastFmEditClientImpl,
+    artist_name: &str,
+) -> Result<()> {
+    use chrono::DateTime;
+
+    println!("🎨 Loading Artist Tracks from Last.fm API");
+    println!("==========================================");
+    println!("Artist: '{artist_name}'");
+    println!();
+
+    // Check cache first
+    let mut cache = TrackCache::load();
+    if let Some(cached_tracks) = cache.get_artist_tracks(artist_name) {
+        println!(
+            "📂 Found {} cached tracks for '{artist_name}':",
+            cached_tracks.len()
+        );
+        for (i, track) in cached_tracks.iter().enumerate() {
+            let timestamp = track
+                .timestamp
+                .map(|ts| {
+                    DateTime::from_timestamp(ts as i64, 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                        .unwrap_or_else(|| "Invalid timestamp".to_string())
+                })
+                .unwrap_or_else(|| "No timestamp".to_string());
+
+            println!(
+                "  {}: '{}' by '{}' from '{}' [{}]",
+                i + 1,
+                track.name,
+                track.artist,
+                track.album.as_deref().unwrap_or("Unknown Album"),
+                timestamp
+            );
+        }
+        println!();
+    }
+
+    println!("🔄 Fetching fresh data from Last.fm API...");
+
+    // Step 1: Fetch albums for the artist
+    println!("Step 1: Fetching albums for artist '{artist_name}'");
+    let mut albums = Vec::new();
+    let mut page = 1;
+    const MAX_PAGES: u32 = 10; // Reasonable limit
+
+    loop {
+        println!("  Fetching albums page {page}...");
+        let album_page = match client.get_artist_albums_page(artist_name, page).await {
+            Ok(page) => page,
+            Err(e) => {
+                println!("  ❌ Error fetching albums page {page}: {e}");
+                return Err(e);
+            }
+        };
+
+        if album_page.albums.is_empty() {
+            println!("  📄 No more albums found");
+            break;
+        }
+
+        println!(
+            "  ✅ Found {} albums on page {page}",
+            album_page.albums.len()
+        );
+        for album in &album_page.albums {
+            println!("    - '{}'", album.name);
+        }
+
+        albums.extend(album_page.albums);
+
+        if !album_page.has_next_page || page >= MAX_PAGES {
+            if page >= MAX_PAGES {
+                println!("  ⚠️ Reached maximum page limit ({MAX_PAGES})");
+            }
+            break;
+        }
+
+        page += 1;
+    }
+
+    println!("📀 Found {} total albums for '{artist_name}'", albums.len());
+    println!();
+
+    if albums.is_empty() {
+        println!("❌ No albums found for artist '{artist_name}'");
+        return Ok(());
+    }
+
+    // Step 2: Fetch tracks for each album
+    println!("Step 2: Fetching tracks for each album");
+    let mut all_tracks = Vec::new();
+
+    // Process albums one by one to isolate stack overflow issues
+    for (idx, album) in albums.iter().enumerate() {
+        let album_name = &album.name;
+        println!("  Album {}/{}: '{album_name}'", idx + 1, albums.len());
+
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client.get_album_tracks(album_name, artist_name),
+        )
+        .await
+        {
+            Ok(Ok(tracks)) => {
+                println!("    ✅ Found {} tracks", tracks.len());
+                for track in &tracks {
+                    println!("      - '{}'", track.name);
+                }
+                all_tracks.extend(tracks);
+            }
+            Ok(Err(e)) => {
+                println!("    ❌ Error fetching tracks: {e}");
+            }
+            Err(_) => {
+                println!("    ⏱️ Timeout fetching tracks (30s limit exceeded)");
+            }
+        }
+    }
+
+    println!();
+    println!("🎵 Total tracks collected: {}", all_tracks.len());
+
+    if all_tracks.is_empty() {
+        println!("❌ No tracks found for artist '{artist_name}'");
+        return Ok(());
+    }
+
+    // Step 3: Cache the results
+    println!("Step 3: Caching results");
+    cache.cache_artist_tracks(artist_name.to_string(), all_tracks.clone());
+    cache.save().map_err(|e| {
+        lastfm_edit::LastFmError::Io(std::io::Error::other(format!("Failed to save cache: {e}")))
+    })?;
+    println!("💾 Cached {} tracks for '{artist_name}'", all_tracks.len());
+
+    // Step 4: Display summary
+    println!();
+    println!("📊 Summary:");
+    println!("  Albums processed: {}", albums.len());
+    println!("  Total tracks found: {}", all_tracks.len());
+    println!("  Tracks cached successfully: ✅");
+
+    Ok(())
+}
+
 /// Show recent tracks directly from Last.fm API
 pub async fn show_recent_tracks_from_api(
     client: &LastFmEditClientImpl,

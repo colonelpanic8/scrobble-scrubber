@@ -1,6 +1,7 @@
 mod commands;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use commands::cache::load_artist_tracks_cli;
 use commands::*;
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
@@ -176,6 +177,12 @@ enum TrackCacheCommands {
         /// Number of tracks to show (default: 50)
         #[arg(short, long, default_value = "50")]
         limit: usize,
+    },
+    /// Load tracks for a specific artist (for debugging artist track loading)
+    LoadArtist {
+        /// Artist name to load tracks for
+        #[arg(short, long)]
+        artist: String,
     },
 }
 
@@ -662,6 +669,10 @@ async fn main() -> Result<()> {
             }
             TrackCacheCommands::ShowRecent { limit } => {
                 show_recent_tracks_from_api(&client, *limit).await?;
+                return Ok(());
+            }
+            TrackCacheCommands::LoadArtist { artist } => {
+                load_artist_tracks_cli(&client, artist).await?;
                 return Ok(());
             }
         },
