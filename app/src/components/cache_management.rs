@@ -75,6 +75,84 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
                             "Refresh Cache Data"
                         }
                     }
+
+                    button {
+                        style: format!("background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
+                            if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
+                        ),
+                        disabled: *loading_tracks_for_stats.read(),
+                        onclick: move |_| {
+                            spawn(async move {
+                                loading_tracks_for_stats.set(true);
+                                let session_json = state.read().session.clone();
+                                if let Some(session_json) = session_json {
+                                    // Load older tracks (higher page number)
+                                    let current_page = state.read().current_page;
+                                    if let Ok(_tracks) = load_recent_tracks_from_page(session_json, current_page + 1).await {
+                                        state.with_mut(|s| {
+                                            s.current_page += 1;
+                                            s.track_cache = TrackCache::load();
+                                        });
+                                    }
+                                }
+                                loading_tracks_for_stats.set(false);
+                            });
+                        },
+                        if *loading_tracks_for_stats.read() {
+                            "Loading Next Page..."
+                        } else {
+                            "📄 Load Next Page"
+                        }
+                    }
+
+                    button {
+                        style: format!("background: #10b981; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
+                            if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
+                        ),
+                        disabled: *loading_tracks_for_stats.read(),
+                        onclick: move |_| {
+                            spawn(async move {
+                                loading_tracks_for_stats.set(true);
+                                let session_json = state.read().session.clone();
+                                if let Some(session_json) = session_json {
+                                    // Load newer tracks (page 1)
+                                    if let Ok(_tracks) = load_recent_tracks_from_page(session_json, 1).await {
+                                        state.with_mut(|s| {
+                                            s.track_cache = TrackCache::load();
+                                        });
+                                    }
+                                }
+                                loading_tracks_for_stats.set(false);
+                            });
+                        },
+                        if *loading_tracks_for_stats.read() {
+                            "Loading Newer Tracks..."
+                        } else {
+                            "⬆️ Load Newer Tracks"
+                        }
+                    }
+
+                    {
+                        let state_read = state.read();
+                        let all_tracks = state_read.track_cache.get_all_recent_tracks();
+                        let display_count = *tracks_display_count.read();
+                        if display_count < all_tracks.len() {
+                            rsx! {
+                                button {
+                                    style: "background: #6b7280; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
+                                    onclick: move |_| {
+                                        let current_count = *tracks_display_count.read();
+                                        let state_read = state.read();
+                                        let all_tracks = state_read.track_cache.get_all_recent_tracks();
+                                        tracks_display_count.set((current_count + 50).min(all_tracks.len()));
+                                    },
+                                    "Show More Tracks ({display_count}/{all_tracks.len()})"
+                                }
+                            }
+                        } else {
+                            rsx! { span {} }
+                        }
+                    }
                 }
             }
 
@@ -126,37 +204,6 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
                                 }
                             }
 
-                            // Load next page button
-                            div { style: "text-align: center; margin-bottom: 1rem;",
-                                button {
-                                    style: format!("background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
-                                        if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
-                                    ),
-                                    disabled: *loading_tracks_for_stats.read(),
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            loading_tracks_for_stats.set(true);
-                                            let session_json = state.read().session.clone();
-                                            if let Some(session_json) = session_json {
-                                                // Load older tracks (higher page number)
-                                                let current_page = state.read().current_page;
-                                                if let Ok(_tracks) = load_recent_tracks_from_page(session_json, current_page + 1).await {
-                                                    state.with_mut(|s| {
-                                                        s.current_page += 1;
-                                                        s.track_cache = TrackCache::load();
-                                                    });
-                                                }
-                                            }
-                                            loading_tracks_for_stats.set(false);
-                                        });
-                                    },
-                                    if *loading_tracks_for_stats.read() {
-                                        "Loading Next Page..."
-                                    } else {
-                                        "📄 Load Next Page"
-                                    }
-                                }
-                            }
 
                             // Tracks list
                             div { style: "border: 1px solid #e5e7eb; border-radius: 0.375rem;",
@@ -221,46 +268,6 @@ pub fn CacheManagementPage(mut state: Signal<AppState>) -> Element {
                                 }
                             }
 
-                            // Load more controls
-                            div { style: "text-align: center; margin-top: 1rem; display: flex; gap: 1rem; justify-content: center; align-items: center;",
-                                if display_count < all_tracks.len() {
-                                    button {
-                                        style: "background: #6b7280; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
-                                        onclick: move |_| {
-                                            let current_count = *tracks_display_count.read();
-                                            tracks_display_count.set((current_count + 50).min(all_tracks.len()));
-                                        },
-                                        "Show More Tracks ({display_count}/{all_tracks.len()})"
-                                    }
-                                }
-
-                                button {
-                                    style: format!("background: #10b981; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; opacity: {};",
-                                        if *loading_tracks_for_stats.read() { "0.5" } else { "1" }
-                                    ),
-                                    disabled: *loading_tracks_for_stats.read(),
-                                    onclick: move |_| {
-                                        spawn(async move {
-                                            loading_tracks_for_stats.set(true);
-                                            let session_json = state.read().session.clone();
-                                            if let Some(session_json) = session_json {
-                                                // Load newer tracks (page 1)
-                                                if let Ok(_tracks) = load_recent_tracks_from_page(session_json, 1).await {
-                                                    state.with_mut(|s| {
-                                                        s.track_cache = TrackCache::load();
-                                                    });
-                                                }
-                                            }
-                                            loading_tracks_for_stats.set(false);
-                                        });
-                                    },
-                                    if *loading_tracks_for_stats.read() {
-                                        "Loading Newer Tracks..."
-                                    } else {
-                                        "⬆️ Load Newer Tracks"
-                                    }
-                                }
-                            }
                         }
                     }
                 }
