@@ -129,7 +129,10 @@
       "Bash(do cargo run --bin scrobble-scrubber -- extend-cache --limit 1000)",
       "Bash(do echo \"=== Run $i ===\")",
       "Bash(dx run:*)",
-      "Bash(RUST_LOG=scrobble_scrubber=info ./target/debug/scrobble-scrubber --provider musicbrainz scrubber once --set-anchor-timestamp \"2025-06-01T00:00:00Z\" --require-confirmation --dry-run)"
+      "Bash(RUST_LOG=scrobble_scrubber=info ./target/debug/scrobble-scrubber --provider musicbrainz scrubber once --set-anchor-timestamp \"2025-06-01T00:00:00Z\" --require-confirmation --dry-run)",
+      "Bash(lastfm-edit search:*)",
+      "Bash(lastfm-edit edit:*)",
+      "Bash(source:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

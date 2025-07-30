@@ -1,4 +1,4 @@
-use crate::components::{RulePreview, TrackSourcesSection};
+use crate::components::{DefaultRulesSection, RulePreview, TrackSourcesSection};
 use crate::types::{AppState, PreviewType};
 use crate::utils::{clear_all_rules, get_current_tracks, remove_rule_at_index};
 use dioxus::prelude::*;
@@ -9,6 +9,9 @@ pub fn RewriteRulesPage(mut state: Signal<AppState>) -> Element {
         div {
             style: "display: flex; flex-direction: column; gap: 1.5rem;",
             TrackSourcesSection { state }
+
+            // Default rules section - shown at the top for easy access
+            DefaultRulesSection { state }
 
             // Responsive container for rules management and preview
             div {

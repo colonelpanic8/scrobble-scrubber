@@ -1,0 +1,208 @@
+{
+  "title": "Default Remaster Cleanup Rules",
+  "description": "Comprehensive set of rewrite rules to remove remaster information from track names, based on analysis of 600+ real Last.fm tracks.",
+  "version": "1.0",
+  "rules": [
+    {
+      "name": "Remove Year Digital Remaster",
+      "description": "Removes patterns like 'Song - 2004 Digital Remaster'",
+      "examples": ["The Big Ship - 2004 Digital Remaster → The Big Ship", "Bitter Sweet Symphony - 2004 Digital Remaster → Bitter Sweet Symphony"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Digital Remaster$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year Remaster",
+      "description": "Removes patterns like 'Song - 2016 Remaster'",
+      "examples": ["Blitzkrieg Bop - 2016 Remaster → Blitzkrieg Bop", "1999 - 2019 Remaster → 1999"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Remaster$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Year",
+      "description": "Removes patterns like 'Song - Remastered 2000'",
+      "examples": ["He's So Fine - Remastered 2000 → He's So Fine", "Express Yourself - Remastered 2000 → Express Yourself"],
+      "track_name": {
+        "find": "^(.+?) - Remastered (\\d{4})$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year Remastered Version",
+      "description": "Removes patterns like 'Song - 2008 Remastered Version'",
+      "examples": ["Do Wah Diddy Diddy - 2007 Remastered Version → Do Wah Diddy Diddy", "The Air That I Breathe - 2008 Remastered Version → The Air That I Breathe"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Remastered Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Version",
+      "description": "Removes patterns like 'Song - Remastered Version'",
+      "examples": ["Mighty Tight Woman - Remastered Version → Mighty Tight Woman", "Big Road - Remastered Version → Big Road"],
+      "track_name": {
+        "find": "^(.+?) - Remastered Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Plain Remastered",
+      "description": "Removes patterns like 'Song - Remastered'",
+      "examples": ["Such Great Heights - Remastered → Such Great Heights", "Virtual Insanity - Remastered → Virtual Insanity"],
+      "track_name": {
+        "find": "^(.+?) - Remastered$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Digitally Remastered",
+      "description": "Removes patterns like 'Song - Digitally Remastered'",
+      "examples": ["Skating In Central Park - Digitally Remastered → Skating In Central Park", "Steps-What Was - Digitally Remastered → Steps-What Was"],
+      "track_name": {
+        "find": "^(.+?) - Digitally Remastered$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered LP Version",
+      "description": "Removes patterns like 'Song - 2007 Remastered LP Version' or 'Song - Remastered LP Version'",
+      "examples": ["Handle With Care - 2007 Remastered LP Version → Handle With Care", "They Reminisce Over You - Remastered LP Version → They Reminisce Over You"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Remastered LP Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Digital Remaster Variations",
+      "description": "Removes patterns like 'Song - Digital Remaster 00'",
+      "examples": ["Express Yourself - Digital Remaster 00 → Express Yourself"],
+      "track_name": {
+        "find": "^(.+?) - Digital Remaster \\d+$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Rudy Van Gelder Remaster",
+      "description": "Removes patterns with Rudy Van Gelder remaster information",
+      "examples": ["Bags' Groove - Rudy Van Gelder 2001 - Remaster → Bags' Groove", "Inner Urge - Rudy Van Gelder Edition;2003 Digital Remaster → Inner Urge"],
+      "track_name": {
+        "find": "^(.+?) - Rudy Van Gelder.*?Remaster.*?$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Album Version",
+      "description": "Removes patterns like 'Song - Remastered Album Version'",
+      "examples": ["Track Name - Remastered Album Version → Track Name"],
+      "track_name": {
+        "find": "^(.+?) - Remastered Album Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Edition",
+      "description": "Removes patterns like 'Song - 2004 Remastered Edition'",
+      "examples": ["Dreams - 2004 Remastered Edition → Dreams", "The Chain - 2004 Remastered Edition → The Chain"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Remastered Edition$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year - Remaster Format",
+      "description": "Removes patterns like 'Song - 2000 - Remaster'",
+      "examples": ["The Beach Boys - Wouldn't it Be Nice - 1999 - Remaster → Wouldn't it Be Nice", "Billy Idol - Eyes Without A Face - 1999 - Remaster → Eyes Without A Face"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) - Remaster(ed)?$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Remastered",
+      "description": "Removes patterns like 'Song (Remastered)'",
+      "examples": ["Orion (Remastered) → Orion", "Enter Sandman (Remastered) → Enter Sandman"],
+      "track_name": {
+        "find": "^(.+?) \\(Remastered\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Year Remaster",
+      "description": "Removes patterns like 'Song (2018 Remaster)'",
+      "examples": ["Lazy Sunday (Mono Version) (2018 Remaster) → Lazy Sunday (Mono Version)", "My Sweet Lord (2000) (2014 Remaster) → My Sweet Lord (2000)"],
+      "track_name": {
+        "find": "^(.+?) \\((\\d{4}) Remaster\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Re-Recorded",
+      "description": "Removes patterns like 'Song (Re-Recorded / Remastered)' or 'Song (Re-Recorded)'",
+      "examples": ["Stand By Me (Re-Recorded / Remastered) → Stand By Me", "Build Me Up Buttercup (Re-Recorded) → Build Me Up Buttercup"],
+      "track_name": {
+        "find": "^(.+?) \\(Re-Recorded.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Bracketed Remastered",
+      "description": "Removes patterns like 'Song [Remastered Version]' or 'Song [2023 Remaster]'",
+      "examples": ["Mighty Tight Woman [Remastered Version] → Mighty Tight Woman", "Search and Destroy [2023 Remaster] → Search and Destroy"],
+      "track_name": {
+        "find": "^(.+?) \\[.*?Remaster.*?\\]$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove 24-Bit Digitally Remastered",
+      "description": "Removes patterns like 'Song - 24-Bit Digitally Remastered'",
+      "examples": ["White Wedding - Parts 1 And 2 - 24-Bit Digitally Remastered 01 → White Wedding - Parts 1 And 2", "Mack The Knife - 24-Bit Digitally Remastered → Mack The Knife"],
+      "track_name": {
+        "find": "^(.+?) - 24-Bit Digitally Remastered.*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+
+       {
+      "name": "Remove Complex Punctuation Patterns",
+      "description": "Removes patterns with semicolons and complex formatting",
+      "examples": ["I Ain't Tha 1 - Edited;2000 Digital Remaster → I Ain't Tha 1", "Un Poco Loco - 1998 Digital Remaster;The Rudy Van Gelder Edition → Un Poco Loco"],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Digital Remaster;.*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Complex Slash Patterns",
+      "description": "Removes patterns with slashes like 'Song - Pt. 1 / Remastered/2019'", 
+      "examples": ["Precious Lord - Pt. 1 / Remastered/2019 → Precious Lord", "White Wedding - Pt. 1 / Remastered 2002 → White Wedding"],
+      "track_name": {
+        "find": "^(.+?) - .*?Remastered.*?/(\\d{4})$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    }
+  ]
+}
