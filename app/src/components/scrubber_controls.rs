@@ -35,6 +35,8 @@ pub fn ScrubberControlsSection(mut state: Signal<AppState>) -> Element {
             p { style: "color: #6b7280; margin: 0;",
                 "Monitor and control the scrobble scrubber. The scrubber processes your scrobbles and applies rewrite rules automatically."
             }
+
+            SearchControlsSection { state }
         }
     }
 }
@@ -140,5 +142,283 @@ fn ScrubberControlButtons(status: ScrubberStatus, mut state: Signal<AppState>) -
                 "Please wait..."
             }
         },
+    }
+}
+
+#[component]
+fn SearchControlsSection(mut state: Signal<AppState>) -> Element {
+    let mut track_search_query = use_signal(String::new);
+    let mut track_search_limit = use_signal(|| 50u32);
+    let mut track_unlimited = use_signal(|| false);
+    let mut album_search_query = use_signal(String::new);
+    let mut album_search_limit = use_signal(|| 10u32);
+    let mut album_unlimited = use_signal(|| false);
+    let search_status = use_signal(|| None::<String>);
+
+    rsx! {
+        div {
+            style: "margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;",
+            h3 {
+                style: "font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: #1f2937;",
+                "Search-Based Processing"
+            }
+            p {
+                style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
+                "Process tracks or albums matching specific search queries instead of your recent scrobbles."
+            }
+
+            if let Some(status) = search_status.read().as_ref() {
+                div {
+                    style: format!(
+                        "padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 1rem; {}",
+                        if status.contains("Error") || status.contains("Failed") {
+                            "background-color: #fee2e2; color: #991b1b; border: 1px solid #ef4444;"
+                        } else if status.contains("Processing") {
+                            "background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b;"
+                        } else {
+                            "background-color: #d1fae5; color: #065f46; border: 1px solid #10b981;"
+                        }
+                    ),
+                    {status.clone()}
+                }
+            }
+
+            div {
+                style: "display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;",
+
+                // Track Search Section
+                div {
+                    style: "background: #f9fafb; padding: 1rem; border-radius: 0.5rem;",
+                    h4 {
+                        style: "font-weight: 600; margin-bottom: 0.75rem; color: #374151;",
+                        "Search Tracks"
+                    }
+                    div {
+                        style: "margin-bottom: 0.75rem;",
+                        label {
+                            style: "display: block; font-weight: 500; margin-bottom: 0.25rem; color: #374151; font-size: 0.875rem;",
+                            "Search Query"
+                        }
+                        input {
+                            r#type: "text",
+                            placeholder: "e.g., \"artist:Beatles\" or \"Bohemian Rhapsody\"",
+                            value: "{track_search_query}",
+                            style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem;",
+                            oninput: move |e| track_search_query.set(e.value()),
+                        }
+                    }
+                    div {
+                        style: "margin-bottom: 0.75rem;",
+                        label {
+                            style: "display: block; font-weight: 500; margin-bottom: 0.25rem; color: #374151; font-size: 0.875rem;",
+                            "Max Tracks"
+                        }
+                        div {
+                            style: "display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;",
+                            input {
+                                r#type: "checkbox",
+                                checked: *track_unlimited.read(),
+                                onchange: move |e| {
+                                    track_unlimited.set(e.checked());
+                                },
+                            }
+                            label {
+                                style: "font-size: 0.875rem; color: #6b7280;",
+                                "No limit (process all results)"
+                            }
+                        }
+                        input {
+                            r#type: "number",
+                            min: "1",
+                            max: "500",
+                            value: "{track_search_limit}",
+                            disabled: *track_unlimited.read(),
+                            style: format!(
+                                "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; {}",
+                                if *track_unlimited.read() { "background-color: #f3f4f6; color: #9ca3af;" } else { "" }
+                            ),
+                            oninput: move |e| {
+                                if let Ok(val) = e.value().parse::<u32>() {
+                                    track_search_limit.set(val.clamp(1, 500));
+                                }
+                            },
+                        }
+                    }
+                    button {
+                        style: "width: 100%; background: #2563eb; color: white; padding: 0.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500;",
+                        disabled: track_search_query.read().trim().is_empty(),
+                        onclick: move |_| {
+                            let query = track_search_query.read().clone();
+                            let limit = if *track_unlimited.read() { None } else { Some(*track_search_limit.read()) };
+                            spawn(async move {
+                                trigger_track_search(state, query, limit, search_status).await;
+                            });
+                        },
+                        "Search & Process Tracks"
+                    }
+                }
+
+                // Album Search Section
+                div {
+                    style: "background: #f9fafb; padding: 1rem; border-radius: 0.5rem;",
+                    h4 {
+                        style: "font-weight: 600; margin-bottom: 0.75rem; color: #374151;",
+                        "Search Albums"
+                    }
+                    div {
+                        style: "margin-bottom: 0.75rem;",
+                        label {
+                            style: "display: block; font-weight: 500; margin-bottom: 0.25rem; color: #374151; font-size: 0.875rem;",
+                            "Album Search Query"
+                        }
+                        input {
+                            r#type: "text",
+                            placeholder: "e.g., \"Abbey Road\" or \"artist:Beatles album:Abbey\"",
+                            value: "{album_search_query}",
+                            style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem;",
+                            oninput: move |e| album_search_query.set(e.value()),
+                        }
+                    }
+                    div {
+                        style: "margin-bottom: 0.75rem;",
+                        label {
+                            style: "display: block; font-weight: 500; margin-bottom: 0.25rem; color: #374151; font-size: 0.875rem;",
+                            "Max Albums"
+                        }
+                        div {
+                            style: "display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;",
+                            input {
+                                r#type: "checkbox",
+                                checked: *album_unlimited.read(),
+                                onchange: move |e| {
+                                    album_unlimited.set(e.checked());
+                                },
+                            }
+                            label {
+                                style: "font-size: 0.875rem; color: #6b7280;",
+                                "No limit (process all results)"
+                            }
+                        }
+                        input {
+                            r#type: "number",
+                            min: "1",
+                            max: "50",
+                            value: "{album_search_limit}",
+                            disabled: *album_unlimited.read(),
+                            style: format!(
+                                "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; {}",
+                                if *album_unlimited.read() { "background-color: #f3f4f6; color: #9ca3af;" } else { "" }
+                            ),
+                            oninput: move |e| {
+                                if let Ok(val) = e.value().parse::<u32>() {
+                                    album_search_limit.set(val.clamp(1, 50));
+                                }
+                            },
+                        }
+                    }
+                    button {
+                        style: "width: 100%; background: #7c3aed; color: white; padding: 0.5rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500;",
+                        disabled: album_search_query.read().trim().is_empty(),
+                        onclick: move |_| {
+                            let query = album_search_query.read().clone();
+                            let limit = if *album_unlimited.read() { None } else { Some(*album_search_limit.read()) };
+                            spawn(async move {
+                                trigger_album_search(state, query, limit, search_status).await;
+                            });
+                        },
+                        "Search & Process Albums"
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn trigger_track_search(
+    state: Signal<AppState>,
+    query: String,
+    limit: Option<u32>,
+    mut search_status: Signal<Option<String>>,
+) {
+    if query.is_empty() {
+        search_status.set(Some("Please enter a search query".to_string()));
+        return;
+    }
+
+    let limit_info = match limit {
+        Some(l) => format!("limit: {l} tracks"),
+        None => "no limit".to_string(),
+    };
+    search_status.set(Some(format!(
+        "Searching for tracks matching '{query}' ({limit_info})..."
+    )));
+
+    // Get scrubber instance
+    let scrubber_result = {
+        let state_guard = state.read();
+        state_guard.scrubber_instance.clone()
+    };
+
+    if let Some(scrubber) = scrubber_result {
+        let mut scrubber_guard = scrubber.lock().await;
+        match scrubber_guard
+            .process_search_with_limit(&query, limit)
+            .await
+        {
+            Ok(()) => {
+                search_status.set(Some(format!(
+                    "Successfully processed tracks matching '{query}'"
+                )));
+            }
+            Err(e) => {
+                search_status.set(Some(format!("Failed to process tracks: {e}")));
+                log::error!("Track search processing failed: {e}");
+            }
+        }
+    } else {
+        search_status.set(Some("Scrubber not available".to_string()));
+    }
+}
+
+async fn trigger_album_search(
+    state: Signal<AppState>,
+    query: String,
+    limit: Option<u32>,
+    mut search_status: Signal<Option<String>>,
+) {
+    if query.is_empty() {
+        search_status.set(Some("Please enter a search query".to_string()));
+        return;
+    }
+
+    let limit_info = match limit {
+        Some(l) => format!("limit: {l} albums"),
+        None => "no limit".to_string(),
+    };
+    search_status.set(Some(format!(
+        "Searching for albums matching '{query}' ({limit_info})..."
+    )));
+
+    // Get scrubber instance
+    let scrubber_result = {
+        let state_guard = state.read();
+        state_guard.scrubber_instance.clone()
+    };
+
+    if let Some(scrubber) = scrubber_result {
+        let mut scrubber_guard = scrubber.lock().await;
+        match scrubber_guard.process_search_albums(&query, limit).await {
+            Ok(()) => {
+                search_status.set(Some(format!(
+                    "Successfully processed albums matching '{query}'"
+                )));
+            }
+            Err(e) => {
+                search_status.set(Some(format!("Failed to process albums: {e}")));
+                log::error!("Album search processing failed: {e}");
+            }
+        }
+    } else {
+        search_status.set(Some("Scrubber not available".to_string()));
     }
 }

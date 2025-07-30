@@ -892,12 +892,25 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Process tracks matching a search query
     pub async fn process_search(&mut self, query: &str, limit: u32) -> Result<()> {
-        log::info!("Starting search-based track processing for query: '{query}' (limit: {limit})");
+        self.process_search_with_limit(query, Some(limit)).await
+    }
 
-        // Collect tracks from search iterator with limit
+    /// Process tracks matching a search query with optional limit
+    pub async fn process_search_with_limit(
+        &mut self,
+        query: &str,
+        limit: Option<u32>,
+    ) -> Result<()> {
+        let limit_info = match limit {
+            Some(l) => format!("limit: {l} tracks"),
+            None => "no limit".to_string(),
+        };
+        log::info!("Starting search-based track processing for query: '{query}' ({limit_info})");
+
+        // Collect tracks from search iterator with optional limit
         let mut search_iterator = self.client.search_tracks(query);
         let tracks_to_process = self
-            .collect_from_iterator(&mut search_iterator, Some(limit))
+            .collect_from_iterator(&mut search_iterator, limit)
             .await?;
 
         log::info!(
