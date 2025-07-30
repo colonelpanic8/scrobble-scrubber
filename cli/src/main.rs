@@ -177,6 +177,36 @@ enum ScrubberCommands {
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
     },
+    /// Process all tracks from albums matching a search query
+    SearchAlbums {
+        /// Search query to find albums in your library
+        #[arg(short, long)]
+        query: String,
+
+        /// Maximum number of albums to process (no limit if not specified)
+        #[arg(short, long)]
+        limit: Option<u32>,
+
+        /// Focus on pattern analysis and rewrite rule suggestions
+        #[arg(long)]
+        rule_focus: bool,
+
+        /// Skip applying existing rewrite rules (useful with --rule-focus)
+        #[arg(long)]
+        no_existing_rules: bool,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -409,6 +439,25 @@ fn merge_args_into_config(
                 }
             }
             ScrubberCommands::Search {
+                query: _,
+                limit: _,
+                rule_focus: _,
+                no_existing_rules: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
+            }
+            ScrubberCommands::SearchAlbums {
                 query: _,
                 limit: _,
                 rule_focus: _,
@@ -897,6 +946,28 @@ async fn main() -> Result<()> {
                     "Processing tracks matching search query '{query}' (limit: {limit}){mode_info}"
                 );
                 scrubber_guard.process_search(query, *limit).await?;
+            }
+            ScrubberCommands::SearchAlbums {
+                query,
+                limit,
+                rule_focus,
+                no_existing_rules,
+                ..
+            } => {
+                let mode_info = match (rule_focus, no_existing_rules) {
+                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                    (true, false) => " (rule focus mode)",
+                    (false, true) => " (no existing rules)",
+                    (false, false) => "",
+                };
+                let limit_info = match limit {
+                    Some(l) => format!("limit: {l} albums"),
+                    None => "no limit".to_string(),
+                };
+                log::info!(
+                    "Processing tracks from albums matching search query '{query}' ({limit_info}){mode_info}"
+                );
+                scrubber_guard.process_search_albums(query, *limit).await?;
             }
         },
         Commands::TrackCache(_)

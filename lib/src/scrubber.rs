@@ -846,6 +846,101 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
+    /// Process tracks from albums matching a search query
+    pub async fn process_search_albums(&mut self, query: &str, limit: Option<u32>) -> Result<()> {
+        let limit_info = match limit {
+            Some(l) => format!("limit: {l} albums"),
+            None => "no limit".to_string(),
+        };
+        log::info!("Starting album-based track processing for query: '{query}' ({limit_info})");
+
+        // Use the search albums iterator to find matching albums
+        let mut search_iterator = self.client.search_albums(query);
+        let mut albums_found = Vec::new();
+        let mut collected = 0;
+
+        // Collect albums up to the limit (if specified)
+        while let Some(album) = search_iterator.next().await? {
+            albums_found.push(album);
+            collected += 1;
+
+            if let Some(limit_val) = limit {
+                if collected >= limit_val {
+                    break;
+                }
+            }
+        }
+
+        log::info!(
+            "Found {} albums matching search query '{query}'",
+            albums_found.len()
+        );
+
+        if albums_found.is_empty() {
+            log::warn!(
+                "No albums found matching search query '{query}'. Try a different search term."
+            );
+            return Ok(());
+        }
+
+        // Now collect all tracks from these albums
+        let mut all_tracks = Vec::new();
+        for album in &albums_found {
+            log::debug!(
+                "Loading tracks for album: {} - {}",
+                album.artist,
+                album.name
+            );
+
+            // Get tracks for this specific album
+            match self
+                .client
+                .get_album_tracks(&album.artist, &album.name)
+                .await
+            {
+                Ok(tracks) => {
+                    log::debug!(
+                        "Found {} tracks in album '{}' by '{}'",
+                        tracks.len(),
+                        album.name,
+                        album.artist
+                    );
+                    all_tracks.extend(tracks);
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to load tracks for album '{}' by '{}': {e}",
+                        album.name,
+                        album.artist
+                    );
+                    // Continue with other albums even if one fails
+                }
+            }
+        }
+
+        log::info!(
+            "Collected {} tracks from {} albums matching query '{query}'",
+            all_tracks.len(),
+            albums_found.len()
+        );
+
+        if all_tracks.is_empty() {
+            log::warn!("No tracks found in the matched albums");
+        } else {
+            // Process tracks without artist processing context (similar to search mode)
+            self.process_tracks_individually_no_timestamp_update(&all_tracks)
+                .await?;
+        }
+
+        log::info!(
+            "Album search processing complete: processed {} tracks from {} albums matching query '{query}'",
+            all_tracks.len(),
+            albums_found.len()
+        );
+
+        Ok(())
+    }
+
     /// Set the processing timestamp anchor to a specific track's timestamp
     /// This allows manual control of where the scrubber starts processing from
     pub async fn set_timestamp_to_track(&mut self, track: &lastfm_edit::Track) -> Result<()> {
