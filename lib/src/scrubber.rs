@@ -494,13 +494,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             return Ok(());
         }
 
-        log::info!(
-            "Processing {} tracks one at a time (no timestamp updates)...",
-            tracks_to_process.len()
-        );
-
-        // Process tracks without timestamp updates
-        self.process_tracks_individually_no_timestamp_update(&tracks_to_process)
+        // Process using shared helper
+        self.process_collected_tracks(&tracks_to_process, false, "Processing complete")
             .await?;
 
         log::info!(
@@ -508,6 +503,103 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             examined,
             tracks_to_process.len()
         );
+        Ok(())
+    }
+
+    /// Collect items from an iterator with optional limit
+    async fn collect_from_iterator<T>(
+        &mut self,
+        iterator: &mut Box<dyn lastfm_edit::AsyncPaginatedIterator<T>>,
+        limit: Option<u32>,
+    ) -> Result<Vec<T>> {
+        let mut items = Vec::new();
+        let mut collected = 0;
+
+        while let Some(item) = iterator.next().await? {
+            items.push(item);
+            collected += 1;
+
+            if let Some(limit_val) = limit {
+                if collected >= limit_val {
+                    break;
+                }
+            }
+        }
+
+        Ok(items)
+    }
+
+    /// Collect all tracks from a list of albums
+    async fn collect_tracks_from_albums(
+        &mut self,
+        albums: &[lastfm_edit::Album],
+    ) -> Result<Vec<lastfm_edit::Track>> {
+        let mut all_tracks = Vec::new();
+
+        for album in albums {
+            log::debug!(
+                "Loading tracks for album: {} - {}",
+                album.artist,
+                album.name
+            );
+
+            // Get tracks for this specific album
+            match self
+                .client
+                .get_album_tracks(&album.artist, &album.name)
+                .await
+            {
+                Ok(tracks) => {
+                    log::debug!(
+                        "Found {} tracks in album '{}' by '{}'",
+                        tracks.len(),
+                        album.name,
+                        album.artist
+                    );
+                    all_tracks.extend(tracks);
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to load tracks for album '{}' by '{}': {e}",
+                        album.name,
+                        album.artist
+                    );
+                    // Continue with other albums even if one fails
+                }
+            }
+        }
+
+        Ok(all_tracks)
+    }
+
+    /// Shared helper to process collected tracks with optional logging
+    async fn process_collected_tracks(
+        &mut self,
+        tracks: &[lastfm_edit::Track],
+        is_artist_processing: bool,
+        completion_message: &str,
+    ) -> Result<()> {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "Processing {} tracks one at a time{}...",
+            tracks.len(),
+            if is_artist_processing {
+                " (artist context)"
+            } else {
+                " (no timestamp updates)"
+            }
+        );
+
+        self.process_tracks_individually_no_timestamp_update_with_context(
+            tracks,
+            is_artist_processing,
+        )
+        .await?;
+
+        log::debug!("{}: processed {} tracks", completion_message, tracks.len());
         Ok(())
     }
 
@@ -544,6 +636,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Process a single track with its suggestions and artist processing context
+    ///
+    /// **IMPORTANT**: This is the ONLY function where rules are applied to tracks.
+    /// All track processing entry points (run, process_last_n_tracks, process_artist,
+    /// process_album, process_search, process_search_albums) must ultimately flow
+    /// through this function to ensure consistent rule application and logging.
     async fn process_single_track_with_context(
         &mut self,
         track: &lastfm_edit::Track,
@@ -747,15 +844,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub async fn process_artist(&mut self, artist: &str) -> Result<()> {
         log::info!("Starting artist track processing for: {artist}");
 
+        // Collect all tracks for the artist using shared helper
         let mut artist_iterator = self.client.artist_tracks(artist);
-        let mut processed = 0;
-
-        // Collect tracks first to avoid borrow checker issues
-        let mut tracks_to_process = Vec::new();
-        while let Some(track) = artist_iterator.next().await? {
-            tracks_to_process.push(track);
-            processed += 1;
-        }
+        let tracks_to_process = self
+            .collect_from_iterator(&mut artist_iterator, None)
+            .await?;
 
         log::info!(
             "Found {} tracks for artist '{}'",
@@ -763,16 +856,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             artist
         );
 
-        // Process collected tracks individually with artist processing context
-        if !tracks_to_process.is_empty() {
-            self.process_tracks_individually_no_timestamp_update_with_context(
-                &tracks_to_process,
-                true,
-            )
+        // Process using shared helper with artist context
+        self.process_collected_tracks(&tracks_to_process, true, "Artist processing complete")
             .await?;
-        }
 
-        log::info!("Processed {processed} tracks for artist '{artist}'");
+        log::info!(
+            "Processed {} tracks for artist '{artist}'",
+            tracks_to_process.len()
+        );
         Ok(())
     }
 
@@ -788,14 +879,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tracks_to_process.len()
         );
 
-        // Process collected tracks individually with artist processing context
-        if !tracks_to_process.is_empty() {
-            self.process_tracks_individually_no_timestamp_update_with_context(
-                &tracks_to_process,
-                true,
-            )
+        // Process using shared helper with artist context
+        self.process_collected_tracks(&tracks_to_process, true, "Album processing complete")
             .await?;
-        }
 
         log::info!(
             "Processed {} tracks for album '{album}' by '{artist}'",
@@ -808,20 +894,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub async fn process_search(&mut self, query: &str, limit: u32) -> Result<()> {
         log::info!("Starting search-based track processing for query: '{query}' (limit: {limit})");
 
-        // Use the search tracks iterator to find matching tracks
+        // Collect tracks from search iterator with limit
         let mut search_iterator = self.client.search_tracks(query);
-        let mut tracks_to_process = Vec::new();
-        let mut collected = 0;
-
-        // Collect tracks up to the limit
-        while let Some(track) = search_iterator.next().await? {
-            tracks_to_process.push(track);
-            collected += 1;
-
-            if collected >= limit {
-                break;
-            }
-        }
+        let tracks_to_process = self
+            .collect_from_iterator(&mut search_iterator, Some(limit))
+            .await?;
 
         log::info!(
             "Found {} tracks matching search query '{query}'",
@@ -832,11 +909,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             log::warn!(
                 "No tracks found matching search query '{query}'. Try a different search term."
             );
-        } else {
-            // Process tracks without artist processing context (similar to last-n mode)
-            self.process_tracks_individually_no_timestamp_update(&tracks_to_process)
-                .await?;
+            return Ok(());
         }
+
+        // Process using shared helper without artist context
+        self.process_collected_tracks(&tracks_to_process, false, "Search processing complete")
+            .await?;
 
         log::info!(
             "Search processing complete: processed {} tracks matching query '{query}'",
@@ -854,22 +932,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         };
         log::info!("Starting album-based track processing for query: '{query}' ({limit_info})");
 
-        // Use the search albums iterator to find matching albums
+        // Collect albums from search iterator with optional limit
         let mut search_iterator = self.client.search_albums(query);
-        let mut albums_found = Vec::new();
-        let mut collected = 0;
-
-        // Collect albums up to the limit (if specified)
-        while let Some(album) = search_iterator.next().await? {
-            albums_found.push(album);
-            collected += 1;
-
-            if let Some(limit_val) = limit {
-                if collected >= limit_val {
-                    break;
-                }
-            }
-        }
+        let albums_found = self
+            .collect_from_iterator(&mut search_iterator, limit)
+            .await?;
 
         log::info!(
             "Found {} albums matching search query '{query}'",
@@ -883,40 +950,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             return Ok(());
         }
 
-        // Now collect all tracks from these albums
-        let mut all_tracks = Vec::new();
-        for album in &albums_found {
-            log::debug!(
-                "Loading tracks for album: {} - {}",
-                album.artist,
-                album.name
-            );
-
-            // Get tracks for this specific album
-            match self
-                .client
-                .get_album_tracks(&album.artist, &album.name)
-                .await
-            {
-                Ok(tracks) => {
-                    log::debug!(
-                        "Found {} tracks in album '{}' by '{}'",
-                        tracks.len(),
-                        album.name,
-                        album.artist
-                    );
-                    all_tracks.extend(tracks);
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Failed to load tracks for album '{}' by '{}': {e}",
-                        album.name,
-                        album.artist
-                    );
-                    // Continue with other albums even if one fails
-                }
-            }
-        }
+        // Collect all tracks from these albums
+        let all_tracks = self.collect_tracks_from_albums(&albums_found).await?;
 
         log::info!(
             "Collected {} tracks from {} albums matching query '{query}'",
@@ -926,11 +961,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         if all_tracks.is_empty() {
             log::warn!("No tracks found in the matched albums");
-        } else {
-            // Process tracks without artist processing context (similar to search mode)
-            self.process_tracks_individually_no_timestamp_update(&all_tracks)
-                .await?;
+            return Ok(());
         }
+
+        // Process using shared helper without artist context
+        self.process_collected_tracks(&all_tracks, false, "Album search processing complete")
+            .await?;
 
         log::info!(
             "Album search processing complete: processed {} tracks from {} albums matching query '{query}'",
