@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Result, Track};
+use lastfm_edit::{LastFmEditClient, Result, Track};
 
 pub use crate::track_cache::TrackCache;
 

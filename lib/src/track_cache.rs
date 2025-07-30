@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Track};
+use lastfm_edit::{LastFmEditClient, Track};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;

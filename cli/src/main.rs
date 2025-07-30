@@ -147,6 +147,36 @@ enum ScrubberCommands {
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
     },
+    /// Process tracks matching a search query
+    Search {
+        /// Search query to find tracks in your library
+        #[arg(short, long)]
+        query: String,
+
+        /// Maximum number of tracks to process (default: 100)
+        #[arg(short, long, default_value = "100")]
+        limit: u32,
+
+        /// Focus on pattern analysis and rewrite rule suggestions
+        #[arg(long)]
+        rule_focus: bool,
+
+        /// Skip applying existing rewrite rules (useful with --rule-focus)
+        #[arg(long)]
+        no_existing_rules: bool,
+
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -378,6 +408,25 @@ fn merge_args_into_config(
                     config.scrubber.require_proposed_rule_confirmation = true;
                 }
             }
+            ScrubberCommands::Search {
+                query: _,
+                limit: _,
+                rule_focus: _,
+                no_existing_rules: _,
+                dry_run,
+                require_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if *require_confirmation {
+                    config.scrubber.require_confirmation = true;
+                }
+                if *require_proposed_rule_confirmation {
+                    config.scrubber.require_proposed_rule_confirmation = true;
+                }
+            }
         },
         Commands::TrackCache(_) => {
             // No specific configuration needed for track cache commands
@@ -536,6 +585,9 @@ async fn main() -> Result<()> {
         Commands::Scrubber(ScrubberCommands::LastN {
             no_existing_rules: true,
             ..
+        }) | Commands::Scrubber(ScrubberCommands::Search {
+            no_existing_rules: true,
+            ..
         })
     );
 
@@ -593,6 +645,9 @@ async fn main() -> Result<()> {
                     if matches!(
                         &args.command,
                         Commands::Scrubber(ScrubberCommands::LastN {
+                            rule_focus: true,
+                            ..
+                        }) | Commands::Scrubber(ScrubberCommands::Search {
                             rule_focus: true,
                             ..
                         })
@@ -824,6 +879,24 @@ async fn main() -> Result<()> {
                     log::info!("Processing all tracks for artist '{name}'");
                     scrubber_guard.process_artist(name).await?;
                 }
+            }
+            ScrubberCommands::Search {
+                query,
+                limit,
+                rule_focus,
+                no_existing_rules,
+                ..
+            } => {
+                let mode_info = match (rule_focus, no_existing_rules) {
+                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                    (true, false) => " (rule focus mode)",
+                    (false, true) => " (no existing rules)",
+                    (false, false) => "",
+                };
+                log::info!(
+                    "Processing tracks matching search query '{query}' (limit: {limit}){mode_info}"
+                );
+                scrubber_guard.process_search(query, *limit).await?;
             }
         },
         Commands::TrackCache(_)

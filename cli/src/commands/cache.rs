@@ -70,8 +70,6 @@ pub fn show_cache_state(limit: usize, all_pages: bool) -> Result<()> {
 
 /// Refresh track cache from Last.fm API (clear and reload)
 pub async fn refresh_cache(client: &LastFmEditClientImpl, pages: usize) -> Result<()> {
-    use lastfm_edit::AsyncPaginatedIterator;
-
     println!("🔄 Refreshing Track Cache");
     println!("========================");
     println!(
@@ -132,8 +130,6 @@ pub async fn refresh_cache(client: &LastFmEditClientImpl, pages: usize) -> Resul
 
 /// Extend track cache by fetching additional tracks
 pub async fn extend_cache(client: &LastFmEditClientImpl, pages: usize) -> Result<()> {
-    use lastfm_edit::AsyncPaginatedIterator;
-
     println!("📈 Extending Track Cache");
     println!("=======================");
 
@@ -449,7 +445,6 @@ pub async fn show_recent_tracks_from_api(
     limit: usize,
 ) -> Result<()> {
     use chrono::DateTime;
-    use lastfm_edit::AsyncPaginatedIterator;
 
     println!("🎵 Recent Tracks from Last.fm API");
     println!("=================================");

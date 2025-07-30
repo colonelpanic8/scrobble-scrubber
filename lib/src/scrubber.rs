@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::{AsyncPaginatedIterator, LastFmEditClient, Result, ScrobbleEdit};
+use lastfm_edit::{LastFmEditClient, Result, ScrobbleEdit};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
@@ -801,6 +801,48 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             "Processed {} tracks for album '{album}' by '{artist}'",
             tracks_to_process.len()
         );
+        Ok(())
+    }
+
+    /// Process tracks matching a search query
+    pub async fn process_search(&mut self, query: &str, limit: u32) -> Result<()> {
+        log::info!("Starting search-based track processing for query: '{query}' (limit: {limit})");
+
+        // Use the search tracks iterator to find matching tracks
+        let mut search_iterator = self.client.search_tracks(query);
+        let mut tracks_to_process = Vec::new();
+        let mut collected = 0;
+
+        // Collect tracks up to the limit
+        while let Some(track) = search_iterator.next().await? {
+            tracks_to_process.push(track);
+            collected += 1;
+
+            if collected >= limit {
+                break;
+            }
+        }
+
+        log::info!(
+            "Found {} tracks matching search query '{query}'",
+            tracks_to_process.len()
+        );
+
+        if tracks_to_process.is_empty() {
+            log::warn!(
+                "No tracks found matching search query '{query}'. Try a different search term."
+            );
+        } else {
+            // Process tracks without artist processing context (similar to last-n mode)
+            self.process_tracks_individually_no_timestamp_update(&tracks_to_process)
+                .await?;
+        }
+
+        log::info!(
+            "Search processing complete: processed {} tracks matching query '{query}'",
+            tracks_to_process.len()
+        );
+
         Ok(())
     }
 
