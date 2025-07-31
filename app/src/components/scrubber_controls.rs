@@ -548,7 +548,7 @@ async fn process_album_search_with_events(
 }
 
 /// Handle scrubber events from search processing
-async fn handle_scrubber_event(
+pub async fn handle_scrubber_event(
     lib_event: ::scrobble_scrubber::events::ScrubberEvent,
     mut state: Signal<AppState>,
 ) {

@@ -1,6 +1,6 @@
 use crate::components::{
-    ActivityLogSection, ArtistProcessingSection, ScrubberControlsSection,
-    TimestampManagementSection, TrackProcessingProgressView,
+    scrubber_controls::handle_scrubber_event, ActivityLogSection, ArtistProcessingSection,
+    ScrubberControlsSection, TimestampManagementSection, TrackProcessingProgressView,
 };
 use crate::scrubber_manager::get_or_create_scrubber;
 use crate::types::{AppState, ScrubberStatus};
@@ -691,249 +691,61 @@ async fn trigger_artist_processing_internal(
     }
 }
 
-// Process artist with detailed event handling similar to process_with_scrubber
-// Helper function to process artist with a shared scrubber instance
+// Process artist with detailed event handling similar to process_search_with_events
 async fn process_artist_with_shared_scrubber(
     scrubber: &Arc<tokio::sync::Mutex<crate::types::GlobalScrubber>>,
-    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
+    _sender: &Arc<broadcast::Sender<ScrubberEvent>>,
     state: &mut Signal<AppState>,
     artist_name: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut scrubber_guard = scrubber.lock().await;
-    process_artist_with_events(&mut scrubber_guard, sender, state, artist_name).await
-}
-
-async fn process_artist_with_events(
-    scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
-        ::scrobble_scrubber::persistence::FileStorage,
-        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
-    >,
-    sender: &Arc<broadcast::Sender<ScrubberEvent>>,
-    state: &mut Signal<AppState>,
-    artist_name: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Subscribe to detailed events from the scrubber library
-    let mut event_receiver = scrubber.subscribe_events();
-
-    // Start logging before processing
-    let start_event = ScrubberEvent {
-        timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
-            "Starting artist track processing for '{artist_name}'..."
-        )),
+    // Subscribe to events before starting processing
+    let mut event_receiver = {
+        let scrubber_guard = scrubber.lock().await;
+        scrubber_guard.subscribe_events()
     };
-    let _ = sender.send(start_event.clone());
-    state.with_mut(|s| s.scrubber_state.events.push(start_event));
 
-    // Run artist processing
-    let processing_result = scrubber.process_artist(artist_name).await;
+    // Create a future that will run the processing when awaited
+    let processing_future = async {
+        let mut scrubber_guard = scrubber.lock().await;
+        scrubber_guard.process_artist(artist_name).await
+    };
 
-    // Process events after scrubbing completes to collect and compress them
-    let mut tracks_processed = 0;
-    let mut rules_applied = 0;
+    // Create a future that processes events concurrently
+    let event_processing_future = async {
+        while let Ok(lib_event) = event_receiver.recv().await {
+            handle_scrubber_event(lib_event, *state).await;
+        }
+    };
 
-    // Track events per track to compress them
-    use std::collections::HashMap;
-    let mut track_events: HashMap<String, (lastfm_edit::Track, Vec<String>, bool)> = HashMap::new(); // (track, rule_descriptions, had_errors)
+    // Run both futures concurrently - the processing will yield and allow events to be processed
+    let processing_result = tokio::select! {
+        result = processing_future => {
+            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        }
+        _ = event_processing_future => {
+            log::warn!("Event processing completed before artist processing - this shouldn't happen");
+            Ok(())
+        }
+    };
 
-    // Process events with a timeout to collect statistics
-    let mut has_cycle_completed = false;
+    // Process any remaining events after processing completes
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+    tokio::pin!(timeout);
 
-    while !has_cycle_completed {
-        match tokio::time::timeout(
-            tokio::time::Duration::from_millis(500),
-            event_receiver.recv(),
-        )
-        .await
-        {
-            Ok(Ok(lib_event)) => {
-                // Process events and group by track
-                match &lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed {
-                        track,
-                        ..
-                    } => {
-                        tracks_processed += 1;
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        track_events
-                            .entry(track_key)
-                            .or_insert((track.clone(), Vec::new(), false));
+    loop {
+        tokio::select! {
+            event_result = event_receiver.recv() => {
+                match event_result {
+                    Ok(lib_event) => {
+                        handle_scrubber_event(lib_event, *state).await;
                     }
-                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied {
-                        track,
-                        description,
-                        ..
-                    } => {
-                        rules_applied += 1;
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        track_events
-                            .entry(track_key.clone())
-                            .or_insert((track.clone(), Vec::new(), false))
-                            .1
-                            .push(description.clone());
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackEditFailed {
-                        track,
-                        ..
-                    } => {
-                        let track_key = format!("{}:{}", track.artist, track.name);
-                        track_events
-                            .entry(track_key.clone())
-                            .or_insert((track.clone(), Vec::new(), false))
-                            .2 = true;
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
-                        has_cycle_completed = true;
-                        // Don't forward the library's cycle completed event - we'll create our own summary
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
-                        anchor_timestamp,
-                        ..
-                    } => {
-                        // Forward anchor updates immediately as they're important
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
-                        tracks,
-                        processing_type,
-                    } => {
-                        // Forward and update progress state
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.start_batch(
-                                tracks.clone(),
-                                processing_type.display_name().to_string(),
-                            );
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingStarted {
-                        track_index,
-                        ..
-                    } => {
-                        // Forward and update progress state
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.start_track_processing(*track_index);
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
-                        track_index,
-                        success,
-                        result,
-                        ..
-                    } => {
-                        // Forward and update progress state
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.complete_track_processing(
-                                *track_index,
-                                *success,
-                                result.summary(),
-                            );
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::Info(_)
-                    | ::scrobble_scrubber::events::ScrubberEventType::Error(_)
-                    | ::scrobble_scrubber::events::ScrubberEventType::CycleStarted(_) => {
-                        // Forward non-track events immediately
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
-                    }
-                    _ => {
-                        // Forward other events as-is
-                        let _ = sender.send(lib_event.clone());
-                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
-                    }
+                    Err(_) => break, // Channel closed
                 }
-
-                // Update global counters
-                state.with_mut(|s| match &lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
-                        s.scrubber_state.processed_count += 1;
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
-                        s.scrubber_state.rules_applied_count += 1;
-                    }
-                    _ => {}
-                });
             }
-            Ok(Err(_)) => break, // Channel closed
-            Err(_) => break,     // Timeout - stop waiting
+            _ = &mut timeout => break, // Timeout reached
         }
     }
 
-    // Now create compressed summary events for each track
-    for (track, rule_descriptions, had_errors) in track_events.values() {
-        let summary_message = if rule_descriptions.is_empty() {
-            if *had_errors {
-                format!(
-                    "'{}' by '{}' - processed with errors",
-                    track.name, track.artist
-                )
-            } else {
-                format!("'{}' by '{}' - no changes needed", track.name, track.artist)
-            }
-        } else {
-            let rules_text = if rule_descriptions.len() == 1 {
-                format!("applied rule: {}", rule_descriptions[0])
-            } else {
-                format!(
-                    "applied {} rules: {}",
-                    rule_descriptions.len(),
-                    rule_descriptions.join(", ")
-                )
-            };
-
-            if *had_errors {
-                format!(
-                    "'{}' by '{}' - {} (with errors)",
-                    track.name, track.artist, rules_text
-                )
-            } else {
-                format!("'{}' by '{}' - {}", track.name, track.artist, rules_text)
-            }
-        };
-
-        let summary_event = ScrubberEvent {
-            timestamp: Utc::now(),
-            event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(summary_message),
-        };
-
-        let _ = sender.send(summary_event.clone());
-        state.with_mut(|s| s.scrubber_state.events.push(summary_event));
-    }
-
-    match processing_result {
-        Ok(()) => {
-            // Always use the local counts we tracked, as they're more reliable
-            let final_message = format!("Artist processing completed for '{artist_name}': {tracks_processed} tracks processed, {rules_applied} rules applied");
-
-            let success_event = ScrubberEvent {
-                timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(final_message),
-            };
-            let _ = sender.send(success_event.clone());
-            state.with_mut(|s| s.scrubber_state.events.push(success_event));
-        }
-        Err(e) => {
-            let error_event = ScrubberEvent {
-                timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                    "Artist processing failed for '{artist_name}': {e}"
-                )),
-            };
-            let _ = sender.send(error_event.clone());
-            state.with_mut(|s| s.scrubber_state.events.push(error_event));
-            return Err(e.into());
-        }
-    }
-
-    Ok(())
+    processing_result
 }
+
