@@ -716,32 +716,41 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
                     if Self::has_changes(edit) {
                         _has_changes = true;
-                        
+
                         // Collect edit details for logging
                         let mut changes = Vec::new();
-                        if let (Some(original), Some(new)) = (&edit.track_name_original, &edit.track_name) {
+                        if let (Some(original), Some(new)) =
+                            (&edit.track_name_original, &edit.track_name)
+                        {
                             if original != new {
-                                changes.push(format!("track: '{}' → '{}'", original, new));
+                                changes.push(format!("track: '{original}' → '{new}'"));
                             }
                         }
-                        if let (Some(original_album), Some(new_album)) = (&edit.album_name_original, &edit.album_name) {
+                        if let (Some(original_album), Some(new_album)) =
+                            (&edit.album_name_original, &edit.album_name)
+                        {
                             if original_album != new_album {
-                                changes.push(format!("album: '{}' → '{}'", original_album, new_album));
+                                changes.push(format!("album: '{original_album}' → '{new_album}'"));
                             }
                         }
                         if edit.artist_name_original != edit.artist_name {
-                            changes.push(format!("artist: '{}' → '{}'", edit.artist_name_original, edit.artist_name));
+                            changes.push(format!(
+                                "artist: '{}' → '{}'",
+                                edit.artist_name_original, edit.artist_name
+                            ));
                         }
                         if edit.album_artist_name_original != edit.album_artist_name {
-                            if let (Some(original), Some(new)) = (&edit.album_artist_name_original, &edit.album_artist_name) {
-                                changes.push(format!("album artist: '{}' → '{}'", original, new));
+                            if let (Some(original), Some(new)) =
+                                (&edit.album_artist_name_original, &edit.album_artist_name)
+                            {
+                                changes.push(format!("album artist: '{original}' → '{new}'"));
                             }
                         }
-                        
+
                         if !changes.is_empty() {
                             edit_details.push(changes.join(", "));
                         }
-                        
+
                         if suggestion.requires_confirmation
                             || self
                                 .storage
@@ -749,9 +758,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                                 .await
                                 .load_settings_state()
                                 .await
-                                .map(|s| {
-                                    s.require_confirmation || s.require_confirmation_for_edits
-                                })
+                                .map(|s| s.require_confirmation || s.require_confirmation_for_edits)
                                 .unwrap_or(false)
                             || self.config.scrubber.require_confirmation
                         {
@@ -799,7 +806,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         } else {
             format!(" ({})", edit_details.join("; "))
         };
-        
+
         log::info!(
             "Processed [{}]: '{}' by '{}'{} - {}{}",
             track_index + 1,
