@@ -17,7 +17,7 @@ pub fn create_no_op_edit(track: &Track) -> ScrobbleEdit {
             .clone()
             .or_else(|| Some(track.artist.clone())),
         timestamp: track.timestamp,
-        edit_all: false,
+        edit_all: true,
     }
 }
 

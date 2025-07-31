@@ -134,7 +134,9 @@
       "Bash(lastfm-edit edit:*)",
       "Bash(source:*)",
       "Bash(git checkout:*)",
-      "Bash(gh workflow run:*)"
+      "Bash(gh workflow run:*)",
+      "Bash(RUST_LOG=scrobble_scrubber=info,lastfm_edit=debug cargo run --bin scrobble-scrubber -- scrubber search --limit 1 -q remaster)",
+      "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 1 -q remaster)"
     ],
     "deny": [
       "Bash(dx serve:*)"

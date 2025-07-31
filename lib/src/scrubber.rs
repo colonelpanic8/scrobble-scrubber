@@ -1340,11 +1340,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         match &suggestion.suggestion {
             ScrubActionSuggestion::Edit(edit) => {
-                // Clone edit and set edit_all to true if this is artist processing
-                let mut edit = edit.clone();
-                if context.as_ref().is_some_and(|c| c.is_artist_processing) {
-                    edit.edit_all = true;
-                }
+                // Clone edit (edit_all is now always true by default)
+                let edit = edit.clone();
 
                 // Check if global settings require confirmation (persistent state takes precedence over config)
                 let global_confirmation = settings_state.require_confirmation

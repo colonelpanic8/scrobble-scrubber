@@ -59,7 +59,7 @@ async fn apply_track_edit_to_lastfm(
         artist_name: new_track.artist,
         album_artist_name: None,
         timestamp: original_track.timestamp,
-        edit_all: false,
+        edit_all: true,
     };
 
     apply_edit_with_timeout(session, edit)

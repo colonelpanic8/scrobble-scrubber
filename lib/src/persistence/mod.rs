@@ -97,7 +97,7 @@ impl PendingEdit {
                 .clone()
                 .or(self.original_album_artist_name.clone()),
             timestamp: self.timestamp,
-            edit_all: false,
+            edit_all: true,
         }
     }
 }
