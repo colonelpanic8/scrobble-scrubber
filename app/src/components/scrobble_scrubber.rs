@@ -1,6 +1,6 @@
 use crate::components::{
     ActivityLogSection, ArtistProcessingSection, ScrubberControlsSection,
-    ScrubberStatisticsSection, TimestampManagementSection, TrackProcessingProgressView,
+    TimestampManagementSection, TrackProcessingProgressView,
 };
 use crate::scrubber_manager::get_or_create_scrubber;
 use crate::types::{AppState, ScrubberStatus};
@@ -16,7 +16,6 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
             ScrubberControlsSection { state }
-            ScrubberStatisticsSection { state }
 
             TrackProcessingProgressView { state }
 
