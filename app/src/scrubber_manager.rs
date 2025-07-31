@@ -49,7 +49,7 @@ pub async fn create_scrubber_instance(
 
         tokio::spawn(async move {
             // Log to console in web context if needed
-            log::info!("Started edit logging to: {log_file_path}");
+            log::debug!("Started edit logging to: {log_file_path}");
             event_logger.run().await;
         });
     }

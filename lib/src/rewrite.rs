@@ -56,7 +56,7 @@ pub fn apply_all_rules(
             if changed {
                 any_changes = true;
                 let rule_name = rule.name.as_deref().unwrap_or("unnamed rule");
-                log::info!(
+                log::debug!(
                     "Applied rewrite rule '{}' to track '{}' by '{}'",
                     rule_name,
                     edit.track_name_original.as_deref().unwrap_or("unknown"),

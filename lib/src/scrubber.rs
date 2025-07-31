@@ -587,12 +587,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             return Ok(());
         }
 
-        log::info!(
-            "Processing {} tracks one at a time ({})...",
-            tracks.len(),
-            processing_type.display_name()
-        );
-
         self.process_tracks_individually_no_timestamp_update_with_context(tracks, processing_type)
             .await?;
 
@@ -709,81 +703,112 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .map(|a| format!(" [{a}]"))
             .unwrap_or_default();
 
-        if !suggestions.is_empty() {
-            let mut summary_parts = Vec::new();
-            let mut pending_count = 0;
-            let mut applied_count = 0;
-            let mut has_rule_proposal = false;
-            let mut _has_changes = false;
+        // Always process suggestions and log the result
+        let mut summary_parts = Vec::new();
+        let mut pending_count = 0;
+        let mut applied_count = 0;
+        let mut has_rule_proposal = false;
+        let mut _has_changes = false;
+        let mut edit_details = Vec::new();
 
-            for suggestion in suggestions {
-                match &suggestion.suggestion {
-                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
-                        if Self::has_changes(edit) {
-                            _has_changes = true;
-                            if suggestion.requires_confirmation
-                                || self
-                                    .storage
-                                    .lock()
-                                    .await
-                                    .load_settings_state()
-                                    .await
-                                    .map(|s| {
-                                        s.require_confirmation || s.require_confirmation_for_edits
-                                    })
-                                    .unwrap_or(false)
-                                || self.config.scrubber.require_confirmation
-                            {
-                                pending_count += 1;
-                            } else {
-                                applied_count += 1;
+        for suggestion in suggestions {
+            match &suggestion.suggestion {
+                crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
+                    if Self::has_changes(edit) {
+                        _has_changes = true;
+                        
+                        // Collect edit details for logging
+                        let mut changes = Vec::new();
+                        if let (Some(original), Some(new)) = (&edit.track_name_original, &edit.track_name) {
+                            if original != new {
+                                changes.push(format!("track: '{}' → '{}'", original, new));
                             }
                         }
+                        if let (Some(original_album), Some(new_album)) = (&edit.album_name_original, &edit.album_name) {
+                            if original_album != new_album {
+                                changes.push(format!("album: '{}' → '{}'", original_album, new_album));
+                            }
+                        }
+                        if edit.artist_name_original != edit.artist_name {
+                            changes.push(format!("artist: '{}' → '{}'", edit.artist_name_original, edit.artist_name));
+                        }
+                        if edit.album_artist_name_original != edit.album_artist_name {
+                            if let (Some(original), Some(new)) = (&edit.album_artist_name_original, &edit.album_artist_name) {
+                                changes.push(format!("album artist: '{}' → '{}'", original, new));
+                            }
+                        }
+                        
+                        if !changes.is_empty() {
+                            edit_details.push(changes.join(", "));
+                        }
+                        
+                        if suggestion.requires_confirmation
+                            || self
+                                .storage
+                                .lock()
+                                .await
+                                .load_settings_state()
+                                .await
+                                .map(|s| {
+                                    s.require_confirmation || s.require_confirmation_for_edits
+                                })
+                                .unwrap_or(false)
+                            || self.config.scrubber.require_confirmation
+                        {
+                            pending_count += 1;
+                        } else {
+                            applied_count += 1;
+                        }
                     }
-                    crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
-                        has_rule_proposal = true;
-                    }
-                    crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
                 }
-            }
-
-            if applied_count > 0 {
-                summary_parts.push(format!(
-                    "{} edit{} applied",
-                    applied_count,
-                    if applied_count == 1 { "" } else { "s" }
-                ));
-            }
-            if pending_count > 0 {
-                summary_parts.push(format!(
-                    "{} edit{} pending confirmation",
-                    pending_count,
-                    if pending_count == 1 { "" } else { "s" }
-                ));
-            }
-
-            if has_rule_proposal {
-                summary_parts.push("proposed rule".to_string());
-            }
-
-            let summary = if summary_parts.is_empty() {
-                "no changes".to_string()
-            } else {
-                summary_parts.join(", ")
-            };
-
-            // Only log if there are actual changes or rule proposals
-            if _has_changes || has_rule_proposal {
-                log::info!(
-                    "Processed [{}]: '{}' by '{}'{} - {}",
-                    track_index + 1,
-                    track.name,
-                    track.artist,
-                    album_info,
-                    summary,
-                );
+                crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
+                    has_rule_proposal = true;
+                }
+                crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
             }
         }
+
+        if applied_count > 0 {
+            summary_parts.push(format!(
+                "{} edit{} applied",
+                applied_count,
+                if applied_count == 1 { "" } else { "s" }
+            ));
+        }
+        if pending_count > 0 {
+            summary_parts.push(format!(
+                "{} edit{} pending confirmation",
+                pending_count,
+                if pending_count == 1 { "" } else { "s" }
+            ));
+        }
+
+        if has_rule_proposal {
+            summary_parts.push("proposed rule".to_string());
+        }
+
+        let summary = if summary_parts.is_empty() {
+            "no changes".to_string()
+        } else {
+            summary_parts.join(", ")
+        };
+
+        // Always log the processing result
+        let edit_info = if edit_details.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", edit_details.join("; "))
+        };
+        
+        log::info!(
+            "Processed [{}]: '{}' by '{}'{} - {}{}",
+            track_index + 1,
+            track.name,
+            track.artist,
+            album_info,
+            summary,
+            edit_info,
+        );
 
         // Generate processing result for progress UI
         let processing_result = if !suggestions.is_empty() {
