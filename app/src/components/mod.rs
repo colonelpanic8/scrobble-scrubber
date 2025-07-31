@@ -37,7 +37,6 @@ pub use rule_preview::RulePreview;
 pub use rule_workshop::RuleWorkshop;
 pub use scrobble_scrubber::{start_scrubber, ScrobbleScrubberPage};
 pub use scrubber_controls::ScrubberControlsSection;
-pub use scrubber_statistics::ScrubberStatisticsSection;
 pub use timestamp_management::TimestampManagementSection;
 pub use track_processing_progress::{TrackProcessingProgressView, TrackProgressState};
 pub use track_sources::TrackSourcesSection;

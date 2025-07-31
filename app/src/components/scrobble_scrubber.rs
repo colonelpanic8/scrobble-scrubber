@@ -587,7 +587,31 @@ async fn process_with_scrubber(
     Ok(())
 }
 
-pub async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name: String) {
+pub async fn trigger_artist_processing_with_status(
+    state: Signal<AppState>,
+    artist_name: String,
+    mut status: Signal<Option<String>>,
+) {
+    // Set initial processing status
+    status.set(Some(format!(
+        "Starting artist processing for '{artist_name}'..."
+    )));
+
+    // Use the existing logic but with status updates
+    trigger_artist_processing_internal(state, artist_name, Some(status)).await;
+}
+
+
+async fn trigger_artist_processing_internal(
+    mut state: Signal<AppState>,
+    artist_name: String,
+    mut status: Option<Signal<Option<String>>>,
+) {
+    // Update status to processing if provided
+    if let Some(ref mut status_signal) = status {
+        status_signal.set(Some(format!("Processing tracks for '{artist_name}'...")));
+    }
+
     let start_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(format!(
@@ -622,6 +646,13 @@ pub async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name:
                     };
                     let _ = sender.send(success_event.clone());
                     state.with_mut(|s| s.scrubber_state.events.push(success_event));
+
+                    // Update status to success
+                    if let Some(ref mut status_signal) = status {
+                        status_signal.set(Some(format!(
+                            "Successfully processed artist '{artist_name}'"
+                        )));
+                    }
                 }
                 Err(e) => {
                     let error_event = ScrubberEvent {
@@ -632,6 +663,13 @@ pub async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name:
                     };
                     let _ = sender.send(error_event.clone());
                     state.with_mut(|s| s.scrubber_state.events.push(error_event));
+
+                    // Update status to error
+                    if let Some(ref mut status_signal) = status {
+                        status_signal.set(Some(format!(
+                            "Error processing artist '{artist_name}': {e}"
+                        )));
+                    }
                 }
             }
         }
@@ -644,6 +682,11 @@ pub async fn trigger_artist_processing(mut state: Signal<AppState>, artist_name:
             };
             let _ = sender.send(error_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(error_event));
+
+            // Update status to error
+            if let Some(ref mut status_signal) = status {
+                status_signal.set(Some(format!("Failed to initialize scrubber: {e}")));
+            }
         }
     }
 }

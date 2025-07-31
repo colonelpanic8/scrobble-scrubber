@@ -1,4 +1,4 @@
-use crate::components::scrobble_scrubber::trigger_artist_processing;
+use crate::components::scrobble_scrubber::trigger_artist_processing_with_status;
 use crate::types::AppState;
 use dioxus::html::input_data::keyboard_types::Key;
 use dioxus::prelude::*;
@@ -6,6 +6,7 @@ use dioxus::prelude::*;
 #[component]
 pub fn ArtistProcessingSection(mut state: Signal<AppState>) -> Element {
     let artist_input = use_signal(String::new);
+    let artist_processing_status = use_signal(|| None::<String>);
 
     rsx! {
         div { style: "background: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 1.5rem;",
@@ -15,9 +16,26 @@ pub fn ArtistProcessingSection(mut state: Signal<AppState>) -> Element {
                 "Enter an artist name to process only tracks by that artist. This will apply your saved rules to all tracks by the specified artist in your cache."
             }
 
+            // Status display similar to search handling
+            if let Some(status) = artist_processing_status.read().as_ref() {
+                div {
+                    style: format!(
+                        "padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 1rem; {}",
+                        if status.contains("Error") || status.contains("Failed") {
+                            "background-color: #fee2e2; color: #991b1b; border: 1px solid #ef4444;"
+                        } else if status.contains("Processing") || status.contains("Starting") {
+                            "background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b;"
+                        } else {
+                            "background-color: #d1fae5; color: #065f46; border: 1px solid #10b981;"
+                        }
+                    ),
+                    {status.clone()}
+                }
+            }
+
             div { style: "display: flex; gap: 0.75rem; align-items: flex-end;",
-                ArtistInputField { artist_input, state }
-                ProcessArtistButton { artist_input, state }
+                ArtistInputField { artist_input, state, artist_processing_status }
+                ProcessArtistButton { artist_input, state, artist_processing_status }
             }
 
             TopArtistsList { artist_input, state }
@@ -26,7 +44,18 @@ pub fn ArtistProcessingSection(mut state: Signal<AppState>) -> Element {
 }
 
 #[component]
-fn ArtistInputField(mut artist_input: Signal<String>, mut state: Signal<AppState>) -> Element {
+fn ArtistInputField(
+    mut artist_input: Signal<String>,
+    mut state: Signal<AppState>,
+    mut artist_processing_status: Signal<Option<String>>,
+) -> Element {
+    let is_processing = artist_processing_status
+        .read()
+        .as_ref()
+        .is_some_and(|status| {
+            status.contains("Processing") || status.contains("Starting")
+        });
+
     rsx! {
         div { style: "flex: 1;",
             label { style: "display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;",
@@ -36,16 +65,22 @@ fn ArtistInputField(mut artist_input: Signal<String>, mut state: Signal<AppState
                 r#type: "text",
                 placeholder: "Enter artist name...",
                 value: "{artist_input.read()}",
-                style: "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; focus:outline-none; focus:ring-2; focus:ring-blue-500; focus:border-transparent;",
+                disabled: is_processing,
+                style: format!(
+                    "width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; focus:outline-none; focus:ring-2; focus:ring-blue-500; focus:border-transparent; {}",
+                    if is_processing { "background-color: #f9fafb; color: #6b7280;" } else { "" }
+                ),
                 oninput: move |event| {
-                    artist_input.set(event.value());
+                    if !is_processing {
+                        artist_input.set(event.value());
+                    }
                 },
                 onkeypress: move |event| {
-                    if event.key() == Key::Enter {
+                    if event.key() == Key::Enter && !is_processing {
                         let artist_name = artist_input.read().trim().to_string();
                         if !artist_name.is_empty() {
                             spawn(async move {
-                                trigger_artist_processing(state, artist_name).await;
+                                trigger_artist_processing_with_status(state, artist_name, artist_processing_status).await;
                             });
                         }
                     }
@@ -56,8 +91,18 @@ fn ArtistInputField(mut artist_input: Signal<String>, mut state: Signal<AppState
 }
 
 #[component]
-fn ProcessArtistButton(artist_input: Signal<String>, mut state: Signal<AppState>) -> Element {
-    let is_disabled = artist_input.read().trim().is_empty();
+fn ProcessArtistButton(
+    artist_input: Signal<String>,
+    mut state: Signal<AppState>,
+    mut artist_processing_status: Signal<Option<String>>,
+) -> Element {
+    let is_processing = artist_processing_status
+        .read()
+        .as_ref()
+        .is_some_and(|status| {
+            status.contains("Processing") || status.contains("Starting")
+        });
+    let is_disabled = artist_input.read().trim().is_empty() || is_processing;
 
     rsx! {
         button {
@@ -72,13 +117,13 @@ fn ProcessArtistButton(artist_input: Signal<String>, mut state: Signal<AppState>
             disabled: is_disabled,
             onclick: move |_| {
                 let artist_name = artist_input.read().trim().to_string();
-                if !artist_name.is_empty() {
+                if !artist_name.is_empty() && !is_processing {
                     spawn(async move {
-                        trigger_artist_processing(state, artist_name).await;
+                        trigger_artist_processing_with_status(state, artist_name, artist_processing_status).await;
                     });
                 }
             },
-            "Process Artist"
+            if is_processing { "Processing..." } else { "Process Artist" }
         }
     }
 }
