@@ -552,6 +552,23 @@ pub async fn handle_scrubber_event(
     lib_event: ::scrobble_scrubber::events::ScrubberEvent,
     mut state: Signal<AppState>,
 ) {
+    // Check for rate limiting events first
+    if let Some(rate_limit_state) =
+        crate::types::event_formatting::detect_rate_limit_from_event(&lib_event)
+    {
+        state.with_mut(|s| {
+            s.scrubber_state.rate_limit_state = Some(rate_limit_state);
+        });
+        log::warn!("Rate limiting detected from LastFM API");
+    }
+
+    // Check if rate limiting has ended
+    if crate::types::event_formatting::detect_rate_limit_ended_from_event(&lib_event) {
+        state.with_mut(|s| {
+            s.scrubber_state.rate_limit_state = None;
+        });
+        log::info!("Rate limiting ended - normal operation resumed");
+    }
     match &lib_event.event_type {
         ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
             tracks,

@@ -34,9 +34,20 @@ pub enum ScrubberStatus {
     Error(String),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateLimitState {
+    pub is_rate_limited: bool,
+    pub detected_at: chrono::DateTime<chrono::Utc>,
+    pub retry_after: Option<chrono::DateTime<chrono::Utc>>,
+    pub message: String,
+    pub delay_seconds: u64,
+    pub rate_limit_type: Option<String>,
+}
+
 // Using library events directly - no need for duplicate types
 
 pub mod event_formatting {
+    use super::RateLimitState;
     use ::scrobble_scrubber::events::{ScrubberEvent, ScrubberEventType};
 
     /// Format a library event for display in the UI
@@ -102,7 +113,16 @@ pub mod event_formatting {
                 format!("Skipped '{}' by '{}': {}", track.artist, track.name, reason)
             }
             ScrubberEventType::ClientEvent(client_event) => {
-                format!("Client: {client_event:?}")
+                // Try to extract meaningful information from client events
+                let debug_str = format!("{client_event:?}");
+                if is_rate_limit_event(&debug_str) {
+                    format!(
+                        "⚠️ Rate Limited: {}",
+                        extract_rate_limit_message(&debug_str)
+                    )
+                } else {
+                    format!("Client: {debug_str}")
+                }
             }
             ScrubberEventType::PendingEditCreated {
                 pending_edit_id,
@@ -172,6 +192,105 @@ pub mod event_formatting {
         }
     }
 
+    /// Detect if a ClientEvent debug string indicates rate limiting
+    fn is_rate_limit_event(debug_str: &str) -> bool {
+        let rate_limit_indicators = [
+            "RateLimit",
+            "rate limit",
+            "429",
+            "Too Many Requests",
+            "Retry-After",
+            "quota exceeded",
+            "requests per",
+            "rate exceeded",
+        ];
+
+        let debug_lower = debug_str.to_lowercase();
+        rate_limit_indicators
+            .iter()
+            .any(|indicator| debug_lower.contains(&indicator.to_lowercase()))
+    }
+
+    /// Extract a user-friendly rate limit message from ClientEvent debug string
+    fn extract_rate_limit_message(debug_str: &str) -> String {
+        // Try to extract useful information from debug output
+        if debug_str.contains("429") {
+            "HTTP 429 - Too Many Requests received from Last.fm API"
+        } else if debug_str.to_lowercase().contains("retry-after") {
+            "Rate limited by Last.fm API - retry after some time"
+        } else if debug_str.to_lowercase().contains("quota") {
+            "API quota exceeded"
+        } else {
+            "Rate limited by Last.fm API"
+        }
+        .to_string()
+    }
+
+    /// Detect rate limiting and create rate limit state from ClientEvent
+    pub fn detect_rate_limit_from_event(event: &ScrubberEvent) -> Option<RateLimitState> {
+        if let ScrubberEventType::ClientEvent(client_event) = &event.event_type {
+            // Check for the new structured rate limiting events first
+            match client_event {
+                lastfm_edit::ClientEvent::RateLimited {
+                    delay_seconds,
+                    rate_limit_type,
+                    rate_limit_timestamp: _,
+                    request,
+                } => {
+                    let detected_at = event.timestamp;
+                    let retry_after =
+                        detected_at + chrono::Duration::seconds(*delay_seconds as i64);
+
+                    let message = format!(
+                        "Rate limited by Last.fm API ({:?}) - waiting {} seconds{}",
+                        rate_limit_type,
+                        delay_seconds,
+                        request
+                            .as_ref()
+                            .map(|r| format!(" (request: {})", r.short_description()))
+                            .unwrap_or_default()
+                    );
+
+                    return Some(RateLimitState {
+                        is_rate_limited: true,
+                        detected_at,
+                        retry_after: Some(retry_after),
+                        message,
+                        delay_seconds: *delay_seconds,
+                        rate_limit_type: Some(format!("{rate_limit_type:?}")),
+                    });
+                }
+                _ => {
+                    // Fall back to the legacy debug string detection for other event types
+                    let debug_str = format!("{client_event:?}");
+                    if is_rate_limit_event(&debug_str) {
+                        return Some(RateLimitState {
+                            is_rate_limited: true,
+                            detected_at: event.timestamp,
+                            retry_after: None, // Can't determine from debug string
+                            message: extract_rate_limit_message(&debug_str),
+                            delay_seconds: 0, // Unknown from debug string
+                            rate_limit_type: None,
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Check if rate limiting has ended from ClientEvent
+    pub fn detect_rate_limit_ended_from_event(event: &ScrubberEvent) -> bool {
+        if let ScrubberEventType::ClientEvent(client_event) = &event.event_type {
+            matches!(
+                client_event,
+                lastfm_edit::ClientEvent::RateLimitEnded { .. }
+            )
+        } else {
+            false
+        }
+    }
+
     /// Get a simple event type string for categorization
     pub fn get_event_category(event: &ScrubberEvent) -> &'static str {
         match &event.event_type {
@@ -207,6 +326,7 @@ pub struct ScrubberState {
     pub event_sender: Option<Arc<broadcast::Sender<ScrubberEvent>>>,
     pub current_anchor_timestamp: Option<u64>,
     pub next_cycle_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+    pub rate_limit_state: Option<RateLimitState>,
 }
 
 impl PartialEq for ScrubberState {
@@ -216,6 +336,7 @@ impl PartialEq for ScrubberState {
             && self.rules_applied_count == other.rules_applied_count
             && self.current_anchor_timestamp == other.current_anchor_timestamp
             && self.next_cycle_timestamp == other.next_cycle_timestamp
+            && self.rate_limit_state == other.rate_limit_state
             && self.events.len() == other.events.len()
     }
 }
@@ -262,6 +383,7 @@ impl Default for AppState {
                 event_sender: None,
                 current_anchor_timestamp: None,
                 next_cycle_timestamp: None,
+                rate_limit_state: None,
             },
             scrubber_instance: None, // No scrubber instance initially
             track_progress_state: TrackProgressState::default(), // Default progress state
