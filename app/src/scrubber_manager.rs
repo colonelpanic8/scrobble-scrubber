@@ -1,5 +1,5 @@
 use crate::types::{AppState, GlobalScrubber};
-use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
+use ::scrobble_scrubber::config::{ScrobbleScrubberConfig, TrackProviderType};
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
@@ -26,13 +26,21 @@ pub async fn create_scrubber_instance(
     // Create action provider with current rules
     let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
 
-    // Create scrubber instance
-    let scrubber = ScrobbleScrubber::new(
-        storage.clone(),
-        Box::new(client),
-        action_provider,
-        config.clone(),
-    );
+    // Create scrubber instance with configured track provider
+    let scrubber = match config.scrubber.track_provider {
+        TrackProviderType::Cached => ScrobbleScrubber::with_cached_provider(
+            storage.clone(),
+            Box::new(client),
+            action_provider,
+            config.clone(),
+        ),
+        TrackProviderType::Direct => ScrobbleScrubber::with_direct_provider(
+            storage.clone(),
+            Box::new(client),
+            action_provider,
+            config.clone(),
+        ),
+    };
 
     // Start event logger for JSON logging of edit attempts
     {

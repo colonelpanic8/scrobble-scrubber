@@ -2,7 +2,7 @@ use crate::types::AppState;
 use dioxus::prelude::*;
 use scrobble_scrubber::config::{
     JsonLoggingConfig, LastFmConfig, MusicBrainzProviderConfig, OpenAIProviderConfig,
-    ProvidersConfig, ScrobbleScrubberConfig, ScrubberConfig, StorageConfig,
+    ProvidersConfig, ScrobbleScrubberConfig, ScrubberConfig, StorageConfig, TrackProviderType,
 };
 
 #[component]
@@ -141,6 +141,11 @@ fn ScrubberConfigSection(config: Signal<ScrubberConfig>) -> Element {
                 checked: config.read().auto_start,
                 onchange: move |checked| config.with_mut(|c| c.auto_start = checked),
                 help: "Automatically start the scrubber when the application launches"
+            }
+
+            TrackProviderSelect {
+                value: config.read().track_provider.clone(),
+                onchange: move |value| config.with_mut(|c| c.track_provider = value),
             }
 
             JsonLoggingSection { config: config.read().json_logging.clone(), onchange: move |new_config| config.with_mut(|c| c.json_logging = new_config) }
@@ -564,6 +569,84 @@ fn TextAreaInput(
     }
 }
 
+#[component]
+fn TrackProviderSelect(
+    value: TrackProviderType,
+    onchange: EventHandler<TrackProviderType>,
+) -> Element {
+    rsx! {
+        div {
+            style: "margin-bottom: 1rem;",
+            label {
+                style: "display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;",
+                "Track Provider"
+            }
+            select {
+                style: "width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem;",
+                onchange: move |e| {
+                    let new_value = match e.value().as_str() {
+                        "cached" => TrackProviderType::Cached,
+                        "direct" => TrackProviderType::Direct,
+                        _ => TrackProviderType::Direct, // Default fallback
+                    };
+                    onchange.call(new_value);
+                },
+                option {
+                    value: "direct",
+                    selected: matches!(value, TrackProviderType::Direct),
+                    "Direct API (no caching)"
+                }
+                option {
+                    value: "cached",
+                    selected: matches!(value, TrackProviderType::Cached),
+                    "Cached (persistent storage)"
+                }
+            }
+            p {
+                style: "margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280;",
+                "How to fetch tracks: Direct queries Last.fm API each time, Cached stores tracks locally"
+            }
+        }
+    }
+}
+
+#[component]
+fn SelectInput(
+    label: &'static str,
+    value: String,
+    options: Vec<(String, String)>,
+    help: &'static str,
+    onchange: EventHandler<String>,
+) -> Element {
+    rsx! {
+        div {
+            style: "margin-bottom: 1rem;",
+            label {
+                style: "display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;",
+                {label}
+            }
+            select {
+                value: "{value}",
+                style: "width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem;",
+                onchange: move |e| onchange.call(e.value()),
+                for (option_value, option_label) in options {
+                    option {
+                        value: "{option_value}",
+                        selected: option_value == value,
+                        {option_label}
+                    }
+                }
+            }
+            if !help.is_empty() {
+                p {
+                    style: "margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280;",
+                    {help}
+                }
+            }
+        }
+    }
+}
+
 // Config change analysis and scrubber restart logic
 
 fn check_if_scrubber_restart_needed(
@@ -578,6 +661,7 @@ fn check_if_scrubber_restart_needed(
     // Check for changes that require scrubber restart
     old_config.scrubber.interval != new_config.scrubber.interval
         || old_config.scrubber.dry_run != new_config.scrubber.dry_run
+        || old_config.scrubber.track_provider != new_config.scrubber.track_provider
         || old_config.providers.enable_rewrite_rules != new_config.providers.enable_rewrite_rules
         || old_config.providers.enable_openai != new_config.providers.enable_openai
         || old_config.providers.enable_musicbrainz != new_config.providers.enable_musicbrainz

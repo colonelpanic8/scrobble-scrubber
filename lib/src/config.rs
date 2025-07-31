@@ -2,6 +2,19 @@ use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TrackProviderType {
+    Cached,
+    Direct,
+}
+
+impl Default for TrackProviderType {
+    fn default() -> Self {
+        Self::Direct
+    }
+}
+
 /// Default system prompt for AI providers
 pub const DEFAULT_CLAUDE_SYSTEM_PROMPT: &str = "You are a music metadata cleaning assistant with function calling tools available. You work alongside automated rewrite rules and have two main responsibilities:
 
@@ -121,6 +134,8 @@ pub struct ScrubberConfig {
     pub require_proposed_rule_confirmation: bool,
     /// Automatically start scrubber on application startup
     pub auto_start: bool,
+    /// Track provider type
+    pub track_provider: TrackProviderType,
     /// JSON logging configuration
     pub json_logging: JsonLoggingConfig,
 }
@@ -203,6 +218,7 @@ impl Default for ScrubberConfig {
             require_confirmation: false,
             require_proposed_rule_confirmation: true,
             auto_start: false,
+            track_provider: TrackProviderType::Direct,
             json_logging: JsonLoggingConfig::default(),
         }
     }
