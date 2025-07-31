@@ -429,25 +429,17 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         );
 
                         if track_time <= last_processed {
-                            log::info!("Reached previously processed track '{}' by '{}' at {}, found {} new tracks to process",
-                                  cached_track.name, cached_track.artist, track_time, tracks_to_process.len());
+                            log::info!("Reached previously processed track {} at {}, found {} new tracks to process",
+                                  cached_track, track_time, tracks_to_process.len());
                             break; // Stop here - we've caught up to where we left off
                         }
                     }
                 } else {
-                    log::warn!(
-                        "Cached track '{}' by '{}' has no timestamp",
-                        cached_track.name,
-                        cached_track.artist
-                    );
+                    log::warn!("Cached track {cached_track} has no timestamp");
                 }
             } else {
                 // First run - no anchor timestamp, collect tracks up to limit
-                log::info!(
-                    "First run - found cached track: '{}' by '{}'",
-                    cached_track.name,
-                    cached_track.artist
-                );
+                log::info!("First run - found cached track: {cached_track}");
             }
 
             // Add track directly since cached_track is already a Track
@@ -696,18 +688,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Collect suggestions for event emission (will emit after processing is complete)
 
-        log::debug!("Processed track: {} - {}", track.artist, track.name);
+        log::debug!("Processed track: {track}");
 
         // Apply suggestions using the helper method
         self.apply_suggestions_to_track(track, suggestions, run_id, track_index, processing_type)
             .await?;
-
-        // Generate summary log after processing
-        let album_info = track
-            .album
-            .as_ref()
-            .map(|a| format!(" [{a}]"))
-            .unwrap_or_default();
 
         // Always process suggestions and log the result
         let mut summary_parts = Vec::new();
@@ -723,39 +708,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     if Self::has_changes(edit) {
                         _has_changes = true;
 
-                        // Collect edit details for logging
-                        let mut changes = Vec::new();
-                        if let (Some(original), Some(new)) =
-                            (&edit.track_name_original, &edit.track_name)
-                        {
-                            if original != new {
-                                changes.push(format!("track: '{original}' → '{new}'"));
-                            }
-                        }
-                        if let (Some(original_album), Some(new_album)) =
-                            (&edit.album_name_original, &edit.album_name)
-                        {
-                            if original_album != new_album {
-                                changes.push(format!("album: '{original_album}' → '{new_album}'"));
-                            }
-                        }
-                        if edit.artist_name_original != edit.artist_name {
-                            changes.push(format!(
-                                "artist: '{}' → '{}'",
-                                edit.artist_name_original, edit.artist_name
-                            ));
-                        }
-                        if edit.album_artist_name_original != edit.album_artist_name {
-                            if let (Some(original), Some(new)) =
-                                (&edit.album_artist_name_original, &edit.album_artist_name)
-                            {
-                                changes.push(format!("album artist: '{original}' → '{new}'"));
-                            }
-                        }
-
-                        if !changes.is_empty() {
-                            edit_details.push(changes.join(", "));
-                        }
+                        // Use ScrobbleEdit's Display implementation for logging
+                        edit_details.push(edit.to_string());
 
                         if suggestion.requires_confirmation
                             || self
@@ -814,11 +768,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         };
 
         log::info!(
-            "Processed [{}]: '{}' by '{}'{} - {}{}",
+            "Processed [{}]: {} - {}{}",
             track_index + 1,
-            track.name,
-            track.artist,
-            album_info,
+            track,
             summary,
             edit_info,
         );
@@ -1639,46 +1591,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         edit: &ScrobbleEdit,
         context: Option<ProcessingContext>,
     ) -> Result<()> {
-        // Check what changes are being made and log them
-        let mut changes = Vec::new();
-
-        if edit.track_name.as_ref() != edit.track_name_original.as_ref() {
-            changes.push(format!(
-                "track: '{}' -> '{}'",
-                edit.track_name_original.as_deref().unwrap_or("unknown"),
-                edit.track_name.as_deref().unwrap_or("unknown")
-            ));
-        }
-        if Some(&edit.artist_name) != Some(&edit.artist_name_original) {
-            changes.push(format!(
-                "artist: '{}' -> '{}'",
-                &edit.artist_name_original, edit.artist_name
-            ));
-        }
-        if edit.album_name.as_ref() != edit.album_name_original.as_ref() {
-            changes.push(format!(
-                "album: '{}' -> '{}'",
-                edit.album_name_original.as_deref().unwrap_or("unknown"),
-                edit.album_name.as_deref().unwrap_or("unknown")
-            ));
-        }
-        if edit.album_artist_name.as_ref() != edit.album_artist_name_original.as_ref() {
-            changes.push(format!(
-                "album artist: '{}' -> '{}'",
-                edit.album_artist_name_original
-                    .as_deref()
-                    .unwrap_or("unknown"),
-                edit.album_artist_name.as_deref().unwrap_or("unknown")
-            ));
-        }
-
-        if !changes.is_empty() {
-            log::debug!(
-                "Applying edit to track '{}' by '{}': {}",
-                edit.track_name_original.as_deref().unwrap_or("unknown"),
-                &edit.artist_name_original,
-                changes.join(", ")
-            );
+        // Log the edit using ScrobbleEdit's Display implementation
+        if Self::has_changes(edit) {
+            log::debug!("Applying edit: {edit}");
 
             // Use the comprehensive edit_scrobble method which handles all field changes
             let default_context = ProcessingContext {
