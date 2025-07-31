@@ -52,9 +52,7 @@ fn ArtistInputField(
     let is_processing = artist_processing_status
         .read()
         .as_ref()
-        .is_some_and(|status| {
-            status.contains("Processing") || status.contains("Starting")
-        });
+        .is_some_and(|status| status.contains("Processing") || status.contains("Starting"));
 
     rsx! {
         div { style: "flex: 1;",
@@ -99,9 +97,7 @@ fn ProcessArtistButton(
     let is_processing = artist_processing_status
         .read()
         .as_ref()
-        .is_some_and(|status| {
-            status.contains("Processing") || status.contains("Starting")
-        });
+        .is_some_and(|status| status.contains("Processing") || status.contains("Starting"));
     let is_disabled = artist_input.read().trim().is_empty() || is_processing;
 
     rsx! {

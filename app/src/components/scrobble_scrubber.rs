@@ -601,7 +601,6 @@ pub async fn trigger_artist_processing_with_status(
     trigger_artist_processing_internal(state, artist_name, Some(status)).await;
 }
 
-
 async fn trigger_artist_processing_internal(
     mut state: Signal<AppState>,
     artist_name: String,
@@ -748,4 +747,3 @@ async fn process_artist_with_shared_scrubber(
 
     processing_result
 }
-
