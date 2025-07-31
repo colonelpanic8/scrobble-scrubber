@@ -713,6 +713,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             let mut summary_parts = Vec::new();
             let mut pending_count = 0;
             let mut applied_count = 0;
+            let mut has_rule_proposal = false;
             let mut _has_changes = false;
 
             for suggestion in suggestions {
@@ -740,7 +741,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         }
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
-                        summary_parts.push("proposed rule".to_string());
+                        has_rule_proposal = true;
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
                 }
@@ -761,6 +762,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 ));
             }
 
+            if has_rule_proposal {
+                summary_parts.push("proposed rule".to_string());
+            }
+
             let summary = if summary_parts.is_empty() {
                 "no changes".to_string()
             } else {
@@ -768,7 +773,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
 
             // Only log if there are actual changes or rule proposals
-            if _has_changes || summary_parts.iter().any(|p| p.contains("proposed rule")) {
+            if _has_changes || has_rule_proposal {
                 log::info!(
                     "Processed [{}]: '{}' by '{}'{} - {}",
                     track_index + 1,
@@ -780,11 +785,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
         }
 
-        // Generate result summary for progress UI
-        let result_summary = if !suggestions.is_empty() {
-            let mut summary_parts = Vec::new();
+        // Generate processing result for progress UI
+        let processing_result = if !suggestions.is_empty() {
             let mut pending_count = 0;
             let mut applied_count = 0;
+            let mut has_rule_proposal = false;
             let mut _has_changes = false;
 
             for suggestion in suggestions {
@@ -812,34 +817,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         }
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
-                        summary_parts.push("proposed rule".to_string());
+                        has_rule_proposal = true;
                     }
                     crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
                 }
             }
 
-            if applied_count > 0 {
-                summary_parts.push(format!(
-                    "{} edit{} applied",
-                    applied_count,
-                    if applied_count == 1 { "" } else { "s" }
-                ));
-            }
-            if pending_count > 0 {
-                summary_parts.push(format!(
-                    "{} edit{} pending",
-                    pending_count,
-                    if pending_count == 1 { "" } else { "s" }
-                ));
-            }
-
-            if summary_parts.is_empty() {
-                "no changes".to_string()
-            } else {
-                summary_parts.join(", ")
+            use crate::events::ProcessingResult;
+            match (applied_count, pending_count, has_rule_proposal) {
+                (0, 0, false) => ProcessingResult::NoChanges,
+                (applied, 0, false) if applied > 0 => ProcessingResult::EditsApplied(applied),
+                (0, pending, false) if pending > 0 => ProcessingResult::EditsPending(pending),
+                (0, 0, true) => ProcessingResult::RuleProposed,
+                (applied, 0, true) if applied > 0 => {
+                    ProcessingResult::EditsAppliedAndRuleProposed(applied)
+                }
+                (0, pending, true) if pending > 0 => {
+                    ProcessingResult::EditsPendingAndRuleProposed(pending)
+                }
+                _ => ProcessingResult::NoChanges, // fallback for unexpected combinations
             }
         } else {
-            "no changes".to_string()
+            use crate::events::ProcessingResult;
+            ProcessingResult::NoChanges
         };
 
         // Emit track processing completed event for progress UI
@@ -848,7 +848,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             track_index,
             total_tracks,
             true, // success - if we got here, processing succeeded
-            result_summary,
+            processing_result,
         ));
 
         Ok(())

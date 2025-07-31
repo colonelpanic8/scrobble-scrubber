@@ -563,7 +563,7 @@ async fn handle_scrubber_event(
         ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
             track_index,
             success,
-            result_summary,
+            result,
             ..
         } => {
             state.with_mut(|s| {
@@ -571,7 +571,7 @@ async fn handle_scrubber_event(
                 s.track_progress_state.complete_track_processing(
                     *track_index,
                     *success,
-                    result_summary.clone(),
+                    result.summary(),
                 );
             });
         }

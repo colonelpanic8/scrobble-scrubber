@@ -142,7 +142,7 @@ pub mod event_formatting {
                 track_index,
                 total_tracks,
                 success,
-                result_summary,
+                result,
             } => {
                 let status = if *success { "✓" } else { "✗" };
                 format!(
@@ -152,7 +152,7 @@ pub mod event_formatting {
                     status,
                     track.name,
                     track.artist,
-                    result_summary
+                    result.summary()
                 )
             }
         }

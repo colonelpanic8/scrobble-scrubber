@@ -94,14 +94,14 @@ impl ProcessingResult {
                 if *count == 1 {
                     "1 edit applied".to_string()
                 } else {
-                    format!("{} edits applied", count)
+                    format!("{count} edits applied")
                 }
             }
             ProcessingResult::EditsPending(count) => {
                 if *count == 1 {
                     "1 edit pending".to_string()
                 } else {
-                    format!("{} edits pending", count)
+                    format!("{count} edits pending")
                 }
             }
             ProcessingResult::RuleProposed => "proposed rule".to_string(),
@@ -109,19 +109,19 @@ impl ProcessingResult {
                 let edit_part = if *count == 1 {
                     "1 edit applied".to_string()
                 } else {
-                    format!("{} edits applied", count)
+                    format!("{count} edits applied")
                 };
-                format!("{}, proposed rule", edit_part)
+                format!("{edit_part}, proposed rule")
             }
             ProcessingResult::EditsPendingAndRuleProposed(count) => {
                 let edit_part = if *count == 1 {
                     "1 edit pending".to_string()
                 } else {
-                    format!("{} edits pending", count)
+                    format!("{count} edits pending")
                 };
-                format!("{}, proposed rule", edit_part)
+                format!("{edit_part}, proposed rule")
             }
-            ProcessingResult::Failed(error) => format!("failed: {}", error),
+            ProcessingResult::Failed(error) => format!("failed: {error}"),
             ProcessingResult::RequiresConfirmation => "requires confirmation".to_string(),
             ProcessingResult::DryRun => "dry run - would apply edit".to_string(),
         }

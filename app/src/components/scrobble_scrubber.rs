@@ -527,7 +527,7 @@ async fn process_with_scrubber(
                     ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
                         track_index,
                         success,
-                        result_summary,
+                        result,
                         ..
                     } => {
                         state.with_mut(|s| {
@@ -535,7 +535,7 @@ async fn process_with_scrubber(
                             s.track_progress_state.complete_track_processing(
                                 *track_index,
                                 *success,
-                                result_summary.clone(),
+                                result.summary(),
                             );
                         });
                     }
@@ -783,7 +783,7 @@ async fn process_artist_with_events(
                     ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
                         track_index,
                         success,
-                        result_summary,
+                        result,
                         ..
                     } => {
                         // Forward and update progress state
@@ -793,7 +793,7 @@ async fn process_artist_with_events(
                             s.track_progress_state.complete_track_processing(
                                 *track_index,
                                 *success,
-                                result_summary.clone(),
+                                result.summary(),
                             );
                         });
                     }
