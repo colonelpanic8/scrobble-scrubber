@@ -132,7 +132,9 @@
       "Bash(RUST_LOG=scrobble_scrubber=info ./target/debug/scrobble-scrubber --provider musicbrainz scrubber once --set-anchor-timestamp \"2025-06-01T00:00:00Z\" --require-confirmation --dry-run)",
       "Bash(lastfm-edit search:*)",
       "Bash(lastfm-edit edit:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(git checkout:*)",
+      "Bash(gh workflow run:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
