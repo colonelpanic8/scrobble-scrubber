@@ -474,6 +474,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub async fn process_last_n_tracks(&mut self, n: u32) -> Result<()> {
         log::info!("Processing last {n} tracks (no timestamp updates)");
 
+        // Emit cycle started event for UI progress
+        self.emit_event(ScrubberEvent::cycle_started(format!(
+            "Processing last {n} tracks"
+        )));
+
         let mut recent_iterator = self.client.recent_tracks();
         let mut tracks_to_process = Vec::new();
         let mut examined = 0;
@@ -501,6 +506,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             "Processing complete",
         )
         .await?;
+
+        // Emit cycle completed event for UI progress
+        self.emit_event(ScrubberEvent::cycle_completed(
+            tracks_to_process.len(),
+            0, // TODO: track applied count in future enhancement
+        ));
 
         log::info!(
             "Processing complete: examined {} tracks, processed {} tracks",
@@ -637,6 +648,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 processing_type,
             )
             .await?;
+
+            // Yield control to allow other async tasks (like UI updates) to run
+            tokio::task::yield_now().await;
         }
 
         Ok(())
@@ -961,6 +975,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     pub async fn process_artist(&mut self, artist: &str) -> Result<()> {
         log::info!("Starting artist track processing for: {artist}");
 
+        // Emit cycle started event for UI progress
+        self.emit_event(ScrubberEvent::cycle_started(format!(
+            "Starting artist processing for: {artist}"
+        )));
+
         // Collect all tracks for the artist using shared helper
         let mut artist_iterator = self.client.artist_tracks(artist);
         let tracks_to_process = self
@@ -981,6 +1000,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         )
         .await?;
 
+        // Emit cycle completed event for UI progress
+        self.emit_event(ScrubberEvent::cycle_completed(
+            tracks_to_process.len(),
+            0, // TODO: track applied count in future enhancement
+        ));
+
         log::info!(
             "Processed {} tracks for artist '{artist}'",
             tracks_to_process.len()
@@ -991,6 +1016,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// Process all tracks for a specific album by a specific artist
     pub async fn process_album(&mut self, artist: &str, album: &str) -> Result<()> {
         log::info!("Starting album track processing for: '{album}' by '{artist}'");
+
+        // Emit cycle started event for UI progress
+        self.emit_event(ScrubberEvent::cycle_started(format!(
+            "Starting album processing for: '{album}' by '{artist}'"
+        )));
 
         // Get tracks for the specific album
         let tracks_to_process = self.client.get_album_tracks(album, artist).await?;
@@ -1007,6 +1037,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             "Album processing complete",
         )
         .await?;
+
+        // Emit cycle completed event for UI progress
+        self.emit_event(ScrubberEvent::cycle_completed(
+            tracks_to_process.len(),
+            0, // TODO: track applied count in future enhancement
+        ));
 
         log::info!(
             "Processed {} tracks for album '{album}' by '{artist}'",
@@ -1031,6 +1067,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             None => "no limit".to_string(),
         };
         log::info!("Starting search-based track processing for query: '{query}' ({limit_info})");
+
+        // Emit cycle started event for UI progress
+        self.emit_event(ScrubberEvent::cycle_started(format!(
+            "Starting search processing for query: '{query}' ({limit_info})"
+        )));
 
         // Collect tracks from search iterator with optional limit
         let mut search_iterator = self.client.search_tracks(query);
@@ -1058,6 +1099,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         )
         .await?;
 
+        // Emit cycle completed event for UI progress
+        self.emit_event(ScrubberEvent::cycle_completed(
+            tracks_to_process.len(),
+            0, // TODO: track applied count in future enhancement
+        ));
+
         log::info!(
             "Search processing complete: processed {} tracks matching query '{query}'",
             tracks_to_process.len()
@@ -1073,6 +1120,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             None => "no limit".to_string(),
         };
         log::info!("Starting album-based track processing for query: '{query}' ({limit_info})");
+
+        // Emit cycle started event for UI progress
+        self.emit_event(ScrubberEvent::cycle_started(format!(
+            "Starting album search processing for query: '{query}' ({limit_info})"
+        )));
 
         // Collect albums from search iterator with optional limit
         let mut search_iterator = self.client.search_albums(query);
@@ -1113,6 +1165,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             "Album search processing complete",
         )
         .await?;
+
+        // Emit cycle completed event for UI progress
+        self.emit_event(ScrubberEvent::cycle_completed(
+            all_tracks.len(),
+            0, // TODO: track applied count in future enhancement
+        ));
 
         log::info!(
             "Album search processing complete: processed {} tracks from {} albums matching query '{query}'",

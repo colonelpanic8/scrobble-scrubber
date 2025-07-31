@@ -426,55 +426,61 @@ async fn process_search_with_events(
     limit: Option<u32>,
     state: Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let scrubber_guard = scrubber.lock().await;
-
     // Subscribe to events before starting processing
-    let mut event_receiver = scrubber_guard.subscribe_events();
+    let mut event_receiver = {
+        let scrubber_guard = scrubber.lock().await;
+        scrubber_guard.subscribe_events()
+    };
 
-    // Release the lock
-    drop(scrubber_guard);
-
-    // Start the search processing directly without spawning
-    let search_result = {
+    // Create a future that will run the processing when awaited
+    let processing_future = async {
         let mut scrubber_guard = scrubber.lock().await;
         scrubber_guard.process_search_with_limit(query, limit).await
     };
 
-    if let Err(e) = search_result {
-        log::error!("Search processing failed: {e}");
-        return Err(e.into());
-    }
+    // Create a future that processes events concurrently
+    let event_processing_future = async {
+        while let Ok(lib_event) = event_receiver.recv().await {
+            handle_scrubber_event(lib_event, state).await;
+        }
+    };
 
-    // Process events until completion
+    // Run both futures concurrently - the processing will yield and allow events to be processed
+    let search_result = tokio::select! {
+        result = processing_future => {
+            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        }
+        _ = event_processing_future => {
+            log::warn!("Event processing completed before search - this shouldn't happen");
+            Ok(())
+        }
+    };
+
+    // Process any remaining events after search completes
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+    tokio::pin!(timeout);
+
     loop {
         tokio::select! {
-            result = event_receiver.recv() => {
-                match result {
+            event_result = event_receiver.recv() => {
+                match event_result {
                     Ok(lib_event) => {
-                        // Check if this is a completion event first
-                        let is_completion = matches!(lib_event.event_type, ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. });
-
-                        // Handle the event similar to regular processing
                         handle_scrubber_event(lib_event, state).await;
-
-                        if is_completion {
-                            break;
-                        }
                     }
                     Err(_) => {
-                        // Channel closed, processing finished
+                        // Channel closed
                         break;
                     }
                 }
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
-                log::warn!("Search processing timeout");
+            _ = &mut timeout => {
+                // Timeout to catch any final events
                 break;
             }
         }
     }
 
-    Ok(())
+    search_result
 }
 
 /// Process album search with events to properly surface tracks to UI
@@ -484,55 +490,61 @@ async fn process_album_search_with_events(
     limit: Option<u32>,
     state: Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let scrubber_guard = scrubber.lock().await;
-
     // Subscribe to events before starting processing
-    let mut event_receiver = scrubber_guard.subscribe_events();
+    let mut event_receiver = {
+        let scrubber_guard = scrubber.lock().await;
+        scrubber_guard.subscribe_events()
+    };
 
-    // Release the lock
-    drop(scrubber_guard);
-
-    // Start the album search processing directly without spawning
-    let search_result = {
+    // Create a future that will run the processing when awaited
+    let processing_future = async {
         let mut scrubber_guard = scrubber.lock().await;
         scrubber_guard.process_search_albums(query, limit).await
     };
 
-    if let Err(e) = search_result {
-        log::error!("Album search processing failed: {e}");
-        return Err(e.into());
-    }
+    // Create a future that processes events concurrently
+    let event_processing_future = async {
+        while let Ok(lib_event) = event_receiver.recv().await {
+            handle_scrubber_event(lib_event, state).await;
+        }
+    };
 
-    // Process events until completion
+    // Run both futures concurrently - the processing will yield and allow events to be processed
+    let search_result = tokio::select! {
+        result = processing_future => {
+            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        }
+        _ = event_processing_future => {
+            log::warn!("Event processing completed before album search - this shouldn't happen");
+            Ok(())
+        }
+    };
+
+    // Process any remaining events after search completes
+    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+    tokio::pin!(timeout);
+
     loop {
         tokio::select! {
-            result = event_receiver.recv() => {
-                match result {
+            event_result = event_receiver.recv() => {
+                match event_result {
                     Ok(lib_event) => {
-                        // Check if this is a completion event first
-                        let is_completion = matches!(lib_event.event_type, ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. });
-
-                        // Handle the event similar to regular processing
                         handle_scrubber_event(lib_event, state).await;
-
-                        if is_completion {
-                            break;
-                        }
                     }
                     Err(_) => {
-                        // Channel closed, processing finished
+                        // Channel closed
                         break;
                     }
                 }
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
-                log::warn!("Album search processing timeout");
+            _ = &mut timeout => {
+                // Timeout to catch any final events
                 break;
             }
         }
     }
 
-    Ok(())
+    search_result
 }
 
 /// Handle scrubber events from search processing
