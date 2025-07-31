@@ -1,15 +1,21 @@
 [bundle]
 identifier = "com.scrobble-scrubber"
+publisher = "Scrobble Scrubber"
+name = "Scrobble Scrubber"
 
 [application]
+# App icon for desktop
+icon = ["assets/icon.png"]
 
 [web.app]
-
 # HTML title tag content
-title = "scrobble-scrubber"
+title = "Scrobble Scrubber"
+# Base template
+base_path = "./index.html"
 
-# include `assets` in web platform
 [web.resource]
+# Include assets directory
+asset_dir = "assets"
 
 # Additional CSS style files
 style = []
@@ -18,7 +24,5 @@ style = []
 script = []
 
 [web.resource.dev]
-
-# Javascript code file
-# serve: [dev-server] only
+# Javascript code file (dev-server only)
 script = []

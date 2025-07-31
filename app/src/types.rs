@@ -1,3 +1,4 @@
+use crate::components::TrackProgressState;
 use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::persistence::FileStorage;
@@ -113,6 +114,47 @@ pub mod event_formatting {
                     pending_edit_id, track.name, track.artist
                 )
             }
+            ScrubberEventType::ProcessingBatchStarted {
+                tracks,
+                processing_type,
+            } => {
+                format!(
+                    "Started {}: {} tracks to process",
+                    processing_type.display_name(),
+                    tracks.len()
+                )
+            }
+            ScrubberEventType::TrackProcessingStarted {
+                track,
+                track_index,
+                total_tracks,
+            } => {
+                format!(
+                    "Processing [{}/{}]: '{}' by '{}'",
+                    track_index + 1,
+                    total_tracks,
+                    track.name,
+                    track.artist
+                )
+            }
+            ScrubberEventType::TrackProcessingCompleted {
+                track,
+                track_index,
+                total_tracks,
+                success,
+                result_summary,
+            } => {
+                let status = if *success { "✓" } else { "✗" };
+                format!(
+                    "Completed [{}/{}] {}: '{}' by '{}' - {}",
+                    track_index + 1,
+                    total_tracks,
+                    status,
+                    track.name,
+                    track.artist,
+                    result_summary
+                )
+            }
         }
     }
 
@@ -149,6 +191,9 @@ pub mod event_formatting {
             ScrubberEventType::TrackSkipped { .. } => "track_skipped",
             ScrubberEventType::ClientEvent(_) => "client_event",
             ScrubberEventType::PendingEditCreated { .. } => "pending_edit_created",
+            ScrubberEventType::ProcessingBatchStarted { .. } => "processing_batch_started",
+            ScrubberEventType::TrackProcessingStarted { .. } => "track_processing_started",
+            ScrubberEventType::TrackProcessingCompleted { .. } => "track_processing_completed",
         }
     }
 }
@@ -191,8 +236,9 @@ pub struct AppState {
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
     pub scrubber_instance: Option<Arc<tokio::sync::Mutex<GlobalScrubber>>>, // Global scrubber instance
+    pub track_progress_state: TrackProgressState, // Track processing progress for UI
     #[allow(dead_code)]
-    pub track_cache: TrackCache,                     // Disk cache for track data
+    pub track_cache: TrackCache, // Disk cache for track data
 }
 
 impl Default for AppState {
@@ -217,7 +263,8 @@ impl Default for AppState {
                 current_anchor_timestamp: None,
                 next_cycle_timestamp: None,
             },
-            scrubber_instance: None,         // No scrubber instance initially
+            scrubber_instance: None, // No scrubber instance initially
+            track_progress_state: TrackProgressState::default(), // Default progress state
             track_cache: TrackCache::load(), // Load cache from disk on startup
         }
     }

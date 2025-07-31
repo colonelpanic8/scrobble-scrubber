@@ -1,7 +1,8 @@
 use crate::components::scrobble_scrubber::{
     start_scrubber, stop_scrubber, trigger_manual_processing,
 };
-use crate::types::{AppState, ScrubberStatus};
+use crate::scrubber_manager::get_or_create_scrubber;
+use crate::types::{AppState, GlobalScrubber, ScrubberStatus};
 use chrono::Utc;
 use dioxus::prelude::*;
 
@@ -353,18 +354,11 @@ async fn trigger_track_search(
         "Searching for tracks matching '{query}' ({limit_info})..."
     )));
 
-    // Get scrubber instance
-    let scrubber_result = {
-        let state_guard = state.read();
-        state_guard.scrubber_instance.clone()
-    };
+    // Get or create scrubber instance
+    let scrubber_result = get_or_create_scrubber(state).await;
 
-    if let Some(scrubber) = scrubber_result {
-        let mut scrubber_guard = scrubber.lock().await;
-        match scrubber_guard
-            .process_search_with_limit(&query, limit)
-            .await
-        {
+    match scrubber_result {
+        Ok(scrubber) => match process_search_with_events(scrubber, &query, limit, state).await {
             Ok(()) => {
                 search_status.set(Some(format!(
                     "Successfully processed tracks matching '{query}'"
@@ -374,9 +368,11 @@ async fn trigger_track_search(
                 search_status.set(Some(format!("Failed to process tracks: {e}")));
                 log::error!("Track search processing failed: {e}");
             }
+        },
+        Err(e) => {
+            search_status.set(Some(format!("Failed to create scrubber: {e}")));
+            log::error!("Failed to create scrubber instance: {e}");
         }
-    } else {
-        search_status.set(Some("Scrubber not available".to_string()));
     }
 }
 
@@ -399,26 +395,191 @@ async fn trigger_album_search(
         "Searching for albums matching '{query}' ({limit_info})..."
     )));
 
-    // Get scrubber instance
-    let scrubber_result = {
-        let state_guard = state.read();
-        state_guard.scrubber_instance.clone()
-    };
+    // Get or create scrubber instance
+    let scrubber_result = get_or_create_scrubber(state).await;
 
-    if let Some(scrubber) = scrubber_result {
-        let mut scrubber_guard = scrubber.lock().await;
-        match scrubber_guard.process_search_albums(&query, limit).await {
-            Ok(()) => {
-                search_status.set(Some(format!(
-                    "Successfully processed albums matching '{query}'"
-                )));
-            }
-            Err(e) => {
-                search_status.set(Some(format!("Failed to process albums: {e}")));
-                log::error!("Album search processing failed: {e}");
+    match scrubber_result {
+        Ok(scrubber) => {
+            match process_album_search_with_events(scrubber, &query, limit, state).await {
+                Ok(()) => {
+                    search_status.set(Some(format!(
+                        "Successfully processed albums matching '{query}'"
+                    )));
+                }
+                Err(e) => {
+                    search_status.set(Some(format!("Failed to process albums: {e}")));
+                    log::error!("Album search processing failed: {e}");
+                }
             }
         }
-    } else {
-        search_status.set(Some("Scrubber not available".to_string()));
+        Err(e) => {
+            search_status.set(Some(format!("Failed to create scrubber: {e}")));
+            log::error!("Failed to create scrubber instance: {e}");
+        }
+    }
+}
+
+/// Process search with events to properly surface tracks to UI
+async fn process_search_with_events(
+    scrubber: std::sync::Arc<tokio::sync::Mutex<GlobalScrubber>>,
+    query: &str,
+    limit: Option<u32>,
+    state: Signal<AppState>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let scrubber_guard = scrubber.lock().await;
+
+    // Subscribe to events before starting processing
+    let mut event_receiver = scrubber_guard.subscribe_events();
+
+    // Release the lock
+    drop(scrubber_guard);
+
+    // Start the search processing directly without spawning
+    let search_result = {
+        let mut scrubber_guard = scrubber.lock().await;
+        scrubber_guard.process_search_with_limit(query, limit).await
+    };
+
+    if let Err(e) = search_result {
+        log::error!("Search processing failed: {e}");
+        return Err(e.into());
+    }
+
+    // Process events until completion
+    loop {
+        tokio::select! {
+            result = event_receiver.recv() => {
+                match result {
+                    Ok(lib_event) => {
+                        // Check if this is a completion event first
+                        let is_completion = matches!(lib_event.event_type, ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. });
+
+                        // Handle the event similar to regular processing
+                        handle_scrubber_event(lib_event, state).await;
+
+                        if is_completion {
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        // Channel closed, processing finished
+                        break;
+                    }
+                }
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
+                log::warn!("Search processing timeout");
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Process album search with events to properly surface tracks to UI
+async fn process_album_search_with_events(
+    scrubber: std::sync::Arc<tokio::sync::Mutex<GlobalScrubber>>,
+    query: &str,
+    limit: Option<u32>,
+    state: Signal<AppState>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let scrubber_guard = scrubber.lock().await;
+
+    // Subscribe to events before starting processing
+    let mut event_receiver = scrubber_guard.subscribe_events();
+
+    // Release the lock
+    drop(scrubber_guard);
+
+    // Start the album search processing directly without spawning
+    let search_result = {
+        let mut scrubber_guard = scrubber.lock().await;
+        scrubber_guard.process_search_albums(query, limit).await
+    };
+
+    if let Err(e) = search_result {
+        log::error!("Album search processing failed: {e}");
+        return Err(e.into());
+    }
+
+    // Process events until completion
+    loop {
+        tokio::select! {
+            result = event_receiver.recv() => {
+                match result {
+                    Ok(lib_event) => {
+                        // Check if this is a completion event first
+                        let is_completion = matches!(lib_event.event_type, ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. });
+
+                        // Handle the event similar to regular processing
+                        handle_scrubber_event(lib_event, state).await;
+
+                        if is_completion {
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        // Channel closed, processing finished
+                        break;
+                    }
+                }
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
+                log::warn!("Album search processing timeout");
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle scrubber events from search processing
+async fn handle_scrubber_event(
+    lib_event: ::scrobble_scrubber::events::ScrubberEvent,
+    mut state: Signal<AppState>,
+) {
+    match &lib_event.event_type {
+        ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
+            tracks,
+            processing_type,
+        } => {
+            state.with_mut(|s| {
+                s.scrubber_state.events.push(lib_event.clone());
+                s.track_progress_state
+                    .start_batch(tracks.clone(), processing_type.display_name().to_string());
+            });
+        }
+        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingStarted {
+            track_index,
+            ..
+        } => {
+            state.with_mut(|s| {
+                s.scrubber_state.events.push(lib_event.clone());
+                s.track_progress_state.start_track_processing(*track_index);
+            });
+        }
+        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
+            track_index,
+            success,
+            result_summary,
+            ..
+        } => {
+            state.with_mut(|s| {
+                s.scrubber_state.events.push(lib_event.clone());
+                s.track_progress_state.complete_track_processing(
+                    *track_index,
+                    *success,
+                    result_summary.clone(),
+                );
+            });
+        }
+        _ => {
+            // Store other events in the activity log
+            state.with_mut(|s| {
+                s.scrubber_state.events.push(lib_event.clone());
+            });
+        }
     }
 }

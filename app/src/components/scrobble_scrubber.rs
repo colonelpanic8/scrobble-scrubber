@@ -1,6 +1,6 @@
 use crate::components::{
     ActivityLogSection, ArtistProcessingSection, ScrubberControlsSection,
-    ScrubberStatisticsSection, TimestampManagementSection,
+    ScrubberStatisticsSection, TimestampManagementSection, TrackProcessingProgressView,
 };
 use crate::scrubber_manager::get_or_create_scrubber;
 use crate::types::{AppState, ScrubberStatus};
@@ -17,6 +17,8 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
             ScrubberControlsSection { state }
             ScrubberStatisticsSection { state }
+
+            TrackProcessingProgressView { state }
 
             ArtistProcessingSection { state }
 
@@ -501,6 +503,42 @@ async fn process_with_scrubber(
                         has_cycle_completed = true;
                         state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
                     }
+                    ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
+                        tracks,
+                        processing_type,
+                    } => {
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.start_batch(
+                                tracks.clone(),
+                                processing_type.display_name().to_string(),
+                            );
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingStarted {
+                        track_index,
+                        ..
+                    } => {
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.start_track_processing(*track_index);
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
+                        track_index,
+                        success,
+                        result_summary,
+                        ..
+                    } => {
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.complete_track_processing(
+                                *track_index,
+                                *success,
+                                result_summary.clone(),
+                            );
+                        });
+                    }
                     _ => {
                         // Add all other events to state
                         state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
@@ -715,6 +753,48 @@ async fn process_artist_with_events(
                         state.with_mut(|s| {
                             s.scrubber_state.events.push(lib_event.clone());
                             s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
+                        tracks,
+                        processing_type,
+                    } => {
+                        // Forward and update progress state
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.start_batch(
+                                tracks.clone(),
+                                processing_type.display_name().to_string(),
+                            );
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingStarted {
+                        track_index,
+                        ..
+                    } => {
+                        // Forward and update progress state
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.start_track_processing(*track_index);
+                        });
+                    }
+                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
+                        track_index,
+                        success,
+                        result_summary,
+                        ..
+                    } => {
+                        // Forward and update progress state
+                        let _ = sender.send(lib_event.clone());
+                        state.with_mut(|s| {
+                            s.scrubber_state.events.push(lib_event.clone());
+                            s.track_progress_state.complete_track_processing(
+                                *track_index,
+                                *success,
+                                result_summary.clone(),
+                            );
                         });
                     }
                     ::scrobble_scrubber::events::ScrubberEventType::Info(_)

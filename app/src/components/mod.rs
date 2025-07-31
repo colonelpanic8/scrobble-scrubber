@@ -17,6 +17,7 @@ pub mod scrobble_scrubber;
 pub mod scrubber_controls;
 pub mod scrubber_statistics;
 pub mod timestamp_management;
+pub mod track_processing_progress;
 pub mod track_sources;
 
 pub use activity_log::ActivityLogSection;
@@ -38,4 +39,5 @@ pub use scrobble_scrubber::{start_scrubber, ScrobbleScrubberPage};
 pub use scrubber_controls::ScrubberControlsSection;
 pub use scrubber_statistics::ScrubberStatisticsSection;
 pub use timestamp_management::TimestampManagementSection;
+pub use track_processing_progress::{TrackProcessingProgressView, TrackProgressState};
 pub use track_sources::TrackSourcesSection;

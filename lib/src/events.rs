@@ -31,6 +31,103 @@ pub struct LogEditInfo {
     pub new_album_artist_name: Option<String>,
 }
 
+/// Types of processing that can be performed by the scrubber
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum ProcessingType {
+    /// Processing recent tracks from user's listening history
+    Track,
+    /// Processing all tracks by a specific artist
+    Artist,
+    /// Processing all tracks from a specific album
+    Album,
+    /// Processing tracks from search query results
+    Search,
+    /// Manual processing triggered by user
+    Manual,
+    /// Batch processing of multiple items
+    Batch,
+}
+
+impl ProcessingType {
+    /// Get a human-readable display name for the processing type
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            ProcessingType::Track => "Track Processing",
+            ProcessingType::Artist => "Artist Processing",
+            ProcessingType::Album => "Album Processing",
+            ProcessingType::Search => "Search Processing",
+            ProcessingType::Manual => "Manual Processing",
+            ProcessingType::Batch => "Batch Processing",
+        }
+    }
+}
+
+/// Results of processing a track
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ProcessingResult {
+    /// No changes were needed or applied
+    NoChanges,
+    /// Edits were applied directly
+    EditsApplied(u32),
+    /// Edits were created but require confirmation
+    EditsPending(u32),
+    /// A new rewrite rule was proposed
+    RuleProposed,
+    /// Both edits were applied and a rule was proposed
+    EditsAppliedAndRuleProposed(u32),
+    /// Both edits are pending and a rule was proposed
+    EditsPendingAndRuleProposed(u32),
+    /// Processing failed with an error
+    Failed(String),
+    /// Track was skipped because edit requires confirmation
+    RequiresConfirmation,
+    /// Track was skipped due to dry run mode
+    DryRun,
+}
+
+impl ProcessingResult {
+    /// Get a human-readable summary of the processing result
+    pub fn summary(&self) -> String {
+        match self {
+            ProcessingResult::NoChanges => "no changes".to_string(),
+            ProcessingResult::EditsApplied(count) => {
+                if *count == 1 {
+                    "1 edit applied".to_string()
+                } else {
+                    format!("{} edits applied", count)
+                }
+            }
+            ProcessingResult::EditsPending(count) => {
+                if *count == 1 {
+                    "1 edit pending".to_string()
+                } else {
+                    format!("{} edits pending", count)
+                }
+            }
+            ProcessingResult::RuleProposed => "proposed rule".to_string(),
+            ProcessingResult::EditsAppliedAndRuleProposed(count) => {
+                let edit_part = if *count == 1 {
+                    "1 edit applied".to_string()
+                } else {
+                    format!("{} edits applied", count)
+                };
+                format!("{}, proposed rule", edit_part)
+            }
+            ProcessingResult::EditsPendingAndRuleProposed(count) => {
+                let edit_part = if *count == 1 {
+                    "1 edit pending".to_string()
+                } else {
+                    format!("{} edits pending", count)
+                };
+                format!("{}, proposed rule", edit_part)
+            }
+            ProcessingResult::Failed(error) => format!("failed: {}", error),
+            ProcessingResult::RequiresConfirmation => "requires confirmation".to_string(),
+            ProcessingResult::DryRun => "dry run - would apply edit".to_string(),
+        }
+    }
+}
+
 /// Events emitted by the ScrobbleScrubber during operation
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScrubberEvent {
@@ -103,6 +200,25 @@ pub enum ScrubberEventType {
         track: Track,
         edit: LogEditInfo,
         context: ProcessingContext,
+    },
+    /// Processing batch started with full track list for progress UI
+    ProcessingBatchStarted {
+        tracks: Vec<Track>,
+        processing_type: ProcessingType,
+    },
+    /// Individual track processing started (for progress UI)
+    TrackProcessingStarted {
+        track: Track,
+        track_index: usize,
+        total_tracks: usize,
+    },
+    /// Individual track processing completed (for progress UI)
+    TrackProcessingCompleted {
+        track: Track,
+        track_index: usize,
+        total_tracks: usize,
+        success: bool,
+        result: ProcessingResult,
     },
 }
 
@@ -267,6 +383,37 @@ impl ScrubberEvent {
             track: track.clone(),
             edit: edit.clone(),
             context,
+        })
+    }
+
+    pub fn processing_batch_started(tracks: Vec<Track>, processing_type: ProcessingType) -> Self {
+        Self::new(ScrubberEventType::ProcessingBatchStarted {
+            tracks,
+            processing_type,
+        })
+    }
+
+    pub fn track_processing_started(track: Track, track_index: usize, total_tracks: usize) -> Self {
+        Self::new(ScrubberEventType::TrackProcessingStarted {
+            track,
+            track_index,
+            total_tracks,
+        })
+    }
+
+    pub fn track_processing_completed(
+        track: Track,
+        track_index: usize,
+        total_tracks: usize,
+        success: bool,
+        result: ProcessingResult,
+    ) -> Self {
+        Self::new(ScrubberEventType::TrackProcessingCompleted {
+            track,
+            track_index,
+            total_tracks,
+            success,
+            result,
         })
     }
 }

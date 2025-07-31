@@ -1,28 +1,25 @@
 use crate::types::AppState;
-use crate::utils::{
-    import_default_rules, load_default_remaster_rules, DefaultRule, DefaultRuleSet,
-};
+use crate::utils::{import_default_rules, load_default_remaster_rules, DefaultRule};
 use dioxus::prelude::*;
 use std::collections::HashSet;
 
 #[component]
 pub fn DefaultRulesSection(mut state: Signal<AppState>) -> Element {
-    let mut default_rules = use_signal(|| None::<DefaultRuleSet>);
     let mut selected_rules = use_signal(HashSet::<usize>::new);
     let mut import_status = use_signal(|| None::<String>);
     let mut is_importing = use_signal(|| false);
     let mut show_section = use_signal(|| false);
 
-    // Load default rules on mount
-    use_effect(move || {
-        if default_rules.read().is_none() {
-            match load_default_remaster_rules() {
-                Ok(rules) => {
-                    default_rules.set(Some(rules));
-                }
-                Err(e) => {
-                    log::error!("Failed to load default rules: {e}");
-                }
+    // Load default rules on mount using use_resource
+    let default_rules = use_resource(move || async move {
+        match load_default_remaster_rules() {
+            Ok(rules) => {
+                log::info!("Loaded {} default rules", rules.rules.len());
+                Some(rules)
+            }
+            Err(e) => {
+                log::error!("Failed to load default rules: {e}");
+                None
             }
         }
     });
@@ -66,8 +63,8 @@ pub fn DefaultRulesSection(mut state: Signal<AppState>) -> Element {
             // Expandable rules section
             if show_section() {
                 {
-                    let default_rules_guard = default_rules.read();
-                    if let Some(rule_set) = default_rules_guard.as_ref() {
+                    match default_rules.read().as_ref() {
+                        Some(Some(rule_set)) => {
                         let rule_count = rule_set.rules.len();
                         let rules_clone = rule_set.rules.clone();
                         rsx! {
@@ -216,11 +213,21 @@ pub fn DefaultRulesSection(mut state: Signal<AppState>) -> Element {
                         }
                     }
                         }
-                    } else {
-                        rsx! {
-                            div {
-                                style: "text-center; color: #6b7280; padding: 2rem;",
-                                "Loading default rules..."
+                        }
+                        Some(None) => {
+                            rsx! {
+                                div {
+                                    style: "text-center; color: #dc2626; padding: 2rem;",
+                                    "Failed to load default rules"
+                                }
+                            }
+                        }
+                        None => {
+                            rsx! {
+                                div {
+                                    style: "text-center; color: #6b7280; padding: 2rem;",
+                                    "Loading default rules..."
+                                }
                             }
                         }
                     }

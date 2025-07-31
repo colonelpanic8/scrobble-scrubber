@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
-use crate::events::{LogEditInfo, ProcessingContext};
+use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
@@ -495,8 +495,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         // Process using shared helper
-        self.process_collected_tracks(&tracks_to_process, false, "Processing complete")
-            .await?;
+        self.process_collected_tracks(
+            &tracks_to_process,
+            ProcessingType::Track,
+            "Processing complete",
+        )
+        .await?;
 
         log::info!(
             "Processing complete: examined {} tracks, processed {} tracks",
@@ -576,7 +580,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     async fn process_collected_tracks(
         &mut self,
         tracks: &[lastfm_edit::Track],
-        is_artist_processing: bool,
+        processing_type: ProcessingType,
         completion_message: &str,
     ) -> Result<()> {
         if tracks.is_empty() {
@@ -584,20 +588,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         log::info!(
-            "Processing {} tracks one at a time{}...",
+            "Processing {} tracks one at a time ({})...",
             tracks.len(),
-            if is_artist_processing {
-                " (artist context)"
-            } else {
-                " (no timestamp updates)"
-            }
+            processing_type.display_name()
         );
 
-        self.process_tracks_individually_no_timestamp_update_with_context(
-            tracks,
-            is_artist_processing,
-        )
-        .await?;
+        self.process_tracks_individually_no_timestamp_update_with_context(tracks, processing_type)
+            .await?;
 
         log::debug!("{}: processed {} tracks", completion_message, tracks.len());
         Ok(())
@@ -608,16 +605,27 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         &mut self,
         tracks: &[lastfm_edit::Track],
     ) -> Result<()> {
-        self.process_tracks_individually_no_timestamp_update_with_context(tracks, false)
-            .await
+        self.process_tracks_individually_no_timestamp_update_with_context(
+            tracks,
+            ProcessingType::Track,
+        )
+        .await
     }
 
-    /// Process tracks individually without timestamp updates, with artist processing context
+    /// Process tracks individually without timestamp updates, with processing type context
     async fn process_tracks_individually_no_timestamp_update_with_context(
         &mut self,
         tracks: &[lastfm_edit::Track],
-        is_artist_processing: bool,
+        processing_type: ProcessingType,
     ) -> Result<()> {
+        // Emit batch started event for progress UI
+        if !tracks.is_empty() {
+            self.emit_event(ScrubberEvent::processing_batch_started(
+                tracks.to_vec(),
+                processing_type,
+            ));
+        }
+
         for (track_index, track) in tracks.iter().enumerate() {
             log::debug!(
                 "Processing track {} of {}: {} - {}",
@@ -628,8 +636,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             // Process this track individually without timestamp updates
-            self.process_single_track_with_context(track, track_index, is_artist_processing)
-                .await?;
+            self.process_single_track_with_context(
+                track,
+                track_index,
+                tracks.len(),
+                processing_type,
+            )
+            .await?;
         }
 
         Ok(())
@@ -645,8 +658,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         &mut self,
         track: &lastfm_edit::Track,
         track_index: usize,
-        is_artist_processing: bool,
+        total_tracks: usize,
+        processing_type: ProcessingType,
     ) -> Result<()> {
+        // Emit track processing started event for progress UI
+        self.emit_event(ScrubberEvent::track_processing_started(
+            track.clone(),
+            track_index,
+            total_tracks,
+        ));
         log::trace!(
             "Starting analysis for track: {} - {}",
             track.artist,
@@ -679,14 +699,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         log::debug!("Processed track: {} - {}", track.artist, track.name);
 
         // Apply suggestions using the helper method
-        self.apply_suggestions_to_track(
-            track,
-            suggestions,
-            run_id,
-            track_index,
-            is_artist_processing,
-        )
-        .await?;
+        self.apply_suggestions_to_track(track, suggestions, run_id, track_index, processing_type)
+            .await?;
 
         // Generate summary log after processing
         let album_info = track
@@ -699,13 +713,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             let mut summary_parts = Vec::new();
             let mut pending_count = 0;
             let mut applied_count = 0;
-            let mut has_changes = false;
+            let mut _has_changes = false;
 
             for suggestion in suggestions {
                 match &suggestion.suggestion {
                     crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
                         if Self::has_changes(edit) {
-                            has_changes = true;
+                            _has_changes = true;
                             if suggestion.requires_confirmation
                                 || self
                                     .storage
@@ -754,7 +768,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
 
             // Only log if there are actual changes or rule proposals
-            if has_changes || summary_parts.iter().any(|p| p.contains("proposed rule")) {
+            if _has_changes || summary_parts.iter().any(|p| p.contains("proposed rule")) {
                 log::info!(
                     "Processed [{}]: '{}' by '{}'{} - {}",
                     track_index + 1,
@@ -766,6 +780,77 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             }
         }
 
+        // Generate result summary for progress UI
+        let result_summary = if !suggestions.is_empty() {
+            let mut summary_parts = Vec::new();
+            let mut pending_count = 0;
+            let mut applied_count = 0;
+            let mut _has_changes = false;
+
+            for suggestion in suggestions {
+                match &suggestion.suggestion {
+                    crate::scrub_action_provider::ScrubActionSuggestion::Edit(edit) => {
+                        if Self::has_changes(edit) {
+                            _has_changes = true;
+                            if suggestion.requires_confirmation
+                                || self
+                                    .storage
+                                    .lock()
+                                    .await
+                                    .load_settings_state()
+                                    .await
+                                    .map(|s| {
+                                        s.require_confirmation || s.require_confirmation_for_edits
+                                    })
+                                    .unwrap_or(false)
+                                || self.config.scrubber.require_confirmation
+                            {
+                                pending_count += 1;
+                            } else {
+                                applied_count += 1;
+                            }
+                        }
+                    }
+                    crate::scrub_action_provider::ScrubActionSuggestion::ProposeRule { .. } => {
+                        summary_parts.push("proposed rule".to_string());
+                    }
+                    crate::scrub_action_provider::ScrubActionSuggestion::NoAction => {}
+                }
+            }
+
+            if applied_count > 0 {
+                summary_parts.push(format!(
+                    "{} edit{} applied",
+                    applied_count,
+                    if applied_count == 1 { "" } else { "s" }
+                ));
+            }
+            if pending_count > 0 {
+                summary_parts.push(format!(
+                    "{} edit{} pending",
+                    pending_count,
+                    if pending_count == 1 { "" } else { "s" }
+                ));
+            }
+
+            if summary_parts.is_empty() {
+                "no changes".to_string()
+            } else {
+                summary_parts.join(", ")
+            }
+        } else {
+            "no changes".to_string()
+        };
+
+        // Emit track processing completed event for progress UI
+        self.emit_event(ScrubberEvent::track_processing_completed(
+            track.clone(),
+            track_index,
+            total_tracks,
+            true, // success - if we got here, processing succeeded
+            result_summary,
+        ));
+
         Ok(())
     }
 
@@ -776,7 +861,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         suggestions: &[SuggestionWithContext],
         run_id: String,
         track_index: usize,
-        is_artist_processing: bool,
+        processing_type: ProcessingType,
     ) -> Result<()> {
         if suggestions.is_empty() {
             return Ok(());
@@ -804,7 +889,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 batch_id: None, // No batch processing anymore
                 track_index: Some(track_index),
                 batch_size: Some(1), // Always 1 since we process individually
-                is_artist_processing,
+                is_artist_processing: processing_type == ProcessingType::Artist,
             };
             self.apply_suggestion_with_context(track, suggestion, Some(suggestion_context))
                 .await?;
@@ -857,8 +942,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         );
 
         // Process using shared helper with artist context
-        self.process_collected_tracks(&tracks_to_process, true, "Artist processing complete")
-            .await?;
+        self.process_collected_tracks(
+            &tracks_to_process,
+            ProcessingType::Artist,
+            "Artist processing complete",
+        )
+        .await?;
 
         log::info!(
             "Processed {} tracks for artist '{artist}'",
@@ -880,8 +969,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         );
 
         // Process using shared helper with artist context
-        self.process_collected_tracks(&tracks_to_process, true, "Album processing complete")
-            .await?;
+        self.process_collected_tracks(
+            &tracks_to_process,
+            ProcessingType::Album,
+            "Album processing complete",
+        )
+        .await?;
 
         log::info!(
             "Processed {} tracks for album '{album}' by '{artist}'",
@@ -926,8 +1019,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         // Process using shared helper without artist context
-        self.process_collected_tracks(&tracks_to_process, false, "Search processing complete")
-            .await?;
+        self.process_collected_tracks(
+            &tracks_to_process,
+            ProcessingType::Search,
+            "Search processing complete",
+        )
+        .await?;
 
         log::info!(
             "Search processing complete: processed {} tracks matching query '{query}'",
@@ -978,8 +1075,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         // Process using shared helper without artist context
-        self.process_collected_tracks(&all_tracks, false, "Album search processing complete")
-            .await?;
+        self.process_collected_tracks(
+            &all_tracks,
+            ProcessingType::Search,
+            "Album search processing complete",
+        )
+        .await?;
 
         log::info!(
             "Album search processing complete: processed {} tracks from {} albums matching query '{query}'",
