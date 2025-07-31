@@ -64,9 +64,11 @@ pub async fn start_scrubber(mut state: Signal<AppState>) {
         Err(e) => {
             let error_event = ScrubberEvent {
                 timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                    "Failed to start scrubber: {e}"
-                )),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                    ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                        "Failed to start scrubber: {e}"
+                    )),
+                ),
             };
 
             state.with_mut(|s| {
@@ -129,9 +131,11 @@ pub async fn trigger_manual_processing(mut state: Signal<AppState>) {
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Manual processing failed: {e}"
-                    )),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                        ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                            "Manual processing failed: {e}"
+                        )),
+                    ),
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -140,9 +144,11 @@ pub async fn trigger_manual_processing(mut state: Signal<AppState>) {
         Err(e) => {
             let error_event = ScrubberEvent {
                 timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                    "Failed to get scrubber: {e}"
-                )),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                    ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                        "Failed to get scrubber: {e}"
+                    )),
+                ),
             };
             let _ = sender.send(error_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -189,9 +195,11 @@ pub async fn set_timestamp_anchor(mut state: Signal<AppState>, track: Track) {
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Failed to set timestamp anchor: {e}"
-                    )),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                        ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                            "Failed to set timestamp anchor: {e}"
+                        )),
+                    ),
                 };
                 if let Some(sender) = state.read().scrubber_state.event_sender.clone() {
                     let _ = sender.send(error_event.clone());
@@ -313,9 +321,11 @@ async fn run_scrubber_with_shared_instance(
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Error during processing: {e}"
-                    )),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                        ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                            "Error during processing: {e}"
+                        )),
+                    ),
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| {
@@ -411,9 +421,11 @@ async fn run_scrubber_with_instance(
             Err(e) => {
                 let error_event = ScrubberEvent {
                     timestamp: Utc::now(),
-                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                        "Error during processing: {e}"
-                    )),
+                    event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                        ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                            "Error during processing: {e}"
+                        )),
+                    ),
                 };
                 let _ = sender.send(error_event.clone());
                 state.with_mut(|s| {
@@ -577,9 +589,11 @@ async fn process_with_scrubber(
         Err(e) => {
             let error_event = ScrubberEvent {
                 timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                    "Scrubber processing failed: {e}"
-                )),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                    ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                        "Scrubber processing failed: {e}"
+                    )),
+                ),
             };
             let _ = sender.send(error_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -659,9 +673,11 @@ async fn trigger_artist_processing_internal(
                 Err(e) => {
                     let error_event = ScrubberEvent {
                         timestamp: Utc::now(),
-                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                            "Artist processing failed for '{artist_name}': {e}"
-                        )),
+                        event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                            ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                                "Artist processing failed for '{artist_name}': {e}"
+                            )),
+                        ),
                     };
                     let _ = sender.send(error_event.clone());
                     state.with_mut(|s| s.scrubber_state.events.push(error_event));
@@ -678,9 +694,11 @@ async fn trigger_artist_processing_internal(
         Err(e) => {
             let error_event = ScrubberEvent {
                 timestamp: Utc::now(),
-                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(format!(
-                    "Failed to get scrubber for artist processing: {e}"
-                )),
+                event_type: ::scrobble_scrubber::events::ScrubberEventType::Error(
+                    ::scrobble_scrubber::events::ScrubberError::Unknown(format!(
+                        "Failed to get scrubber for artist processing: {e}"
+                    )),
+                ),
             };
             let _ = sender.send(error_event.clone());
             state.with_mut(|s| s.scrubber_state.events.push(error_event));

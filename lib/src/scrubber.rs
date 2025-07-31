@@ -286,7 +286,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         if let Err(ref e) = result {
             log::warn!("Error during track processing: {e}");
-            self.emit_event(ScrubberEvent::error(format!(
+            self.emit_event(ScrubberEvent::error_from_string(format!(
                 "Error during track processing: {e}"
             )));
         }
@@ -694,15 +694,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             .map(|(_, suggestions)| suggestions)
             .unwrap_or(&empty_suggestions);
 
-        // Emit detailed track processed event
-        let suggestions_for_event: Vec<ScrubActionSuggestion> =
-            suggestions.iter().map(|s| s.suggestion.clone()).collect();
-
-        self.emit_event(ScrubberEvent::track_processed(
-            track.clone(),
-            suggestions_for_event,
-            "".to_string(),
-        ));
+        // Collect suggestions for event emission (will emit after processing is complete)
 
         log::debug!("Processed track: {} - {}", track.artist, track.name);
 
@@ -887,6 +879,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             use crate::events::ProcessingResult;
             ProcessingResult::NoChanges
         };
+
+        // Emit detailed track processed event
+        let suggestions_for_event: Vec<ScrubActionSuggestion> =
+            suggestions.iter().map(|s| s.suggestion.clone()).collect();
+        self.emit_event(ScrubberEvent::track_processed(
+            track.clone(),
+            suggestions_for_event,
+            processing_result.clone(),
+        ));
 
         // Emit track processing completed event for progress UI
         self.emit_event(ScrubberEvent::track_processing_completed(
@@ -1720,7 +1721,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         new_album_artist_name: edit.album_artist_name.clone(),
                     };
 
-                    self.emit_event(ScrubberEvent::track_edit_failed(
+                    self.emit_event(ScrubberEvent::track_edit_failed_from_string(
                         track,
                         Some(&edit_info),
                         log_context,

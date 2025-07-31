@@ -79,7 +79,7 @@ pub mod event_formatting {
                     description, track.name, track.artist
                 )
             }
-            ScrubberEventType::Error(msg) => msg.clone(),
+            ScrubberEventType::Error(error) => error.to_string(),
             ScrubberEventType::Info(msg) => msg.clone(),
             ScrubberEventType::CycleCompleted {
                 processed_count,

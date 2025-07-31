@@ -4,6 +4,52 @@ use lastfm_edit::ClientEvent;
 use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 
+/// Structured error types for better error handling and categorization
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ScrubberError {
+    /// Network-related errors (API calls, connectivity)
+    Network(String),
+    /// Authentication errors (login, session)
+    Authentication(String),
+    /// Data validation errors (invalid track data, malformed input)
+    Validation(String),
+    /// Storage/persistence errors (database, file system)
+    Storage(String),
+    /// Configuration errors (invalid settings, missing config)
+    Configuration(String),
+    /// Rate limiting errors from API
+    RateLimit { retry_after_seconds: Option<u64> },
+    /// Processing errors (rule application, suggestion generation)
+    Processing(String),
+    /// Unknown or unexpected errors
+    Unknown(String),
+}
+
+impl std::fmt::Display for ScrubberError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScrubberError::Network(msg) => write!(f, "Network error: {msg}"),
+            ScrubberError::Authentication(msg) => write!(f, "Authentication error: {msg}"),
+            ScrubberError::Validation(msg) => write!(f, "Validation error: {msg}"),
+            ScrubberError::Storage(msg) => write!(f, "Storage error: {msg}"),
+            ScrubberError::Configuration(msg) => write!(f, "Configuration error: {msg}"),
+            ScrubberError::RateLimit {
+                retry_after_seconds,
+            } => {
+                if let Some(seconds) = retry_after_seconds {
+                    write!(f, "Rate limited: retry after {seconds} seconds")
+                } else {
+                    write!(f, "Rate limited")
+                }
+            }
+            ScrubberError::Processing(msg) => write!(f, "Processing error: {msg}"),
+            ScrubberError::Unknown(msg) => write!(f, "Unknown error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ScrubberError {}
+
 // Re-export for backwards compatibility with existing code
 // pub use crate::json_logger::{EditInfo, TrackInfo}; // Removed - no longer needed
 
@@ -78,7 +124,7 @@ pub enum ProcessingResult {
     /// Both edits are pending and a rule was proposed
     EditsPendingAndRuleProposed(u32),
     /// Processing failed with an error
-    Failed(String),
+    Failed(ScrubberError),
     /// Track was skipped because edit requires confirmation
     RequiresConfirmation,
     /// Track was skipped due to dry run mode
@@ -88,42 +134,46 @@ pub enum ProcessingResult {
 impl ProcessingResult {
     /// Get a human-readable summary of the processing result
     pub fn summary(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl std::fmt::Display for ProcessingResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ProcessingResult::NoChanges => "no changes".to_string(),
+            ProcessingResult::NoChanges => write!(f, "no changes"),
             ProcessingResult::EditsApplied(count) => {
                 if *count == 1 {
-                    "1 edit applied".to_string()
+                    write!(f, "1 edit applied")
                 } else {
-                    format!("{count} edits applied")
+                    write!(f, "{count} edits applied")
                 }
             }
             ProcessingResult::EditsPending(count) => {
                 if *count == 1 {
-                    "1 edit pending".to_string()
+                    write!(f, "1 edit pending")
                 } else {
-                    format!("{count} edits pending")
+                    write!(f, "{count} edits pending")
                 }
             }
-            ProcessingResult::RuleProposed => "proposed rule".to_string(),
+            ProcessingResult::RuleProposed => write!(f, "proposed rule"),
             ProcessingResult::EditsAppliedAndRuleProposed(count) => {
-                let edit_part = if *count == 1 {
-                    "1 edit applied".to_string()
+                if *count == 1 {
+                    write!(f, "1 edit applied, proposed rule")
                 } else {
-                    format!("{count} edits applied")
-                };
-                format!("{edit_part}, proposed rule")
+                    write!(f, "{count} edits applied, proposed rule")
+                }
             }
             ProcessingResult::EditsPendingAndRuleProposed(count) => {
-                let edit_part = if *count == 1 {
-                    "1 edit pending".to_string()
+                if *count == 1 {
+                    write!(f, "1 edit pending, proposed rule")
                 } else {
-                    format!("{count} edits pending")
-                };
-                format!("{edit_part}, proposed rule")
+                    write!(f, "{count} edits pending, proposed rule")
+                }
             }
-            ProcessingResult::Failed(error) => format!("failed: {error}"),
-            ProcessingResult::RequiresConfirmation => "requires confirmation".to_string(),
-            ProcessingResult::DryRun => "dry run - would apply edit".to_string(),
+            ProcessingResult::Failed(error) => write!(f, "failed: {error}"),
+            ProcessingResult::RequiresConfirmation => write!(f, "requires confirmation"),
+            ProcessingResult::DryRun => write!(f, "dry run - would apply edit"),
         }
     }
 }
@@ -150,7 +200,7 @@ pub enum ScrubberEventType {
     TrackProcessed {
         track: Track,
         suggestions: Vec<ScrubActionSuggestion>,
-        result: String,
+        result: ProcessingResult,
     },
     /// A rule was applied to a track
     RuleApplied {
@@ -159,7 +209,7 @@ pub enum ScrubberEventType {
         description: String,
     },
     /// An error occurred during processing
-    Error(String),
+    Error(ScrubberError),
     /// General informational message
     Info(String),
     /// Processing cycle completed
@@ -184,7 +234,7 @@ pub enum ScrubberEventType {
         track: Track,
         edit: Option<LogEditInfo>,
         context: ProcessingContext,
-        error: String,
+        error: ScrubberError,
     },
     /// Track was skipped (dry run, requires confirmation, etc.)
     TrackSkipped {
@@ -250,7 +300,7 @@ impl ScrubberEvent {
     pub fn track_processed(
         track: Track,
         suggestions: Vec<ScrubActionSuggestion>,
-        result: String,
+        result: ProcessingResult,
     ) -> Self {
         Self::new(ScrubberEventType::TrackProcessed {
             track,
@@ -269,10 +319,47 @@ impl ScrubberEvent {
             timestamp: None,
             playcount: 0,
         };
+
+        // Parse the string result into ProcessingResult enum for backwards compatibility
+        let processing_result = if result.contains("no changes") {
+            ProcessingResult::NoChanges
+        } else if result.contains("dry run") {
+            ProcessingResult::DryRun
+        } else if result.contains("requires confirmation") {
+            ProcessingResult::RequiresConfirmation
+        } else if result.contains("failed") {
+            ProcessingResult::Failed(ScrubberError::Unknown(result.to_string()))
+        } else if result.contains("edit applied") || result.contains("edits applied") {
+            // Try to extract count from "X edit(s) applied"
+            let count = result
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse::<u32>()
+                .unwrap_or(1);
+            ProcessingResult::EditsApplied(count)
+        } else if result.contains("edit pending") || result.contains("edits pending") {
+            // Try to extract count from "X edit(s) pending"
+            let count = result
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse::<u32>()
+                .unwrap_or(1);
+            ProcessingResult::EditsPending(count)
+        } else if result.contains("proposed rule") {
+            ProcessingResult::RuleProposed
+        } else {
+            // Fallback for unknown string format
+            ProcessingResult::Failed(ScrubberError::Unknown(format!(
+                "Unknown result format: {result}"
+            )))
+        };
+
         Self::new(ScrubberEventType::TrackProcessed {
             track,
             suggestions: vec![],
-            result: result.to_string(),
+            result: processing_result,
         })
     }
 
@@ -288,8 +375,13 @@ impl ScrubberEvent {
         })
     }
 
-    pub fn error(message: String) -> Self {
-        Self::new(ScrubberEventType::Error(message))
+    pub fn error(error: ScrubberError) -> Self {
+        Self::new(ScrubberEventType::Error(error))
+    }
+
+    /// Helper function for backwards compatibility with string errors
+    pub fn error_from_string(message: String) -> Self {
+        Self::new(ScrubberEventType::Error(ScrubberError::Unknown(message)))
     }
 
     pub fn info(message: String) -> Self {
@@ -350,13 +442,28 @@ impl ScrubberEvent {
         track: &Track,
         edit: Option<&LogEditInfo>,
         context: ProcessingContext,
-        error: String,
+        error: ScrubberError,
     ) -> Self {
         Self::new(ScrubberEventType::TrackEditFailed {
             track: track.clone(),
             edit: edit.cloned(),
             context,
             error,
+        })
+    }
+
+    /// Helper function for backwards compatibility with string errors
+    pub fn track_edit_failed_from_string(
+        track: &Track,
+        edit: Option<&LogEditInfo>,
+        context: ProcessingContext,
+        error: String,
+    ) -> Self {
+        Self::new(ScrubberEventType::TrackEditFailed {
+            track: track.clone(),
+            edit: edit.cloned(),
+            context,
+            error: ScrubberError::Unknown(error),
         })
     }
 
