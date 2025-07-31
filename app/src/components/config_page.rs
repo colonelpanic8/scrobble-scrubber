@@ -136,6 +136,13 @@ fn ScrubberConfigSection(config: Signal<ScrubberConfig>) -> Element {
                 help: "Require manual confirmation before applying proposed rewrite rules (deprecated)"
             }
 
+            CheckboxInput {
+                label: "Auto-start Scrubber",
+                checked: config.read().auto_start,
+                onchange: move |checked| config.with_mut(|c| c.auto_start = checked),
+                help: "Automatically start the scrubber when the application launches"
+            }
+
             JsonLoggingSection { config: config.read().json_logging.clone(), onchange: move |new_config| config.with_mut(|c| c.json_logging = new_config) }
         }
     }
