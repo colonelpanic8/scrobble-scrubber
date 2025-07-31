@@ -654,10 +654,7 @@ async fn process_artist_with_events(
 
     // Track events per track to compress them
     use std::collections::HashMap;
-    let mut track_events: HashMap<
-        String,
-        (::scrobble_scrubber::events::LogTrackInfo, Vec<String>, bool),
-    > = HashMap::new(); // (track, rule_descriptions, had_errors)
+    let mut track_events: HashMap<String, (lastfm_edit::Track, Vec<String>, bool)> = HashMap::new(); // (track, rule_descriptions, had_errors)
 
     // Process events with a timeout to collect statistics
     let mut has_cycle_completed = false;
@@ -678,17 +675,9 @@ async fn process_artist_with_events(
                     } => {
                         tracks_processed += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
-                            name: track.name.clone(),
-                            artist: track.artist.clone(),
-                            album: track.album.clone(),
-                            album_artist: track.album_artist.clone(),
-                            timestamp: track.timestamp,
-                            playcount: track.playcount,
-                        };
                         track_events
                             .entry(track_key)
-                            .or_insert((log_track, Vec::new(), false));
+                            .or_insert((track.clone(), Vec::new(), false));
                     }
                     ::scrobble_scrubber::events::ScrubberEventType::RuleApplied {
                         track,
@@ -697,17 +686,9 @@ async fn process_artist_with_events(
                     } => {
                         rules_applied += 1;
                         let track_key = format!("{}:{}", track.artist, track.name);
-                        let log_track = ::scrobble_scrubber::events::LogTrackInfo {
-                            name: track.name.clone(),
-                            artist: track.artist.clone(),
-                            album: track.album.clone(),
-                            album_artist: track.album_artist.clone(),
-                            timestamp: track.timestamp,
-                            playcount: track.playcount,
-                        };
                         track_events
                             .entry(track_key.clone())
-                            .or_insert((log_track, Vec::new(), false))
+                            .or_insert((track.clone(), Vec::new(), false))
                             .1
                             .push(description.clone());
                     }

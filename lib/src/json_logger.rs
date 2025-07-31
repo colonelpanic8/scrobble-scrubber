@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::events::ClientEvent;
+use lastfm_edit::ClientEvent;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 use tokio::sync::broadcast;
 
+use crate::config::ScrubberConfig;
 use crate::events::{ScrubberEvent, ScrubberEventType};
 
 /// JSON log entry for scrobble edit attempts
@@ -28,7 +29,7 @@ pub struct EditDetails {
 }
 
 /// Track metadata for before/after comparison
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TrackMetadata {
     pub track_name: String,
     pub artist_name: String,
@@ -41,6 +42,7 @@ pub struct JsonLogger {
     log_file_path: String,
     enabled: bool,
     receiver: broadcast::Receiver<ScrubberEvent>,
+    config: ScrubberConfig,
 }
 
 impl JsonLogger {
@@ -48,11 +50,13 @@ impl JsonLogger {
         log_file_path: String,
         enabled: bool,
         receiver: broadcast::Receiver<ScrubberEvent>,
+        config: ScrubberConfig,
     ) -> Self {
         Self {
             log_file_path,
             enabled,
             receiver,
+            config,
         }
     }
 
@@ -68,6 +72,12 @@ impl JsonLogger {
     /// Process a single ScrubberEvent and log if it contains ClientEvent::EditAttempted
     fn process_event(&self, event: &ScrubberEvent) -> Result<(), Box<dyn std::error::Error>> {
         if !self.enabled {
+            return Ok(());
+        }
+
+        // Defensive check: Do not log during dry run mode
+        if self.config.dry_run {
+            log::trace!("JSON logger: Skipping log during dry run mode");
             return Ok(());
         }
 

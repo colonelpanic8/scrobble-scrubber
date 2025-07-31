@@ -1,3 +1,4 @@
+use crate::config::ScrubberConfig;
 use crate::events::ScrubberEvent;
 use crate::json_logger::JsonLogger;
 use tokio::sync::broadcast;
@@ -13,9 +14,10 @@ impl EventLogger {
         log_file_path: String,
         enabled: bool,
         event_receiver: broadcast::Receiver<ScrubberEvent>,
+        config: ScrubberConfig,
     ) -> Self {
         Self {
-            json_logger: JsonLogger::new(log_file_path, enabled, event_receiver),
+            json_logger: JsonLogger::new(log_file_path, enabled, event_receiver, config),
         }
     }
 

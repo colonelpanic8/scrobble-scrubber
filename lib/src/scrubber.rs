@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
 use crate::events::ScrubberEvent;
-use crate::events::{LogEditInfo, LogTrackInfo, ProcessingContext};
+use crate::events::{LogEditInfo, ProcessingContext};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
@@ -1285,17 +1285,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
-                    let track_info = LogTrackInfo {
-                        name: track.name.clone(),
-                        artist: track.artist.clone(),
-                        album: track.album.clone(),
-                        album_artist: track.album_artist.clone(),
-                        timestamp: track.timestamp,
-                        playcount: track.playcount,
-                    };
-
                     self.emit_event(ScrubberEvent::track_skipped(
-                        &track_info,
+                        track,
                         log_context,
                         "Edit requires confirmation - created as pending".to_string(),
                     ));
@@ -1309,17 +1300,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         is_artist_processing: false,
                     };
                     let log_context = context.unwrap_or(default_context);
-                    let track_info = LogTrackInfo {
-                        name: track.name.clone(),
-                        artist: track.artist.clone(),
-                        album: track.album.clone(),
-                        album_artist: track.album_artist.clone(),
-                        timestamp: track.timestamp,
-                        playcount: track.playcount,
-                    };
-
                     self.emit_event(ScrubberEvent::track_skipped(
-                        &track_info,
+                        track,
                         log_context,
                         "Dry run mode - would apply edit".to_string(),
                     ));
@@ -1436,15 +1418,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         };
         let log_context = context.unwrap_or(default_context);
 
-        let track_info = LogTrackInfo {
-            name: track.name.clone(),
-            artist: track.artist.clone(),
-            album: track.album.clone(),
-            album_artist: track.album_artist.clone(),
-            timestamp: track.timestamp,
-            playcount: track.playcount,
-        };
-
         let edit_info = LogEditInfo {
             original_track_name: edit.track_name_original.clone(),
             original_artist_name: Some(edit.artist_name_original.clone()),
@@ -1458,7 +1431,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         self.emit_event(ScrubberEvent::pending_edit_created(
             pending_edit.id,
-            &track_info,
+            track,
             &edit_info,
             log_context,
         ));
@@ -1531,14 +1504,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             match self.client.edit_scrobble(edit).await {
                 Ok(_response) => {
                     // Emit event for successful edit
-                    let track_info = LogTrackInfo {
-                        name: track.name.clone(),
-                        artist: track.artist.clone(),
-                        album: track.album.clone(),
-                        album_artist: track.album_artist.clone(),
-                        timestamp: track.timestamp,
-                        playcount: track.playcount,
-                    };
                     let edit_info = LogEditInfo {
                         original_track_name: edit.track_name_original.clone(),
                         original_artist_name: Some(edit.artist_name_original.clone()),
@@ -1550,24 +1515,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         new_album_artist_name: edit.album_artist_name.clone(),
                     };
 
-                    self.emit_event(ScrubberEvent::track_edited(
-                        &track_info,
-                        &edit_info,
-                        log_context,
-                    ));
+                    self.emit_event(ScrubberEvent::track_edited(track, &edit_info, log_context));
                 }
                 Err(e) => {
                     log::warn!("Failed to apply edit: {e}");
 
                     // Emit event for failed edit
-                    let track_info = LogTrackInfo {
-                        name: track.name.clone(),
-                        artist: track.artist.clone(),
-                        album: track.album.clone(),
-                        album_artist: track.album_artist.clone(),
-                        timestamp: track.timestamp,
-                        playcount: track.playcount,
-                    };
                     let edit_info = LogEditInfo {
                         original_track_name: edit.track_name_original.clone(),
                         original_artist_name: Some(edit.artist_name_original.clone()),
@@ -1580,7 +1533,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     };
 
                     self.emit_event(ScrubberEvent::track_edit_failed(
-                        &track_info,
+                        track,
                         Some(&edit_info),
                         log_context,
                         format!("{e}"),

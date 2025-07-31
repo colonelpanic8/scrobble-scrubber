@@ -44,6 +44,7 @@ pub async fn create_scrubber_instance(
             log_file_path.clone(),
             true,
             event_receiver,
+            config.scrubber.clone(),
         );
 
         tokio::spawn(async move {

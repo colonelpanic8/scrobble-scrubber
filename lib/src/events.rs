@@ -1,6 +1,6 @@
 use crate::scrub_action_provider::ScrubActionSuggestion;
 use chrono::{DateTime, Utc};
-use lastfm_edit::events::ClientEvent;
+use lastfm_edit::ClientEvent;
 use lastfm_edit::Track;
 use serde::{Deserialize, Serialize};
 
@@ -17,18 +17,9 @@ pub struct ProcessingContext {
     pub is_artist_processing: bool,
 }
 
-// These types are only kept for backwards compatibility with existing logging code
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LogTrackInfo {
-    pub name: String,
-    pub artist: String,
-    pub album: Option<String>,
-    pub album_artist: Option<String>,
-    pub timestamp: Option<u64>,
-    pub playcount: u32,
-}
+// LogTrackInfo was removed - now using Track from lastfm-edit directly
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LogEditInfo {
     pub original_track_name: Option<String>,
     pub original_artist_name: Option<String>,
@@ -87,20 +78,20 @@ pub enum ScrubberEventType {
     TracksFound { count: usize, anchor_timestamp: u64 },
     /// Track edit was successful (legacy - use ClientEvent::EditAttempted instead)
     TrackEdited {
-        track: LogTrackInfo,
+        track: Track,
         edit: LogEditInfo,
         context: ProcessingContext,
     },
     /// Track edit failed (legacy - use ClientEvent::EditAttempted instead)
     TrackEditFailed {
-        track: LogTrackInfo,
+        track: Track,
         edit: Option<LogEditInfo>,
         context: ProcessingContext,
         error: String,
     },
     /// Track was skipped (dry run, requires confirmation, etc.)
     TrackSkipped {
-        track: LogTrackInfo,
+        track: Track,
         context: ProcessingContext,
         reason: String,
     },
@@ -109,7 +100,7 @@ pub enum ScrubberEventType {
     /// A pending edit was created requiring confirmation
     PendingEditCreated {
         pending_edit_id: String,
-        track: LogTrackInfo,
+        track: Track,
         edit: LogEditInfo,
         context: ProcessingContext,
     },
@@ -231,11 +222,7 @@ impl ScrubberEvent {
         })
     }
 
-    pub fn track_edited(
-        track: &LogTrackInfo,
-        edit: &LogEditInfo,
-        context: ProcessingContext,
-    ) -> Self {
+    pub fn track_edited(track: &Track, edit: &LogEditInfo, context: ProcessingContext) -> Self {
         Self::new(ScrubberEventType::TrackEdited {
             track: track.clone(),
             edit: edit.clone(),
@@ -244,7 +231,7 @@ impl ScrubberEvent {
     }
 
     pub fn track_edit_failed(
-        track: &LogTrackInfo,
+        track: &Track,
         edit: Option<&LogEditInfo>,
         context: ProcessingContext,
         error: String,
@@ -257,7 +244,7 @@ impl ScrubberEvent {
         })
     }
 
-    pub fn track_skipped(track: &LogTrackInfo, context: ProcessingContext, reason: String) -> Self {
+    pub fn track_skipped(track: &Track, context: ProcessingContext, reason: String) -> Self {
         Self::new(ScrubberEventType::TrackSkipped {
             track: track.clone(),
             context,
@@ -271,7 +258,7 @@ impl ScrubberEvent {
 
     pub fn pending_edit_created(
         pending_edit_id: String,
-        track: &LogTrackInfo,
+        track: &Track,
         edit: &LogEditInfo,
         context: ProcessingContext,
     ) -> Self {

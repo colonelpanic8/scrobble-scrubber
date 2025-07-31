@@ -872,7 +872,12 @@ async fn main() -> Result<()> {
     {
         let event_receiver = scrubber.lock().await.subscribe_events();
         let log_file_path = StorageConfig::get_edit_log_path(&config.storage.state_file);
-        let mut event_logger = EventLogger::new(log_file_path.clone(), true, event_receiver);
+        let mut event_logger = EventLogger::new(
+            log_file_path.clone(),
+            true,
+            event_receiver,
+            config.scrubber.clone(),
+        );
 
         tokio::spawn(async move {
             log::info!("Started edit logging to: {log_file_path}");
