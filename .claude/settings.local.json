@@ -137,7 +137,10 @@
       "Bash(gh workflow run:*)",
       "Bash(RUST_LOG=scrobble_scrubber=info,lastfm_edit=debug cargo run --bin scrobble-scrubber -- scrubber search --limit 1 -q remaster)",
       "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 1 -q remaster)",
-      "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 3 -q \"beatles\")"
+      "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 3 -q \"beatles\")",
+      "Bash(lastfm-edit:*)",
+      "Bash(lastfm-edit:*)",
+      "Bash(./add_album_rules)"
     ],
     "deny": [
       "Bash(dx serve:*)"
