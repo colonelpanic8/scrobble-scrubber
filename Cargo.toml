@@ -1,5 +1,6 @@
 [workspace]
 members = ["lib", "cli", "wasm", "napi", "app"]
+default-members = ["cli"]
 resolver = "2"
 
 [profile]
