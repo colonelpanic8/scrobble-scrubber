@@ -47,6 +47,9 @@
 
               # Image processing for icon generation
               imagemagick
+
+              # AppImage tooling
+              appimage-run
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies

@@ -147,7 +147,9 @@
       "WebFetch(domain:dioxuslabs.com)",
       "Bash(dx bundle)",
       "Bash(RUST_BACKTRACE=1 dx bundle)",
-      "Bash(dx bundle:*)"
+      "Bash(dx bundle:*)",
+      "Bash(bash:*)",
+      "Bash(nix search:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

@@ -2,18 +2,17 @@
 identifier = "com.scrobble-scrubber"
 publisher = "Scrobble Scrubber"
 name = "Scrobble Scrubber"
+icon = [
+  "assets/icons/16x16.png",
+  "assets/icons/32x32.png",
+  "assets/icons/128x128.png",
+  "assets/icons/256x256.png",
+  "assets/icons/icon.icns",
+  "assets/icons/icon.ico"
+]
 
 [application]
-# App icons for cross-platform desktop bundles
 asset_dir = "assets"
-icon = [
-  "icons/16x16.png",
-  "icons/32x32.png", 
-  "icons/128x128.png",
-  "icons/256x256.png",
-  "icons/icon.icns",
-  "icons/icon.ico"
-]
 
 [web.app]
 # HTML title tag content
