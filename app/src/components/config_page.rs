@@ -56,6 +56,12 @@ pub fn ConfigPage(state: Signal<AppState>) -> Element {
                 "Configuration"
             }
 
+            // Save Button at Top
+            div {
+                style: "margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;",
+                SaveButton { onclick: save_config }
+            }
+
             if let Some(status) = save_status.read().as_ref() {
                 div {
                     style: format!(
@@ -88,16 +94,10 @@ pub fn ConfigPage(state: Signal<AppState>) -> Element {
                 // Last.fm Configuration Section
                 LastFmConfigSection { config: lastfm_config }
 
-                // Save Button
+                // Save Button at Bottom
                 div {
                     style: "margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;",
-                    button {
-                        r#type: "submit",
-                        style: "background-color: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s;",
-                        onmouseenter: move |_| {},
-                        onmouseleave: move |_| {},
-                        "Save Configuration"
-                    }
+                    SaveButton { onclick: save_config }
                 }
             }
         }
@@ -736,4 +736,19 @@ async fn save_config_to_file(config: &ScrobbleScrubberConfig) -> Result<(), Stri
         .map_err(|e| format!("Failed to write config file: {e}"))?;
 
     Ok(())
+}
+
+// Reusable Save Button Component
+#[component]
+fn SaveButton(onclick: EventHandler<()>) -> Element {
+    rsx! {
+        button {
+            r#type: "button",
+            style: "background-color: #2563eb; color: white; padding: 0.75rem 2rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s; hover:background-color: #1d4ed8;",
+            onclick: move |_| onclick.call(()),
+            onmouseenter: move |_| {},
+            onmouseleave: move |_| {},
+            "Save Configuration"
+        }
+    }
 }
