@@ -2,6 +2,7 @@ mod commands;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use commands::cache::load_artist_tracks_cli;
+use commands::rules::enable_default_rules;
 use commands::*;
 use config::ConfigError;
 use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
@@ -250,6 +251,8 @@ enum TrackCacheCommands {
 enum RulesCommands {
     /// Show current active rewrite rules
     Show,
+    /// Enable all default rewrite rules (avoiding duplicates)
+    EnableDefaults,
     /// Add a new rewrite rule
     Add {
         /// Rule name (optional)
@@ -783,6 +786,10 @@ async fn main() -> Result<()> {
         Commands::Rules(rules_cmd) => match rules_cmd {
             RulesCommands::Show => {
                 show_active_rules(&storage).await?;
+                return Ok(());
+            }
+            RulesCommands::EnableDefaults => {
+                enable_default_rules(&storage).await?;
                 return Ok(());
             }
             RulesCommands::Add {

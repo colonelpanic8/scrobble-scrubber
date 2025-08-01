@@ -1,6 +1,7 @@
 use lastfm_edit::{LastFmError, Result};
 use scrobble_scrubber::persistence::StateStorage;
-use scrobble_scrubber::rewrite::{RewriteRule, SdRule};
+use scrobble_scrubber::rewrite::{load_comprehensive_default_rules, RewriteRule, SdRule};
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -333,5 +334,83 @@ pub async fn remove_rewrite_rule(
         })?;
 
     println!("Remaining rules: {}", rules_state.rewrite_rules.len());
+    Ok(())
+}
+
+fn rule_signature(rule: &RewriteRule) -> String {
+    format!(
+        "track:{:?}|artist:{:?}|album:{:?}|album_artist:{:?}",
+        rule.track_name.as_ref().map(|r| (&r.find, &r.replace)),
+        rule.artist_name.as_ref().map(|r| (&r.find, &r.replace)),
+        rule.album_name.as_ref().map(|r| (&r.find, &r.replace)),
+        rule.album_artist_name
+            .as_ref()
+            .map(|r| (&r.find, &r.replace))
+    )
+}
+
+/// Enable all default rewrite rules, avoiding duplicates
+pub async fn enable_default_rules(
+    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+) -> Result<()> {
+    println!("📝 Enabling Default Rewrite Rules");
+    println!("=================================");
+
+    let default_rules = load_comprehensive_default_rules();
+
+    let mut rules_state = storage
+        .lock()
+        .await
+        .load_rewrite_rules_state()
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load rewrite rules: {e}"
+            )))
+        })?;
+
+    let existing_signatures: HashSet<String> = rules_state
+        .rewrite_rules
+        .iter()
+        .map(rule_signature)
+        .collect();
+
+    let mut added_count = 0;
+    let mut skipped_count = 0;
+
+    for rule in default_rules {
+        let signature = rule_signature(&rule);
+        if existing_signatures.contains(&signature) {
+            log::debug!(
+                "Skipping duplicate rule: {}",
+                rule.name.as_deref().unwrap_or("(unnamed)")
+            );
+            skipped_count += 1;
+        } else {
+            log::debug!(
+                "Adding rule: {}",
+                rule.name.as_deref().unwrap_or("(unnamed)")
+            );
+            rules_state.rewrite_rules.push(rule);
+            added_count += 1;
+        }
+    }
+
+    storage
+        .lock()
+        .await
+        .save_rewrite_rules_state(&rules_state)
+        .await
+        .map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to save rewrite rules: {e}"
+            )))
+        })?;
+
+    println!("✅ Default rules processing complete:");
+    println!("   Added: {added_count} new rules");
+    println!("   Skipped: {skipped_count} duplicate rules");
+    println!("   Total active rules: {}", rules_state.rewrite_rules.len());
+
     Ok(())
 }
