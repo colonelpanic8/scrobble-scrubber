@@ -199,7 +199,31 @@ async fn check_auto_start_scrubber(state: Signal<AppState>) {
 }
 
 fn main() {
-    dioxus::launch(App);
+    use dioxus::desktop::tao::window::Icon;
+    use dioxus::desktop::{Config, WindowBuilder};
+    use image::ImageReader;
+    use std::io::Cursor;
+
+    let icon_data = include_bytes!("../assets/icons/256x256.png");
+
+    // Load and decode PNG to RGBA
+    let img = ImageReader::new(Cursor::new(icon_data))
+        .with_guessed_format()
+        .expect("Failed to guess format")
+        .decode()
+        .expect("Failed to decode image")
+        .to_rgba8();
+
+    let (width, height) = img.dimensions();
+    let rgba = img.into_raw();
+
+    let icon = Icon::from_rgba(rgba, width, height).expect("Failed to create icon");
+
+    let config = Config::new().with_window(WindowBuilder::new().with_window_icon(Some(icon)));
+
+    dioxus::LaunchBuilder::desktop()
+        .with_cfg(config)
+        .launch(App);
 }
 
 #[component]
