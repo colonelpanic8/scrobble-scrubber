@@ -44,6 +44,9 @@
 
               # Dioxus development tools
               dioxus-cli
+
+              # Image processing for icon generation
+              imagemagick
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies
