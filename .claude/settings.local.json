@@ -141,7 +141,8 @@
       "Bash(lastfm-edit:*)",
       "Bash(lastfm-edit:*)",
       "Bash(./add_album_rules)",
-      "Bash(RUST_LOG=info cargo run -- --state-file test_new_user.db rules show)"
+      "Bash(RUST_LOG=info cargo run -- --state-file test_new_user.db rules show)",
+      "Bash(RUST_LOG=info ./target/release/scrobble-scrubber --state-file test_embedded.db rules show)"
     ],
     "deny": [
       "Bash(dx serve:*)"

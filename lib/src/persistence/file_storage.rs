@@ -6,6 +6,7 @@ use super::{
     PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState, StateStorage,
     TimestampState,
 };
+use crate::rewrite::load_comprehensive_default_rules;
 
 /// PickleDB-based file storage implementation
 pub struct FileStorage {
@@ -27,6 +28,9 @@ impl FileStorage {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, FileStorageError> {
         let path_ref = path.as_ref();
 
+        // Check if this is a new database
+        let is_new_database = !path_ref.exists();
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = path_ref.parent() {
             std::fs::create_dir_all(parent)?;
@@ -45,7 +49,37 @@ impl FileStorage {
             ),
         };
 
-        Ok(Self { db })
+        let mut storage = Self { db };
+
+        // Initialize default rules for new databases
+        if is_new_database {
+            if let Err(e) = storage.initialize_default_rules() {
+                log::warn!("Failed to initialize default rules for new database: {e}");
+            } else {
+                log::info!("Initialized new database with comprehensive default rewrite rules");
+            }
+        }
+
+        Ok(storage)
+    }
+
+    /// Initialize default rewrite rules for a new database
+    fn initialize_default_rules(&mut self) -> Result<(), FileStorageError> {
+        let default_rules = load_comprehensive_default_rules();
+        let rules_state = RewriteRulesState {
+            rewrite_rules: default_rules,
+        };
+
+        self.db
+            .set("rewrite_rules_state", &rules_state)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Force a database dump to ensure the changes are persisted immediately
+        self.db
+            .dump()
+            .map_err(|e| FileStorageError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 }
 
