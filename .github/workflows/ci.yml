@@ -34,6 +34,3 @@ jobs:
 
       - name: Run tests
         run: nix develop --command cargo test --verbose
-
-      - name: Build release
-        run: nix develop --command cargo build --release --verbose
