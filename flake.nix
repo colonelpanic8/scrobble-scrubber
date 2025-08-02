@@ -53,6 +53,10 @@
 
               # GitHub CLI for monitoring releases
               gh
+
+              # Cross-compilation toolchains
+              pkgsCross.mingwW64.stdenv.cc
+              pkgsCross.mingwW64.windows.pthreads
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies

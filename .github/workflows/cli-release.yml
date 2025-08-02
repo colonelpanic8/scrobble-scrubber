@@ -26,11 +26,6 @@ jobs:
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Install cross-compilation toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
-
       - name: Add cross-compilation targets
         run: |
           nix develop --command rustup target add x86_64-pc-windows-gnu
