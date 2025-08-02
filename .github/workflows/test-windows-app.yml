@@ -1,0 +1,56 @@
+name: Test Windows App
+
+on:
+  push:
+    branches:
+      - "test-app-windows"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows-app:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (Windows)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust Cache (Windows)
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-app
+
+      - name: Install cargo-binstall (Windows)
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install Dioxus CLI (Windows)
+        run: |
+          cargo binstall --no-confirm dioxus-cli
+
+      - name: Build app bundle (Windows)
+        working-directory: app
+        run: |
+          dx bundle --release --platform windows --package-types exe
+
+      - name: List artifacts
+        working-directory: app
+        run: |
+          echo "=== WINDOWS APP ARTIFACTS ==="
+          Get-ChildItem -Path ../target/dx/scrobble-scrubber-app -Recurse -File | Sort-Object Name | Format-Table
+
+      - name: Upload app packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app-test
+          path: |
+            target/dx/scrobble-scrubber-app/**/*.exe
+          if-no-files-found: error

@@ -1,0 +1,56 @@
+name: Test macOS Intel App
+
+on:
+  push:
+    branches:
+      - "test-app-macos-intel"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos-intel-app:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust (macOS)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust Cache (macOS)
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-intel-app
+
+      - name: Install cargo-binstall (macOS)
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install Dioxus CLI (macOS)
+        run: |
+          cargo binstall --no-confirm dioxus-cli
+
+      - name: Build app bundle (macOS)
+        working-directory: app
+        run: |
+          dx bundle --release --platform macos --package-types app
+
+      - name: List artifacts
+        working-directory: app
+        run: |
+          echo "=== MACOS INTEL APP ARTIFACTS ==="
+          find ../target/dx/scrobble-scrubber-app -type f | sort
+
+      - name: Upload app packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-app-test
+          path: |
+            target/dx/scrobble-scrubber-app/**/*.app
+          if-no-files-found: error
