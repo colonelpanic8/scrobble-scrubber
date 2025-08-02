@@ -26,21 +26,22 @@ jobs:
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Check available targets
+      - name: Add cross-compilation targets
         run: |
-          nix develop --command rustc --print target-list | grep -E "(windows|darwin|linux)" | head -10
+          nix develop --command rustup target add x86_64-pc-windows-gnu
+          nix develop --command rustup target add x86_64-apple-darwin
 
       - name: Build Linux CLI
         run: |
           nix develop --command cargo build --release -p scrobble-scrubber-cli
 
-      - name: Attempt Windows CLI build
+      - name: Build Windows CLI
         run: |
-          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-pc-windows-gnu || echo "Windows cross-compilation not available"
+          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-pc-windows-gnu
 
-      - name: Attempt macOS CLI build
+      - name: Build macOS CLI
         run: |
-          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-apple-darwin || echo "macOS cross-compilation not available"
+          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-apple-darwin
 
       - name: List all CLI artifacts
         run: |
@@ -49,20 +50,20 @@ jobs:
           echo ""
           echo "=== PLATFORM-SPECIFIC CLI BINARIES ==="
           echo "Linux binary:"
-          ls -la target/release/scrobble-scrubber-cli || echo "Linux binary not found"
+          ls -la target/release/scrobble-scrubber || echo "Linux binary not found"
           echo "Windows binary:"
-          ls -la target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe || echo "Windows binary not found"
+          ls -la target/x86_64-pc-windows-gnu/release/scrobble-scrubber.exe || echo "Windows binary not found"
           echo "macOS binary:"
-          ls -la target/x86_64-apple-darwin/release/scrobble-scrubber-cli || echo "macOS binary not found"
+          ls -la target/x86_64-apple-darwin/release/scrobble-scrubber || echo "macOS binary not found"
 
       - name: Upload CLI binaries
         uses: actions/upload-artifact@v4
         with:
           name: cli-binaries
           path: |
-            target/release/scrobble-scrubber-cli
-            target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe
-            target/x86_64-apple-darwin/release/scrobble-scrubber-cli
+            target/release/scrobble-scrubber
+            target/x86_64-pc-windows-gnu/release/scrobble-scrubber.exe
+            target/x86_64-apple-darwin/release/scrobble-scrubber
           if-no-files-found: warn
 
   create-cli-release:
@@ -96,18 +97,18 @@ jobs:
           mkdir -p cli-release-files
           
           # Copy Linux binary
-          if [ -f cli-assets/cli-binaries/target/release/scrobble-scrubber-cli ]; then
-            cp cli-assets/cli-binaries/target/release/scrobble-scrubber-cli cli-release-files/scrobble-scrubber-linux-x86_64
+          if [ -f cli-assets/cli-binaries/target/release/scrobble-scrubber ]; then
+            cp cli-assets/cli-binaries/target/release/scrobble-scrubber cli-release-files/scrobble-scrubber-linux-x86_64
           fi
           
           # Copy Windows binary
-          if [ -f cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe ]; then
-            cp cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe cli-release-files/scrobble-scrubber-windows-x86_64.exe
+          if [ -f cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber.exe ]; then
+            cp cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber.exe cli-release-files/scrobble-scrubber-windows-x86_64.exe
           fi
           
           # Copy macOS binary
-          if [ -f cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber-cli ]; then
-            cp cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber-cli cli-release-files/scrobble-scrubber-macos-x86_64
+          if [ -f cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber ]; then
+            cp cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber cli-release-files/scrobble-scrubber-macos-x86_64
           fi
           
           echo "CLI release files prepared:"
