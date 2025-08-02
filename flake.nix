@@ -36,7 +36,7 @@
 
               # Linux-specific dependencies for GUI applications
             ]
-            ++ lib.optionals stdenv.isLinux [
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               # Tauri dependencies
               gtk3
               webkitgtk_4_1
@@ -52,7 +52,7 @@
               # AppImage tooling
               appimage-run
             ]
-            ++ lib.optionals (!stdenv.isDarwin) [
+            ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
               # Image processing for icon generation (may not support all platforms)
               imagemagick
             ]
@@ -60,7 +60,7 @@
               # GitHub CLI for monitoring releases (cross-platform)
               gh
             ]
-            ++ lib.optionals stdenv.isDarwin [
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               # macOS specific dependencies
               darwin.apple_sdk.frameworks.Security
               darwin.apple_sdk.frameworks.CoreFoundation
@@ -76,7 +76,7 @@
           OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
           WEBKIT_DISABLE_DMABUF_RENDERER = 1;
 
-          shellHook = lib.optionalString stdenv.isLinux ''
+          shellHook = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             # Add library paths for system tray functionality on Linux
             export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
@@ -102,7 +102,7 @@
             [
               openssl
             ]
-            ++ lib.optionals stdenv.isDarwin [
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               darwin.apple_sdk.frameworks.Security
               darwin.apple_sdk.frameworks.CoreFoundation
               darwin.apple_sdk.frameworks.SystemConfiguration
