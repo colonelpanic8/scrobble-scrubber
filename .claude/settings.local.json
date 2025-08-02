@@ -155,7 +155,9 @@
       "Bash(kill:*)",
       "Bash(pgrep:*)",
       "Bash(gh run list:*)",
-      "Bash(gh:*)"
+      "Bash(gh:*)",
+      "Bash(git rm:*)",
+      "Bash(git mv:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
