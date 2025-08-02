@@ -1,0 +1,16 @@
+* TODO Automatically rewrite tracks if there are many existing scrobbles under a certain album that is different than the incoming scrobble
+:LOGBOOK:
+- State "TODO"       from              [2025-08-02 Sat 12:49]
+:END:
+* TODO Handle deluxe edition conditional removal by checking if a song is in the original version ()
+:LOGBOOK:
+- State "TODO"       from              [2025-08-02 Sat 12:50]
+:END:
+* TODO Figure out how to handle greatest hits rewriting/changing
+:LOGBOOK:
+- State "TODO"       from              [2025-08-02 Sat 12:52]
+:END:
+* TODO Record pending edit confirmations so that they don't need to be done again
+:LOGBOOK:
+- State "TODO"       from              [2025-08-02 Sat 12:57]
+:END:
