@@ -34,6 +34,9 @@
               # For TUI development
               libiconv
 
+              # Linux-specific dependencies for GUI applications
+            ]
+            ++ lib.optionals stdenv.isLinux [
               # Tauri dependencies
               gtk3
               webkitgtk_4_1
@@ -42,14 +45,17 @@
               libappindicator-gtk3
               xdotool
 
-              # Dioxus development tools
+              # Linux-specific tools
+              # Dioxus development tools (only on Linux to avoid webkitgtk issues on macOS)
               dioxus-cli
-
-              # Image processing for icon generation
-              imagemagick
-
+              
               # AppImage tooling
               appimage-run
+            ]
+            ++ [
+              # Cross-platform tools
+              # Image processing for icon generation
+              imagemagick
 
               # GitHub CLI for monitoring releases
               gh
