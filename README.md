@@ -171,3 +171,4 @@ The scrubber uses the `lastfm-edit` library for all Last.fm interactions and imp
 2. **State Tracking**: Maintains a set of seen tracks to avoid reprocessing
 3. **Rule Engine**: Modular system for adding new cleaning rules
 4. **Action System**: Structured approach to track/artist modifications
+# Linux app test
