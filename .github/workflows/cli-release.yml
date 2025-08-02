@@ -45,28 +45,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rust
+      - name: Install Nix (Linux/macOS)
+        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store (Linux/macOS)
+        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Setup Rust (Windows only)
+        if: matrix.platform == 'windows'
         uses: dtolnay/rust-toolchain@stable
         with:
           target: ${{ matrix.target }}
 
-      - name: Setup Rust Cache
+      - name: Setup Rust Cache (Windows only)
+        if: matrix.platform == 'windows'
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform }}
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'linux'
+      - name: Build CLI (Linux/macOS with Nix)
+        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+          nix develop --command cargo build --release -p scrobble-scrubber-cli --target ${{ matrix.target }}
 
-      - name: Install macOS dependencies
-        if: startsWith(matrix.platform, 'macos')
-        run: |
-          # macOS should have the necessary dependencies built-in
-
-      - name: Build CLI
+      - name: Build CLI (Windows)
+        if: matrix.platform == 'windows'
         run: |
           cargo build --release -p scrobble-scrubber-cli --target ${{ matrix.target }}
 
