@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - "test-cli-*"  # Allow testing specific platforms
 
 permissions:
   contents: write

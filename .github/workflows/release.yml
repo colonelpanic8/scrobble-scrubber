@@ -6,6 +6,7 @@ on:
       - "v*"
     branches:
       - "release/*"
+      - "test-app-*"  # Allow testing specific platforms
 
 permissions:
   contents: write
@@ -45,6 +46,18 @@ jobs:
             package-types: app
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.app
+    
+    # Skip platforms based on branch name for targeted testing
+    if: |
+      startsWith(github.ref, 'refs/tags/') ||
+      github.ref == 'refs/heads/master' ||
+      contains(github.ref, 'release/') ||
+      (contains(github.ref, 'test-app-linux') && matrix.platform == 'linux') ||
+      (contains(github.ref, 'test-app-windows') && matrix.platform == 'windows') ||
+      (contains(github.ref, 'test-app-macos-intel') && matrix.platform == 'macos-intel') ||
+      (contains(github.ref, 'test-app-macos-arm') && matrix.platform == 'macos-arm') ||
+      (contains(github.ref, 'test-app-macos') && (matrix.platform == 'macos-intel' || matrix.platform == 'macos-arm')) ||
+      (contains(github.ref, 'test-app-all'))
 
     runs-on: ${{ matrix.os }}
 
@@ -108,7 +121,7 @@ jobs:
   create-release:
     needs: build-app-platforms
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || contains(github.ref, 'release/')
 
     steps:
       - name: Checkout code
