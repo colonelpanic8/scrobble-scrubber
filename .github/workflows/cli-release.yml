@@ -3,7 +3,7 @@ name: CLI Release
 on:
   push:
     tags:
-      - 'cli-v*'
+      - 'v*'
 
 permissions:
   contents: write
@@ -82,7 +82,7 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          if [[ ${{ github.ref }} =~ refs/tags/cli-v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+          if [[ ${{ github.ref }} =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
             echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
           else
             echo "version=unknown" >> $GITHUB_OUTPUT
@@ -113,72 +113,29 @@ jobs:
           echo "CLI release files prepared:"
           ls -la cli-release-files/
 
-      - name: Create CLI GitHub Release
+      - name: Add CLI binaries to existing release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Scrobble Scrubber CLI v${{ steps.version.outputs.version }}"
+          files: cli-release-files/*
+          append_body: true
           body: |
-            ## Scrobble Scrubber CLI v${{ steps.version.outputs.version }}
+            
+            ## CLI Binaries
 
-            Command-line interface for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
-
-            ### Downloads
-
-            **Windows:**
+            **Command-line interface binaries:**
             - `scrobble-scrubber-windows-x86_64.exe` - Windows CLI executable
-
-            **macOS:**
-            - `scrobble-scrubber-macos-x86_64` - macOS CLI binary
-
-            **Linux:**
+            - `scrobble-scrubber-macos-x86_64` - macOS CLI binary  
             - `scrobble-scrubber-linux-x86_64` - Linux CLI binary
 
-            ### Installation
-
-            **Windows:**
-            Download `scrobble-scrubber-windows-x86_64.exe` and run it from the command line.
-
-            **macOS:**
+            **CLI Installation:**
             ```bash
-            chmod +x scrobble-scrubber-macos-x86_64
-            ./scrobble-scrubber-macos-x86_64 --help
-            ```
-
-            **Linux:**
-            ```bash
+            # Linux/macOS
             chmod +x scrobble-scrubber-linux-x86_64
             ./scrobble-scrubber-linux-x86_64 --help
+
+            # Windows  
+            scrobble-scrubber-windows-x86_64.exe --help
             ```
-
-            ### Usage
-
-            The CLI provides the same functionality as the desktop app but in command-line form:
-
-            ```bash
-            # Show help
-            scrobble-scrubber --help
-
-            # Run with configuration file
-            scrobble-scrubber --config /path/to/config.toml
-
-            # Process scrobbles with specific rules
-            scrobble-scrubber --rules /path/to/rules.json
-            ```
-
-            ### Features
-            - Command-line scrobble processing and cleanup
-            - Configurable rewrite rules for track metadata
-            - Batch processing capabilities
-            - JSON and TOML configuration support
-            - Automated scrobble management
-
-            ### Cross-Platform Support
-            This release provides native CLI binaries for Windows, macOS, and Linux platforms.
-
-            Built with Rust.
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          files: cli-release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
