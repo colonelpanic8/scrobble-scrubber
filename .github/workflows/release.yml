@@ -28,61 +28,37 @@ jobs:
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Install cross-compilation targets
-        working-directory: app
-        run: |
-          nix develop --command rustup target add x86_64-pc-windows-gnu
-          nix develop --command rustup target add x86_64-apple-darwin
-
-      - name: Build Windows bundle
-        working-directory: app
-        run: |
-          nix develop --command dx bundle --release \
-            --platform windows \
-            --target x86_64-pc-windows-gnu \
-            --package-types msi
-
-      - name: Build macOS bundle  
-        working-directory: app
-        run: |
-          nix develop --command dx bundle --release \
-            --platform macos \
-            --target x86_64-apple-darwin \
-            --package-types dmg
-
-      - name: Build Linux bundle
+      - name: Build Linux bundle (primary)
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
             --platform linux \
             --package-types deb
 
+      - name: Build additional packages (native Linux only for now)
+        working-directory: app
+        run: |
+          # AppImage requires additional setup - skip for now
+          echo "Note: Cross-compilation to Windows/macOS requires complex toolchain setup"
+          echo "Currently providing native Linux builds only"
+          echo "Future enhancement: Add proper cross-compilation support"
+
       - name: List all artifacts
         working-directory: app
         run: |
-          echo "All generated artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.msi" -o -name "*.dmg" -o -name "*.deb" | sort
+          echo "Generated Linux artifacts:"
+          find ../target/dx/scrobble-scrubber-app -name "*.deb" | sort
+          echo "Also available:"
+          ls -la ../target/dx/scrobble-scrubber-app/release/linux/app/
 
-      - name: Upload Windows artifacts
+      - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: windows-bundle
-          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
-          if-no-files-found: warn
-
-      - name: Upload macOS artifacts  
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-bundle
-          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
-          if-no-files-found: warn
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-bundle
-          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
-          if-no-files-found: warn
+          name: linux-packages
+          path: |
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
+            target/dx/scrobble-scrubber-app/release/linux/app/scrobble-scrubber-app
+          if-no-files-found: error
 
   create-release:
     needs: build-all-platforms
@@ -107,17 +83,20 @@ jobs:
             echo "version=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: Flatten artifacts and list
+      - name: Prepare release assets
         run: |
           echo "Downloaded artifacts:"
           find release-assets -type f | sort
-          echo "Flattening artifacts..."
-          mkdir -p flattened-assets
-          find release-assets -name "*.msi" -o -name "*.dmg" -o -name "*.deb" | while read file; do
-            cp "$file" flattened-assets/
+          echo "Preparing release assets..."
+          mkdir -p release-files
+          find release-assets -name "*.deb" | while read file; do
+            cp "$file" release-files/
           done
-          echo "Flattened release assets:"
-          ls -la flattened-assets/
+          find release-assets -name "scrobble-scrubber-app" -type f | while read file; do
+            cp "$file" release-files/scrobble-scrubber-app-linux-x86_64
+          done
+          echo "Release files prepared:"
+          ls -la release-files/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -127,31 +106,40 @@ jobs:
           body: |
             ## Scrobble Scrubber v${{ steps.version.outputs.version }}
 
-            Cross-platform desktop application for managing Last.fm scrobbles.
+            Desktop application for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
 
-            ### Downloads
-
-            **Windows:**
-            - `.msi` - Windows Installer package
-            - `.exe` - NSIS installer
-
-            **macOS:**
-            - `.app` - macOS application bundle
-            - `.dmg` - macOS disk image installer
+            ### Downloads (Linux)
 
             **Linux:**
-            - `.deb` - Debian/Ubuntu package
-            - `.AppImage` - Universal Linux application
+            - `ScrobbleScrubberApp_*.deb` - Debian/Ubuntu package installer
+            - `scrobble-scrubber-app-linux-x86_64` - Standalone binary
 
             ### Installation
 
-            **Windows:** Download and run the `.msi` or `.exe` installer
-            **macOS:** Download the `.dmg`, open it, and drag the app to Applications
-            **Linux:** 
-            - Debian/Ubuntu: `sudo dpkg -i scrobble-scrubber_*.deb`
-            - AppImage: `chmod +x *.AppImage && ./ScrobbleScrubber-*.AppImage`
+            **Debian/Ubuntu:**
+            ```bash
+            sudo dpkg -i ScrobbleScrubberApp_*.deb
+            ```
+
+            **Standalone Binary:**
+            ```bash
+            chmod +x scrobble-scrubber-app-linux-x86_64
+            ./scrobble-scrubber-app-linux-x86_64
+            ```
+
+            ### Features
+            - System tray integration with dynamic status
+            - Automated scrobble processing and cleanup
+            - Configurable rewrite rules for track metadata
+            - Pending edits management
+            - Real-time status monitoring
+
+            ### Cross-Platform Support
+            This release provides native Linux builds. Cross-compilation support for Windows and macOS is planned for future releases.
+
+            Built with Dioxus 0.7 and Rust.
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: flattened-assets/*
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
