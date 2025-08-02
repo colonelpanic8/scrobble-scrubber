@@ -7,6 +7,10 @@ on:
     branches:
       - 'release/*'
 
+permissions:
+  contents: write
+  packages: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -51,15 +55,26 @@ jobs:
           echo "All generated artifacts:"
           find ../target/dx/scrobble-scrubber-app -name "*.msi" -o -name "*.dmg" -o -name "*.deb" | sort
 
-      - name: Upload all artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cross-platform-bundles
-          path: |
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
-          if-no-files-found: error
+          name: windows-bundle
+          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
+          if-no-files-found: warn
+
+      - name: Upload macOS artifacts  
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundle
+          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
+          if-no-files-found: warn
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundle
+          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
+          if-no-files-found: warn
 
   create-release:
     needs: build-all-platforms
@@ -73,7 +88,6 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cross-platform-bundles
           path: release-assets
 
       - name: Extract version from tag
@@ -85,10 +99,17 @@ jobs:
             echo "version=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: List release assets
+      - name: Flatten artifacts and list
         run: |
-          echo "Release assets:"
+          echo "Downloaded artifacts:"
           find release-assets -type f | sort
+          echo "Flattening artifacts..."
+          mkdir -p flattened-assets
+          find release-assets -name "*.msi" -o -name "*.dmg" -o -name "*.deb" | while read file; do
+            cp "$file" flattened-assets/
+          done
+          echo "Flattened release assets:"
+          ls -la flattened-assets/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -123,6 +144,6 @@ jobs:
             - AppImage: `chmod +x *.AppImage && ./ScrobbleScrubber-*.AppImage`
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: release-assets/*
+          files: flattened-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
