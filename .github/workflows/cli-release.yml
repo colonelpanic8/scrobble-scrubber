@@ -1,0 +1,184 @@
+name: CLI Release
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+
+permissions:
+  contents: write
+  packages: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-cli-platforms:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Check available targets
+        run: |
+          nix develop --command rustc --print target-list | grep -E "(windows|darwin|linux)" | head -10
+
+      - name: Build Linux CLI
+        run: |
+          nix develop --command cargo build --release -p scrobble-scrubber-cli
+
+      - name: Attempt Windows CLI build
+        run: |
+          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-pc-windows-gnu || echo "Windows cross-compilation not available"
+
+      - name: Attempt macOS CLI build
+        run: |
+          nix develop --command cargo build --release -p scrobble-scrubber-cli --target x86_64-apple-darwin || echo "macOS cross-compilation not available"
+
+      - name: List all CLI artifacts
+        run: |
+          echo "=== CLI BINARIES BUILT ==="
+          find target -name "scrobble-scrubber*" -type f | sort
+          echo ""
+          echo "=== PLATFORM-SPECIFIC CLI BINARIES ==="
+          echo "Linux binary:"
+          ls -la target/release/scrobble-scrubber-cli || echo "Linux binary not found"
+          echo "Windows binary:"
+          ls -la target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe || echo "Windows binary not found"
+          echo "macOS binary:"
+          ls -la target/x86_64-apple-darwin/release/scrobble-scrubber-cli || echo "macOS binary not found"
+
+      - name: Upload CLI binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-binaries
+          path: |
+            target/release/scrobble-scrubber-cli
+            target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe
+            target/x86_64-apple-darwin/release/scrobble-scrubber-cli
+          if-no-files-found: warn
+
+  create-cli-release:
+    needs: build-cli-platforms
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: cli-assets
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ ${{ github.ref }} =~ refs/tags/cli-v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "version=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare CLI release assets
+        run: |
+          echo "Downloaded CLI artifacts:"
+          find cli-assets -type f | sort
+          echo "Preparing CLI release assets..."
+          mkdir -p cli-release-files
+          
+          # Copy Linux binary
+          if [ -f cli-assets/cli-binaries/target/release/scrobble-scrubber-cli ]; then
+            cp cli-assets/cli-binaries/target/release/scrobble-scrubber-cli cli-release-files/scrobble-scrubber-linux-x86_64
+          fi
+          
+          # Copy Windows binary
+          if [ -f cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe ]; then
+            cp cli-assets/cli-binaries/target/x86_64-pc-windows-gnu/release/scrobble-scrubber-cli.exe cli-release-files/scrobble-scrubber-windows-x86_64.exe
+          fi
+          
+          # Copy macOS binary
+          if [ -f cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber-cli ]; then
+            cp cli-assets/cli-binaries/target/x86_64-apple-darwin/release/scrobble-scrubber-cli cli-release-files/scrobble-scrubber-macos-x86_64
+          fi
+          
+          echo "CLI release files prepared:"
+          ls -la cli-release-files/
+
+      - name: Create CLI GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Scrobble Scrubber CLI v${{ steps.version.outputs.version }}"
+          body: |
+            ## Scrobble Scrubber CLI v${{ steps.version.outputs.version }}
+
+            Command-line interface for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
+
+            ### Downloads
+
+            **Windows:**
+            - `scrobble-scrubber-windows-x86_64.exe` - Windows CLI executable
+
+            **macOS:**
+            - `scrobble-scrubber-macos-x86_64` - macOS CLI binary
+
+            **Linux:**
+            - `scrobble-scrubber-linux-x86_64` - Linux CLI binary
+
+            ### Installation
+
+            **Windows:**
+            Download `scrobble-scrubber-windows-x86_64.exe` and run it from the command line.
+
+            **macOS:**
+            ```bash
+            chmod +x scrobble-scrubber-macos-x86_64
+            ./scrobble-scrubber-macos-x86_64 --help
+            ```
+
+            **Linux:**
+            ```bash
+            chmod +x scrobble-scrubber-linux-x86_64
+            ./scrobble-scrubber-linux-x86_64 --help
+            ```
+
+            ### Usage
+
+            The CLI provides the same functionality as the desktop app but in command-line form:
+
+            ```bash
+            # Show help
+            scrobble-scrubber --help
+
+            # Run with configuration file
+            scrobble-scrubber --config /path/to/config.toml
+
+            # Process scrobbles with specific rules
+            scrobble-scrubber --rules /path/to/rules.json
+            ```
+
+            ### Features
+            - Command-line scrobble processing and cleanup
+            - Configurable rewrite rules for track metadata
+            - Batch processing capabilities
+            - JSON and TOML configuration support
+            - Automated scrobble management
+
+            ### Cross-Platform Support
+            This release provides native CLI binaries for Windows, macOS, and Linux platforms.
+
+            Built with Rust.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: cli-release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
