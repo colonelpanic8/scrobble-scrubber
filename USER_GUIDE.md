@@ -1,49 +1,20 @@
 # Scrobble Scrubber User Guide
 
-Scrobble Scrubber is an automated tool that monitors your Last.fm listening history and cleans up track metadata by fixing common issues like remaster suffixes, formatting problems, and other metadata inconsistencies.
+Scrobble Scrubber is an automated tool that monitors your Last.fm listening
+history and cleans up track metadata by fixing common issues like remaster
+suffixes, formatting problems, and other metadata inconsistencies.
 
 ## Getting Started
 
 ### Prerequisites
 
 - A Last.fm Pro subscription (required for editing scrobbles)
-- Last.fm account username and password
-- Rust installed on your system (for building from source)
-- (Optional) OpenAI API key for advanced AI-powered cleaning
 
 ### Installation
 
 1. **Download the latest release:**
-   - Visit the [releases page](https://github.com/your-repo/scrobble-scrubber/releases)
+   - Visit the [releases page](https://github.com/colonelpanic8/scrobble-scrubber/releases)
    - Download the appropriate version for your operating system
-   - Extract the archive to your preferred location
-
-2. **Run the application:**
-
-   **Desktop App (Recommended for beginners):**
-   - Double-click the desktop app executable
-   - Or run from terminal: `./scrobble-scrubber-gui`
-
-   **Command Line Interface:**
-   - Run from terminal: `./scrobble-scrubber-cli`
-   - Or add to your PATH for global access
-
-### Building from Source (Advanced Users)
-
-If you prefer to build from source:
-
-```bash
-git clone <repository-url>
-cd scrobble-scrubber
-
-# Desktop App
-cd app
-dx serve --platform desktop
-
-# Command Line Interface  
-cd cli
-cargo run
-```
 
 ### First-Time Setup
 
@@ -141,15 +112,12 @@ Fast pattern-based cleaning using predefined rules:
 #### OpenAI Provider (Optional)
 AI-powered cleaning for complex metadata issues:
 - **Requires OpenAI API key**
-- Configure model (gpt-4o recommended)
+- Configure model
 - Handles complex cases requiring musical knowledge
 - More expensive but very effective
 
-#### HTTP Provider (Advanced)
-Connect to custom cleaning endpoints:
-- Configure custom API endpoints
-- Integrate with your own cleaning services
-- Advanced users only
+#### MusicBrainz Provider (Advanced)
+Connect to the musicbrainz API to correct tags
 
 ### Storage Settings
 
@@ -165,69 +133,3 @@ Connect to custom cleaning endpoints:
 2. **Review the default rules** to understand what will be cleaned
 3. **Begin with a small time window** to test on recent tracks first
 4. **Monitor the pending edits** regularly to catch any issues
-
-### Rule Customization
-
-- **Use specific patterns** rather than broad ones to avoid false matches
-- **Test rules thoroughly** before enabling them permanently
-- **Start conservative** and add more aggressive cleaning over time
-- **Back up your rule sets** before making major changes
-
-### Performance Optimization
-
-- **Adjust check intervals** based on your listening habits
-- **Limit tracks per run** if you have a large library
-- **Use dry run mode** for testing to avoid API rate limits
-- **Monitor system resources** during large processing runs
-
-## Troubleshooting
-
-### Common Issues
-
-**Can't log in to Last.fm:**
-- Verify your username and password are correct
-- Check that your Last.fm account allows API access
-- Try logging in manually through Last.fm's website first
-
-**Scrubber not finding tracks:**
-- Ensure you have recent scrobbles on your Last.fm account
-- Check the check interval setting - it may be too long
-- Verify your internet connection is stable
-
-**Changes not being applied:**
-- Check if dry run mode is enabled
-- Review pending edits - changes may need manual approval
-- Verify you're not hitting Last.fm rate limits
-
-**Rules not working as expected:**
-- Test rules in isolation using the Rule Workshop
-- Check rule syntax and patterns carefully
-- Start with simpler patterns and build complexity gradually
-
-### Performance Issues
-
-- Reduce the number of tracks processed per run
-- Increase check intervals to reduce API calls
-- Clear cache periodically to free up storage
-- Monitor system resources during operation
-
-## Support and Community
-
-### Getting Help
-
-- Check the troubleshooting section above for common issues
-- Review application logs for detailed error information
-- Test with dry run mode to isolate problems
-- Start with default settings and customize gradually
-
-### Best Practices
-
-- **Regular monitoring**: Check pending edits regularly
-- **Gradual customization**: Add rules incrementally
-- **Backup configurations**: Save your rule sets and settings
-- **Test changes**: Use dry run mode for major modifications
-- **Monitor performance**: Watch for rate limits and resource usage
-
----
-
-*Happy scrobbling! Your Last.fm library will be cleaner and more consistent with Scrobble Scrubber working automatically in the background.*
