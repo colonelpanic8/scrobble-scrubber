@@ -48,16 +48,7 @@ jobs:
               target/dx/scrobble-scrubber-app/**/*.app
     
     # Skip platforms based on branch name for targeted testing
-    if: |
-      startsWith(github.ref, 'refs/tags/') ||
-      github.ref == 'refs/heads/master' ||
-      contains(github.ref, 'release/') ||
-      (contains(github.ref, 'test-app-linux') && matrix.platform == 'linux') ||
-      (contains(github.ref, 'test-app-windows') && matrix.platform == 'windows') ||
-      (contains(github.ref, 'test-app-macos-intel') && matrix.platform == 'macos-intel') ||
-      (contains(github.ref, 'test-app-macos-arm') && matrix.platform == 'macos-arm') ||
-      (contains(github.ref, 'test-app-macos') && (matrix.platform == 'macos-intel' || matrix.platform == 'macos-arm')) ||
-      (contains(github.ref, 'test-app-all'))
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || contains(github.ref, 'release/') || (contains(github.ref, 'test-app-linux') && matrix.platform == 'linux') || (contains(github.ref, 'test-app-windows') && matrix.platform == 'windows') || (contains(github.ref, 'test-app-macos-intel') && matrix.platform == 'macos-intel') || (contains(github.ref, 'test-app-macos-arm') && matrix.platform == 'macos-arm') || (contains(github.ref, 'test-app-macos') && (matrix.platform == 'macos-intel' || matrix.platform == 'macos-arm')) || contains(github.ref, 'test-app-all')
 
     runs-on: ${{ matrix.os }}
 
