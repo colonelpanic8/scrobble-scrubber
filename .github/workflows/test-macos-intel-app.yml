@@ -39,7 +39,7 @@ jobs:
       - name: Build app bundle (macOS)
         working-directory: app
         run: |
-          dx bundle --release --platform macos --package-types app
+          dx bundle --release --platform macos --package-types macos
 
       - name: List artifacts
         working-directory: app
