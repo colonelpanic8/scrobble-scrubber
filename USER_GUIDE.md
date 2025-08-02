@@ -15,34 +15,138 @@ annoying mislabelings in last.fm scrobble data.
    - Visit the [releases page](https://github.com/colonelpanic8/scrobble-scrubber/releases)
    - Download the appropriate version for your operating system
 
-### First-Time Setup
-
-1. **Configure your Last.fm credentials:**
-   - Set environment variables:
-     ```bash
-     export SCROBBLE_SCRUBBER_LASTFM_USERNAME="your_username"
-     export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_password"
-     ```
-   - Or configure through the desktop app's Configuration page
-
-2. **Start the application** - it will automatically log you in and begin monitoring your recent tracks
-
 ## Core Features
 
 ### What Scrobble Scrubber Does
 
-The app continuously monitors your Last.fm recent tracks and applies cleaning rules to fix common metadata issues:
+Scrobble Scrubber offers two main ways to clean your Last.fm metadata:
 
-- **Removes remaster suffixes**: "Song - 2019 Remaster" becomes "Song"
-- **Normalizes featuring formats**: "Artist ft. Other" becomes "Artist feat. Other"
-- **Cleans whitespace and formatting**: Removes extra spaces, fixes capitalization
-- **Fixes common metadata errors**: Corrects artist names, track titles, and album names
+- **Continuous Monitoring**: Automatically monitors your recent tracks and applies cleaning rules in real-time
+- **Ad-hoc Processing**: Manually process specific tracks, time periods, or your entire library on-demand
 
-### Operating Modes
+The app applies intelligent cleaning rules to fix common metadata issues:
 
-- **Automatic Mode**: Runs continuously, checking for new tracks every 5 minutes
-- **Dry Run Mode**: Preview changes without actually modifying your scrobbles
-- **Manual Mode**: Review and approve each change before it's applied
+**Examples of metadata corrections include:**
+
+- **Remove remaster suffixes**: "Song - 2019 Remaster" → "Song"
+- **Remove version indicators**: "Song (Single Version)" → "Song"
+- **Remove audio format labels**: "Song (Stereo)" → "Song"
+- **Normalize featuring formats**: "Artist ft. Other" → "Artist feat. Other"
+- **Clean whitespace and formatting**: Remove extra spaces, fix capitalization
+- **Correct artist attribution**: Fix cases where Spotify scrobbles multi-artist tracks to only the first artist
+
+### Tag Correction Methods
+
+Scrobble Scrubber uses multiple approaches to clean your metadata, each with different strengths:
+
+#### Rewrite Rules
+Fast, pattern-based corrections using regular expressions and literal text replacements. Perfect for systematic issues like remaster suffixes, featuring format inconsistencies, and whitespace problems. Ships with 30+ default rules and supports custom rule creation.
+
+#### MusicBrainz Provider
+Leverages the comprehensive MusicBrainz database to correct track metadata using verified release information. Ideal for fixing incorrect track titles, artist names, and album information by matching against the world's largest music database.
+
+#### LLM Provider (AI-Powered)
+Uses large language models (like OpenAI's GPT) to handle complex metadata issues requiring musical knowledge and context. Can identify subtle problems, suggest new rewrite rules, and handle edge cases that pattern-based rules miss. More expensive but highly effective for nuanced corrections.
+
+### How Rewrite Rules Work
+
+Rewrite rules are the core pattern-based cleaning system in Scrobble Scrubber. They use regular expressions to find and replace problematic metadata patterns.
+
+#### Rule Structure
+
+Each rewrite rule can target any combination of four metadata fields:
+- **Track Name** - Song titles
+- **Artist Name** - Performing artist
+- **Album Name** - Album titles
+- **Album Artist Name** - Album-level artist attribution
+
+**Important**: For a rule to apply, **ALL** specified patterns must match. If you define patterns for both artist and album, the track must match both patterns or the rule won't trigger.
+
+#### Rule Format
+
+Rules consist of **find/replace patterns** using rust regular expressions:
+
+```
+Find Pattern: ^(.+) - \d{4} Remaster$
+Replace: $1
+```
+
+This rule finds tracks ending with "- [Year] Remaster" and replaces the entire title with just the captured song name.
+
+#### Capture Groups Explained
+
+Capture groups are the key to powerful rewrite rules - they let you extract and reuse parts of the matched text. They're created using parentheses `()` in your find pattern.
+
+**Basic Numbered Groups:**
+```
+Find: ^(.+) - (\d{4}) Remaster$
+Replace: $1 (originally from $2)
+```
+- `(.+)` captures the song title as group 1
+- `(\d{4})` captures the year as group 2
+- Input: "Hotel California - 1976 Remaster"
+- Output: "Hotel California (originally from 1976)"
+
+**Multiple Groups Example:**
+```
+Find: ^(.+) [Ff]eat\. (.+) - (.+)$
+Replace: $3 by $1 featuring $2
+```
+- Group 1: Main artist
+- Group 2: Featured artist
+- Group 3: Song title
+- Input: "Taylor Swift feat. Ed Sheeran - Everything Has Changed"
+- Output: "Everything Has Changed by Taylor Swift featuring Ed Sheeran"
+
+**Named Capture Groups:**
+```
+Find: ^(?P<artist>.+) - (?P<song>.+) \((?P<year>\d{4})\)$
+Replace: ${song} by ${artist}
+```
+- Uses `(?P<name>...)` syntax for named groups
+- Reference with `${name}` in replacement
+- Input: "The Beatles - Hey Jude (1968)"
+- Output: "Hey Jude by The Beatles"
+
+**Escaping Special Characters:**
+- Use `\$` for literal dollar signs
+- Use `\{` and `\}` for literal braces
+- Use `\\` for literal backslashes
+
+#### Real Examples
+
+**Remove Remaster Suffixes:**
+- Find: `^(.+) - \d{4} Digital Remaster$`
+- Replace: `$1`
+- Input: "The Big Ship - 2004 Digital Remaster"
+- Output: "The Big Ship"
+
+**Normalize Featuring Formats:**
+- Find: `(.+) [Ff]t\. (.+)`
+- Replace: `$1 feat. $2`
+- Input: "Artist ft. Other Artist"
+- Output: "Artist feat. Other Artist"
+
+**Complex Multi-Field Rule:**
+```
+Artist Name: ^Chris Thile$ → Chris Thile & Michael Daves
+Album Name: Sleep With One Eye Open → Sleep With One Eye Open
+Album Artist: .* → Chris Thile & Michael Daves
+```
+
+This rule demonstrates the "ALL patterns must match" requirement - it only applies when:
+1. The artist is exactly "Chris Thile" AND
+2. The album contains "Sleep With One Eye Open" AND
+3. There is an album artist field (any value)
+
+Only when all three conditions are met will the rule trigger and correct the collaboration attribution.
+
+#### Key Features
+
+- **All Patterns Must Match**: For multi-field rules, every specified pattern must match for the rule to apply
+- **Whole String Replacement**: When a pattern matches, the entire field is replaced
+- **30+ Default Rules**: Ships with comprehensive rules for common issues
+- **Custom Rules**: Create your own rules through the GUI or configuration
 
 ## Desktop App Guide
 
@@ -123,12 +227,3 @@ Connect to the musicbrainz API to correct tags
 - **State File Location**: Where to store processing history
 - **Cache Management**: Control cached track data
 - **Per-user Data**: Isolate data between different users
-
-## Tips for Best Results
-
-### Getting Started Tips
-
-1. **Start with dry run mode** to see what changes would be made
-2. **Review the default rules** to understand what will be cleaned
-3. **Begin with a small time window** to test on recent tracks first
-4. **Monitor the pending edits** regularly to catch any issues
