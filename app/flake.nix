@@ -31,7 +31,7 @@
               # Dioxus CLI for app development
               dioxus-cli
             ]
-            ++ lib.optionals stdenv.isDarwin [
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               # macOS specific dependencies for Dioxus desktop apps
               darwin.apple_sdk.frameworks.Security
               darwin.apple_sdk.frameworks.CoreFoundation
@@ -39,7 +39,7 @@
               darwin.apple_sdk.frameworks.WebKit
               darwin.apple_sdk.frameworks.AppKit
             ]
-            ++ lib.optionals stdenv.isLinux [
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               # Linux specific dependencies for Dioxus desktop apps
               gtk3
               webkitgtk_4_1
@@ -56,7 +56,7 @@
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
           OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
 
-          shellHook = lib.optionalString stdenv.isLinux ''
+          shellHook = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             # Add library paths for system tray functionality on Linux
             export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
