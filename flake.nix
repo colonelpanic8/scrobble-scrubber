@@ -52,12 +52,12 @@
               # AppImage tooling
               appimage-run
             ]
-            ++ [
-              # Cross-platform tools
-              # Image processing for icon generation
+            ++ lib.optionals (!stdenv.isDarwin) [
+              # Image processing for icon generation (may not support all platforms)
               imagemagick
-
-              # GitHub CLI for monitoring releases
+            ]
+            ++ [
+              # GitHub CLI for monitoring releases (cross-platform)
               gh
             ]
             ++ lib.optionals stdenv.isDarwin [
