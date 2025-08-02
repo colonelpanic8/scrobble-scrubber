@@ -28,28 +28,53 @@ jobs:
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Build Linux bundle (primary)
+      - name: Build Windows bundle
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release \
+            --platform windows \
+            --package-types msi
+
+      - name: Build macOS bundle  
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release \
+            --platform macos \
+            --package-types dmg
+
+      - name: Build Linux bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
             --platform linux \
             --package-types deb
 
-      - name: Build additional packages (native Linux only for now)
-        working-directory: app
-        run: |
-          # AppImage requires additional setup - skip for now
-          echo "Note: Cross-compilation to Windows/macOS requires complex toolchain setup"
-          echo "Currently providing native Linux builds only"
-          echo "Future enhancement: Add proper cross-compilation support"
-
       - name: List all artifacts
         working-directory: app
         run: |
-          echo "Generated Linux artifacts:"
+          echo "Generated artifacts by platform:"
+          echo "Windows artifacts:"
+          find ../target/dx/scrobble-scrubber-app -name "*.msi" | sort
+          echo "macOS artifacts:"
+          find ../target/dx/scrobble-scrubber-app -name "*.dmg" | sort
+          echo "Linux artifacts:"
           find ../target/dx/scrobble-scrubber-app -name "*.deb" | sort
-          echo "Also available:"
-          ls -la ../target/dx/scrobble-scrubber-app/release/linux/app/
+          echo "All release executables:"
+          find ../target/dx/scrobble-scrubber-app/release -name "*app*" -type f | sort
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Upload macOS packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
+          if-no-files-found: error
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
@@ -89,12 +114,25 @@ jobs:
           find release-assets -type f | sort
           echo "Preparing release assets..."
           mkdir -p release-files
+          
+          # Process Windows artifacts
+          find release-assets -name "*.msi" | while read file; do
+            cp "$file" release-files/
+          done
+          
+          # Process macOS artifacts
+          find release-assets -name "*.dmg" | while read file; do
+            cp "$file" release-files/
+          done
+          
+          # Process Linux artifacts
           find release-assets -name "*.deb" | while read file; do
             cp "$file" release-files/
           done
           find release-assets -name "scrobble-scrubber-app" -type f | while read file; do
             cp "$file" release-files/scrobble-scrubber-app-linux-x86_64
           done
+          
           echo "Release files prepared:"
           ls -la release-files/
 
@@ -108,20 +146,32 @@ jobs:
 
             Desktop application for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
 
-            ### Downloads (Linux)
+            ### Downloads
+
+            **Windows:**
+            - `*.msi` - Windows installer package
+
+            **macOS:**
+            - `*.dmg` - macOS disk image installer
 
             **Linux:**
-            - `ScrobbleScrubberApp_*.deb` - Debian/Ubuntu package installer
+            - `*.deb` - Debian/Ubuntu package installer
             - `scrobble-scrubber-app-linux-x86_64` - Standalone binary
 
             ### Installation
+
+            **Windows:**
+            Download and run the `.msi` installer.
+
+            **macOS:**
+            Download and mount the `.dmg` file, then drag the app to Applications.
 
             **Debian/Ubuntu:**
             ```bash
             sudo dpkg -i ScrobbleScrubberApp_*.deb
             ```
 
-            **Standalone Binary:**
+            **Linux Standalone Binary:**
             ```bash
             chmod +x scrobble-scrubber-app-linux-x86_64
             ./scrobble-scrubber-app-linux-x86_64
@@ -135,7 +185,7 @@ jobs:
             - Real-time status monitoring
 
             ### Cross-Platform Support
-            This release provides native Linux builds. Cross-compilation support for Windows and macOS is planned for future releases.
+            This release provides native builds for Windows, macOS, and Linux platforms.
 
             Built with Dioxus 0.7 and Rust.
           draft: false
