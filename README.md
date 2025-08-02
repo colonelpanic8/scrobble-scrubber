@@ -1,5 +1,7 @@
 # Scrobble Scrubber
 
+> **📖 For end users:** See the [**User Guide**](USER_GUIDE.md) for installation and usage instructions.
+
 Automated Last.fm track monitoring and scrubbing system that continuously monitors your recent tracks and applies cleaning rules to fix common issues.
 
 ## Features

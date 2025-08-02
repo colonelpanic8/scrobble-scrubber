@@ -30,24 +30,21 @@ jobs:
           - platform: windows
             os: windows-latest
             dx-platform: windows
-            package-types: msi
+            package-types: exe
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.exe
-              target/dx/scrobble-scrubber-app/**/*.msi
           - platform: macos-intel
             os: macos-13
             dx-platform: macos
-            package-types: dmg
+            package-types: app
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.app
-              target/dx/scrobble-scrubber-app/**/*.dmg
           - platform: macos-arm
             os: macos-latest
             dx-platform: macos
-            package-types: dmg
+            package-types: app
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.app
-              target/dx/scrobble-scrubber-app/**/*.dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -140,8 +137,6 @@ jobs:
 
           # Copy all platform-specific artifacts from their respective folders
           find release-assets -name "*.exe" -exec cp {} release-files/scrobble-scrubber-app-windows.exe \;
-          find release-assets -name "*.msi" -exec cp {} release-files/ \;
-          find release-assets -name "*.dmg" -exec cp {} release-files/ \;
           find release-assets -name "*.deb" -exec cp {} release-files/ \;
           
           # Handle .app bundles by zipping them (distinguish Intel vs ARM)

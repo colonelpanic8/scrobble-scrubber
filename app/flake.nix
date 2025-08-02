@@ -46,6 +46,7 @@
               librsvg
               libsoup_3
               libappindicator-gtk3
+              xdotool  # For libxdo needed by tray-icon and muda
             ];
 
           # Environment variables
