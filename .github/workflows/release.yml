@@ -15,83 +15,80 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-all-platforms:
-    runs-on: ubuntu-latest
+  build-app-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            package-types: deb
+            artifact-patterns: |
+              target/dx/scrobble-scrubber-app/**/*.deb
+              target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
+          - platform: windows
+            os: windows-latest
+            package-types: msi
+            artifact-patterns: |
+              target/dx/scrobble-scrubber-app/**/*.exe
+              target/dx/scrobble-scrubber-app/**/*.msi
+          - platform: macos-intel
+            os: macos-13
+            package-types: dmg
+            artifact-patterns: |
+              target/dx/scrobble-scrubber-app/**/*.app
+              target/dx/scrobble-scrubber-app/**/*.dmg
+          - platform: macos-arm
+            os: macos-latest
+            package-types: dmg
+            artifact-patterns: |
+              target/dx/scrobble-scrubber-app/**/*.app
+              target/dx/scrobble-scrubber-app/**/*.dmg
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}-app
 
-      - name: Build Windows bundle
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+
+      - name: Install Dioxus CLI
+        run: |
+          cargo install dioxus-cli
+
+      - name: Build app bundle
         working-directory: app
         run: |
-          nix develop --command dx bundle --release \
-            --platform windows \
-            --package-types msi
+          dx bundle --release --platform ${{ matrix.platform }} --package-types ${{ matrix.package-types }}
 
-      - name: Build macOS bundle
+      - name: List artifacts
         working-directory: app
         run: |
-          nix develop --command dx bundle --release \
-            --platform macos \
-            --package-types dmg
-
-      - name: Build Linux bundle
-        working-directory: app
-        run: |
-          nix develop --command dx bundle --release \
-            --platform linux \
-            --package-types deb
-
-      - name: List all artifacts
-        working-directory: app
-        run: |
-          echo "=== COMPLETE DIRECTORY LISTING FOR DEBUGGING ==="
+          echo "=== PLATFORM-SPECIFIC ARTIFACTS (${{ matrix.platform }}) ==="
           find ../target/dx/scrobble-scrubber-app -type f | sort
-          echo ""
-          echo "=== PLATFORM-SPECIFIC ARTIFACTS ==="
-          echo "Windows artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.exe" -o -name "*.msi" | sort
-          echo "macOS artifacts:"  
-          find ../target/dx/scrobble-scrubber-app -name "*.app" -o -name "*.dmg" | sort
-          echo "Linux artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.deb" -o -name "*app" -type f | sort
 
-      - name: Upload Windows packages
+      - name: Upload app packages
         uses: actions/upload-artifact@v4
         with:
-          name: windows-packages
-          path: |
-            target/dx/scrobble-scrubber-app/**/*.exe
-            target/dx/scrobble-scrubber-app/**/*.msi
-          if-no-files-found: warn
-
-      - name: Upload macOS packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-packages
-          path: |
-            target/dx/scrobble-scrubber-app/**/*.app
-            target/dx/scrobble-scrubber-app/**/*.dmg
-          if-no-files-found: warn
-
-      - name: Upload Linux packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: |
-            target/dx/scrobble-scrubber-app/**/*.deb
-            target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
-          if-no-files-found: warn
+          name: app-packages-${{ matrix.platform }}
+          path: ${{ matrix.artifact-patterns }}
+          if-no-files-found: error
 
   create-release:
-    needs: build-all-platforms
+    needs: build-app-platforms
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -120,30 +117,22 @@ jobs:
           echo "Preparing release assets..."
           mkdir -p release-files
 
-          # Process Windows artifacts
-          find release-assets -name "*.exe" | while read file; do
-            cp "$file" release-files/scrobble-scrubber-app-windows.exe
+          # Copy all platform-specific artifacts from their respective folders
+          find release-assets -name "*.exe" -exec cp {} release-files/scrobble-scrubber-app-windows.exe \;
+          find release-assets -name "*.msi" -exec cp {} release-files/ \;
+          find release-assets -name "*.dmg" -exec cp {} release-files/ \;
+          find release-assets -name "*.deb" -exec cp {} release-files/ \;
+          
+          # Handle .app bundles by zipping them (distinguish Intel vs ARM)
+          find release-assets/app-packages-macos-intel -name "*.app" -type d | while read file; do
+            zip -r "release-files/scrobble-scrubber-app-macos-intel.app.zip" "$file"
           done
-          find release-assets -name "*.msi" | while read file; do
-            cp "$file" release-files/
+          find release-assets/app-packages-macos-arm -name "*.app" -type d | while read file; do
+            zip -r "release-files/scrobble-scrubber-app-macos-arm64.app.zip" "$file"
           done
-
-          # Process macOS artifacts
-          find release-assets -name "*.app" -type d | while read file; do
-            # Zip the .app bundle for distribution
-            zip -r "release-files/scrobble-scrubber-app-macos.app.zip" "$file"
-          done
-          find release-assets -name "*.dmg" | while read file; do
-            cp "$file" release-files/
-          done
-
-          # Process Linux artifacts
-          find release-assets -name "*.deb" | while read file; do
-            cp "$file" release-files/
-          done
-          find release-assets -name "scrobble-scrubber-app" -type f | while read file; do
-            cp "$file" release-files/scrobble-scrubber-app-linux-x86_64
-          done
+          
+          # Handle Linux standalone binary
+          find release-assets -name "scrobble-scrubber-app" -type f -exec cp {} release-files/scrobble-scrubber-app-linux-x86_64 \;
 
           echo "Release files prepared:"
           ls -la release-files/
@@ -164,7 +153,8 @@ jobs:
             - `scrobble-scrubber-app-windows.exe` - Windows executable
 
             **macOS:**
-            - `scrobble-scrubber-app-macos.app.zip` - macOS application bundle
+            - `scrobble-scrubber-app-macos-intel.app.zip` - macOS Intel application bundle
+            - `scrobble-scrubber-app-macos-arm64.app.zip` - macOS Apple Silicon application bundle
 
             **Linux:**
             - `ScrobbleScrubberApp_*.deb` - Debian/Ubuntu package installer
@@ -176,7 +166,11 @@ jobs:
             Download and run `scrobble-scrubber-app-windows.exe` directly.
 
             **macOS:**
-            Download and unzip `scrobble-scrubber-app-macos.app.zip`, then drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
+            Download the appropriate version for your Mac:
+            - Intel Macs: `scrobble-scrubber-app-macos-intel.app.zip`
+            - Apple Silicon Macs: `scrobble-scrubber-app-macos-arm64.app.zip`
+            
+            Unzip and drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
 
             **Debian/Ubuntu:**
             ```bash
