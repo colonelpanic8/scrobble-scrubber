@@ -49,19 +49,18 @@ jobs:
         working-directory: app
         run: |
           echo "All generated artifacts:"
-          find . -name "*.msi" -o -name "*.exe" -o -name "*.app" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" | sort
+          find ../target/dx/scrobble-scrubber-app -name "*.msi" -o -name "*.exe" -o -name "*.app" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" | sort
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cross-platform-bundles
           path: |
-            app/**/*.msi
-            app/**/*.exe
-            app/**/*.app
-            app/**/*.dmg
-            app/**/*.deb
-            app/**/*.AppImage
+            target/dx/scrobble-scrubber-app/release/windows/app/*.exe
+            target/dx/scrobble-scrubber-app/release/macos/ScrobbleScrubberApp.app
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/rpm/*.rpm
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/appimage/*.AppImage
           if-no-files-found: error
 
   create-release:
@@ -126,6 +125,6 @@ jobs:
             - AppImage: `chmod +x *.AppImage && ./ScrobbleScrubber-*.AppImage`
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: release-assets/**/*
+          files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
