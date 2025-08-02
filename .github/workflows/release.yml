@@ -162,23 +162,21 @@ jobs:
 
             **Windows:**
             - `scrobble-scrubber-app-windows.exe` - Windows executable
-            - `*.msi` - Windows installer package (if available)
 
             **macOS:**
             - `scrobble-scrubber-app-macos.app.zip` - macOS application bundle
-            - `*.dmg` - macOS disk image installer (if available)
 
             **Linux:**
-            - `*.deb` - Debian/Ubuntu package installer
+            - `ScrobbleScrubberApp_*.deb` - Debian/Ubuntu package installer
             - `scrobble-scrubber-app-linux-x86_64` - Standalone binary
 
             ### Installation
 
             **Windows:**
-            Download and run `scrobble-scrubber-app-windows.exe` directly, or use the `.msi` installer if available.
+            Download and run `scrobble-scrubber-app-windows.exe` directly.
 
             **macOS:**
-            Download `scrobble-scrubber-app-macos.app.zip`, unzip it, and drag the `.app` to Applications. You may need to right-click and select "Open" the first time due to macOS security settings.
+            Download and unzip `scrobble-scrubber-app-macos.app.zip`, then drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
 
             **Debian/Ubuntu:**
             ```bash
