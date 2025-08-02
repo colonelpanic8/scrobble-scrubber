@@ -50,6 +50,9 @@
 
               # AppImage tooling
               appimage-run
+
+              # GitHub CLI for monitoring releases
+              gh
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies

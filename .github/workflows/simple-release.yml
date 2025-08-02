@@ -1,0 +1,131 @@
+name: Simple Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'release/*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-all-platforms:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build Windows bundle
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release \
+            --platform windows \
+            --package-types msi,nsis
+
+      - name: Build macOS bundle
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release \
+            --platform macos \
+            --package-types macos,dmg
+
+      - name: Build Linux bundle
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release \
+            --platform linux \
+            --package-types deb,appimage
+
+      - name: List all artifacts
+        working-directory: app
+        run: |
+          echo "All generated artifacts:"
+          find . -name "*.msi" -o -name "*.exe" -o -name "*.app" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" | sort
+
+      - name: Upload all artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-platform-bundles
+          path: |
+            app/**/*.msi
+            app/**/*.exe
+            app/**/*.app
+            app/**/*.dmg
+            app/**/*.deb
+            app/**/*.AppImage
+          if-no-files-found: error
+
+  create-release:
+    needs: build-all-platforms
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cross-platform-bundles
+          path: release-assets
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ ${{ github.ref }} =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "version=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: List release assets
+        run: |
+          echo "Release assets:"
+          find release-assets -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Scrobble Scrubber v${{ steps.version.outputs.version }}"
+          body: |
+            ## Scrobble Scrubber v${{ steps.version.outputs.version }}
+
+            Cross-platform desktop application for managing Last.fm scrobbles.
+
+            ### Downloads
+
+            **Windows:**
+            - `.msi` - Windows Installer package
+            - `.exe` - NSIS installer
+
+            **macOS:**
+            - `.app` - macOS application bundle
+            - `.dmg` - macOS disk image installer
+
+            **Linux:**
+            - `.deb` - Debian/Ubuntu package
+            - `.AppImage` - Universal Linux application
+
+            ### Installation
+
+            **Windows:** Download and run the `.msi` or `.exe` installer
+            **macOS:** Download the `.dmg`, open it, and drag the app to Applications
+            **Linux:** 
+            - Debian/Ubuntu: `sudo dpkg -i scrobble-scrubber_*.deb`
+            - AppImage: `chmod +x *.AppImage && ./ScrobbleScrubber-*.AppImage`
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-assets/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
