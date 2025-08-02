@@ -19,14 +19,17 @@ jobs:
             platform: linux
             package-types: deb,appimage
             artifacts: "*.deb,*.AppImage"
+            use-nix: true
           - os: macos-latest
             platform: macos
             package-types: macos,dmg
             artifacts: "*.app,*.dmg"
+            use-nix: true
           - os: windows-latest
             platform: windows
             package-types: msi,nsis
             artifacts: "*.msi,*.exe"
+            use-nix: false
 
     runs-on: ${{ matrix.os }}
 
@@ -35,15 +38,49 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Nix
+        if: matrix.use-nix
         uses: DeterminateSystems/nix-installer-action@main
 
       - name: Cache Nix store
+        if: matrix.use-nix
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Build release bundles
+      - name: Install Rust (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            app/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Dioxus CLI (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo install dioxus-cli --locked
+
+      - name: Build release bundles (Nix)
+        if: matrix.use-nix
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
+            --platform ${{ matrix.platform }} \
+            --package-types ${{ matrix.package-types }}
+
+      - name: Build release bundles (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: app
+        run: |
+          dx bundle --release \
             --platform ${{ matrix.platform }} \
             --package-types ${{ matrix.package-types }}
 
@@ -169,12 +206,15 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             package-types: deb,appimage
+            use-nix: true
           - os: macos-latest
             platform: macos
             package-types: macos,dmg
+            use-nix: true
           - os: windows-latest
             platform: windows
             package-types: msi,nsis
+            use-nix: false
 
     runs-on: ${{ matrix.os }}
 
@@ -182,12 +222,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Install Nix
+        if: matrix.use-nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store
+        if: matrix.use-nix
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Install Rust (Windows)
+        if: matrix.os == 'windows-latest'
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      - name: Cache Rust dependencies
+      - name: Cache Rust dependencies (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/cache@v3
         with:
           path: |
@@ -199,31 +249,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libxdo-dev \
-            libssl-dev \
-            libappimage-dev
-
-      - name: Install macOS dependencies
-        if: matrix.os == 'macos-latest'
-        run: |
-          echo "macOS dependencies installation complete"
-
-      - name: Install Dioxus CLI
+      - name: Install Dioxus CLI (Windows)
+        if: matrix.os == 'windows-latest'
         run: cargo install dioxus-cli --locked
 
-      - name: Build release bundles
+      - name: Build release bundles (Nix)
+        if: matrix.use-nix
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
+            --platform ${{ matrix.platform }} \
+            --package-types ${{ matrix.package-types }}
+
+      - name: Build release bundles (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: app
+        run: |
+          dx bundle --release \
             --platform ${{ matrix.platform }} \
             --package-types ${{ matrix.package-types }}
 
