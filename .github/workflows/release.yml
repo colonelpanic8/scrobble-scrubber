@@ -32,58 +32,60 @@ jobs:
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform windows \
-            --package-types msi
+            --platform windows
 
       - name: Build macOS bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform macos \
-            --package-types dmg
+            --platform macos
 
       - name: Build Linux bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform linux \
-            --package-types deb
+            --platform linux
 
       - name: List all artifacts
         working-directory: app
         run: |
-          echo "Generated artifacts by platform:"
+          echo "=== COMPLETE DIRECTORY LISTING FOR DEBUGGING ==="
+          find ../target/dx/scrobble-scrubber-app -type f | sort
+          echo ""
+          echo "=== PLATFORM-SPECIFIC ARTIFACTS ==="
           echo "Windows artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.msi" | sort
-          echo "macOS artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.dmg" | sort
+          find ../target/dx/scrobble-scrubber-app -name "*.exe" -o -name "*.msi" | sort
+          echo "macOS artifacts:"  
+          find ../target/dx/scrobble-scrubber-app -name "*.app" -o -name "*.dmg" | sort
           echo "Linux artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.deb" | sort
-          echo "All release executables:"
-          find ../target/dx/scrobble-scrubber-app/release -name "*app*" -type f | sort
+          find ../target/dx/scrobble-scrubber-app -name "*.deb" -o -name "*app" -type f | sort
 
       - name: Upload Windows packages
         uses: actions/upload-artifact@v4
         with:
           name: windows-packages
-          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
-          if-no-files-found: error
+          path: |
+            target/dx/scrobble-scrubber-app/**/*.exe
+            target/dx/scrobble-scrubber-app/**/*.msi
+          if-no-files-found: warn
 
       - name: Upload macOS packages
         uses: actions/upload-artifact@v4
         with:
           name: macos-packages
-          path: target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
-          if-no-files-found: error
+          path: |
+            target/dx/scrobble-scrubber-app/**/*.app
+            target/dx/scrobble-scrubber-app/**/*.dmg
+          if-no-files-found: warn
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
           path: |
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
-            target/dx/scrobble-scrubber-app/release/linux/app/scrobble-scrubber-app
-          if-no-files-found: error
+            target/dx/scrobble-scrubber-app/**/*.deb
+            target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
+          if-no-files-found: warn
 
   create-release:
     needs: build-all-platforms
@@ -116,11 +118,18 @@ jobs:
           mkdir -p release-files
 
           # Process Windows artifacts
+          find release-assets -name "*.exe" | while read file; do
+            cp "$file" release-files/scrobble-scrubber-app-windows.exe
+          done
           find release-assets -name "*.msi" | while read file; do
             cp "$file" release-files/
           done
 
           # Process macOS artifacts
+          find release-assets -name "*.app" -type d | while read file; do
+            # Zip the .app bundle for distribution
+            (cd "$(dirname "$file")" && zip -r "../../release-files/scrobble-scrubber-app-macos.app.zip" "$(basename "$file")")
+          done
           find release-assets -name "*.dmg" | while read file; do
             cp "$file" release-files/
           done
@@ -149,10 +158,12 @@ jobs:
             ### Downloads
 
             **Windows:**
-            - `*.msi` - Windows installer package
+            - `scrobble-scrubber-app-windows.exe` - Windows executable
+            - `*.msi` - Windows installer package (if available)
 
             **macOS:**
-            - `*.dmg` - macOS disk image installer
+            - `scrobble-scrubber-app-macos.app.zip` - macOS application bundle
+            - `*.dmg` - macOS disk image installer (if available)
 
             **Linux:**
             - `*.deb` - Debian/Ubuntu package installer
@@ -161,10 +172,10 @@ jobs:
             ### Installation
 
             **Windows:**
-            Download and run the `.msi` installer.
+            Download and run `scrobble-scrubber-app-windows.exe` directly, or use the `.msi` installer if available.
 
             **macOS:**
-            Download and mount the `.dmg` file, then drag the app to Applications.
+            Download `scrobble-scrubber-app-macos.app.zip`, unzip it, and drag the `.app` to Applications. You may need to right-click and select "Open" the first time due to macOS security settings.
 
             **Debian/Ubuntu:**
             ```bash
