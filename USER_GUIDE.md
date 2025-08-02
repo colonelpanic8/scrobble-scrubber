@@ -1,8 +1,7 @@
 # Scrobble Scrubber User Guide
 
-Scrobble Scrubber is an automated tool that monitors your Last.fm listening
-history and cleans up track metadata by fixing common issues like remaster
-suffixes, formatting problems, and other metadata inconsistencies.
+Scrobble Scrubber is desktop application that helps correct errors and other
+annoying mislabelings in last.fm scrobble data.
 
 ## Getting Started
 
