@@ -39,7 +39,7 @@
               webkitgtk_4_1
               librsvg
               libsoup_3
-              libayatana-appindicator
+              libappindicator-gtk3
               xdotool
 
               # Dioxus development tools
@@ -68,6 +68,8 @@
           WEBKIT_DISABLE_DMABUF_RENDERER = 1;
 
           shellHook = ''
+            # Add library paths for system tray functionality
+            export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
         };
 

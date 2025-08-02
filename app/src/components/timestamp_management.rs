@@ -3,7 +3,7 @@ use crate::components::scrobble_scrubber::set_timestamp_anchor;
 use crate::types::AppState;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use dioxus::prelude::*;
-use dioxus_router::prelude::*;
+use dioxus_router::*;
 
 #[component]
 pub fn TimestampManagementSection(mut state: Signal<AppState>) -> Element {

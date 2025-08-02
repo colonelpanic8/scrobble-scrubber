@@ -149,7 +149,11 @@
       "Bash(RUST_BACKTRACE=1 dx bundle)",
       "Bash(dx bundle:*)",
       "Bash(bash:*)",
-      "Bash(nix search:*)"
+      "Bash(nix search:*)",
+      "Bash(git clone:*)",
+      "Bash(direnv allow:*)",
+      "Bash(kill:*)",
+      "Bash(pgrep:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

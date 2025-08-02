@@ -1,4 +1,4 @@
-use dioxus::prelude::{spawn, Signal, Writable};
+use dioxus::prelude::{spawn, Signal, WritableExt};
 
 /// Helper trait to convert any error to Box<dyn Error> with context
 pub trait ToBoxError<T> {

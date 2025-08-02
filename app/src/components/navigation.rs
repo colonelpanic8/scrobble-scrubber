@@ -1,7 +1,7 @@
 use crate::types::AppState;
 use crate::Route;
 use dioxus::prelude::*;
-use dioxus_router::prelude::*;
+use dioxus_router::*;
 
 #[derive(Debug, Clone)]
 struct NavItem {
