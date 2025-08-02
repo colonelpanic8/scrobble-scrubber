@@ -29,38 +29,36 @@ jobs:
         run: |
           nix develop --command dx bundle --release \
             --platform windows \
-            --package-types msi,nsis
+            --package-types msi
 
-      - name: Build macOS bundle
+      - name: Build macOS bundle  
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
             --platform macos \
-            --package-types macos,dmg
+            --package-types dmg
 
       - name: Build Linux bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
             --platform linux \
-            --package-types deb,appimage
+            --package-types deb
 
       - name: List all artifacts
         working-directory: app
         run: |
           echo "All generated artifacts:"
-          find ../target/dx/scrobble-scrubber-app -name "*.msi" -o -name "*.exe" -o -name "*.app" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" | sort
+          find ../target/dx/scrobble-scrubber-app -name "*.msi" -o -name "*.dmg" -o -name "*.deb" | sort
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cross-platform-bundles
           path: |
-            target/dx/scrobble-scrubber-app/release/windows/app/*.exe
-            target/dx/scrobble-scrubber-app/release/macos/ScrobbleScrubberApp.app
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/msi/*.msi
+            target/dx/scrobble-scrubber-app/bundle/*/bundle/dmg/*.dmg
             target/dx/scrobble-scrubber-app/bundle/*/bundle/deb/*.deb
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/rpm/*.rpm
-            target/dx/scrobble-scrubber-app/bundle/*/bundle/appimage/*.AppImage
           if-no-files-found: error
 
   create-release:
