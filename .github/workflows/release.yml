@@ -1,0 +1,275 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'release/*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            package-types: deb,appimage
+            artifacts: "*.deb,*.AppImage"
+          - os: macos-latest
+            platform: macos
+            package-types: macos,dmg
+            artifacts: "*.app,*.dmg"
+          - os: windows-latest
+            platform: windows
+            package-types: msi,nsis
+            artifacts: "*.msi,*.exe"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            app/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libappimage-dev
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Install any macOS-specific dependencies if needed
+          echo "macOS dependencies installation complete"
+
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+
+      - name: Build release bundles
+        working-directory: app
+        run: |
+          dx bundle --release \
+            --platform ${{ matrix.platform }} \
+            --package-types ${{ matrix.package-types }}
+
+      - name: List bundle outputs (debug)
+        working-directory: app
+        run: |
+          echo "Contents of current directory:"
+          ls -la
+          echo "Contents of dist directory (if it exists):"
+          ls -la dist/ || echo "No dist directory found"
+          echo "Looking for bundle artifacts:"
+          find . -name "*.deb" -o -name "*.AppImage" -o -name "*.app" -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" || echo "No bundle artifacts found"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: |
+            app/dist/**/*.deb
+            app/dist/**/*.AppImage
+            app/dist/**/*.app
+            app/dist/**/*.dmg
+            app/dist/**/*.msi
+            app/dist/**/*.exe
+          if-no-files-found: error
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts (debug)
+        run: |
+          echo "All downloaded artifacts:"
+          find artifacts -type f
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ ${{ github.ref }} =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "version=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## Scrobble Scrubber v${{ steps.version.outputs.version }}
+
+          ### Downloads
+          
+          Choose the appropriate package for your operating system:
+          
+          **Linux:**
+          - `.deb` package for Debian/Ubuntu systems
+          - `.AppImage` for universal Linux compatibility
+          
+          **macOS:**
+          - `.app` bundle for standard installation
+          - `.dmg` disk image for easy installation
+          
+          **Windows:**
+          - `.msi` installer for standard Windows installation
+          - `.exe` NSIS installer for alternative installation method
+          
+          ### Installation Instructions
+          
+          **Linux:**
+          - **Debian/Ubuntu**: Download the `.deb` file and install with `sudo dpkg -i scrobble-scrubber_*.deb`
+          - **AppImage**: Download the `.AppImage` file, make it executable (`chmod +x *.AppImage`), and run directly
+          
+          **macOS:**
+          - Download the `.dmg` file, open it, and drag the app to your Applications folder
+          
+          **Windows:**
+          - Download either the `.msi` or `.exe` installer and run it
+          
+          ### Changes
+          
+          This release includes all features and improvements from the latest development.
+          
+          For detailed changes, see the commit history or check the project repository.
+          EOF
+          
+          echo "Generated release notes:"
+          cat release_notes.md
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.app" -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" \) -exec cp {} release-assets/ \;
+          echo "Release assets prepared:"
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Scrobble Scrubber v${{ steps.version.outputs.version }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-release-branch:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            package-types: deb,appimage
+          - os: macos-latest
+            platform: macos
+            package-types: macos,dmg
+          - os: windows-latest
+            platform: windows
+            package-types: msi,nsis
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            app/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libappimage-dev
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "macOS dependencies installation complete"
+
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+
+      - name: Build release bundles
+        working-directory: app
+        run: |
+          dx bundle --release \
+            --platform ${{ matrix.platform }} \
+            --package-types ${{ matrix.package-types }}
+
+      - name: Upload build artifacts (branch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: branch-bundle-${{ matrix.platform }}-${{ github.run_number }}
+          path: |
+            app/dist/**/*.deb
+            app/dist/**/*.AppImage
+            app/dist/**/*.app
+            app/dist/**/*.dmg
+            app/dist/**/*.msi
+            app/dist/**/*.exe
+          if-no-files-found: error
+          retention-days: 7

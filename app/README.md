@@ -1,13 +1,20 @@
-# Development
+# Scrobble Scrubber App
 
-Your new bare-bones project includes minimal organization with a single `main.rs` file and a few assets.
+A desktop application for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
+
+## Project Structure
 
 ```
-project/
-├─ assets/ # Any assets that are used by the app should be placed here
+app/
+├─ assets/           # Application assets (icons, styles, etc.)
 ├─ src/
-│  ├─ main.rs # main.rs is the entry point to your application and currently contains all components for the app
-├─ Cargo.toml # The Cargo.toml file defines the dependencies and feature flags for your project
+│  ├─ main.rs       # Application entry point
+│  ├─ components/   # UI components
+│  ├─ tray.rs       # System tray functionality
+│  ├─ icons.rs      # Window icon configuration
+│  └─ ...           # Other modules
+├─ Cargo.toml       # Rust dependencies and configuration
+└─ Dioxus.toml      # Dioxus framework configuration
 ```
 
 ### Tailwind
@@ -27,8 +34,54 @@ Run the following command in the root of your project to start developing with t
 dx serve --platform desktop
 ```
 
-To run for a different platform, use the `--platform platform` flag. E.g.
+## Building and Releases
+
+### Development Build
 ```bash
-dx serve --platform desktop
+dx build --platform desktop
+```
+
+### Release Build
+```bash
+dx build --release --platform desktop
+```
+
+### Creating Distribution Packages
+
+The project supports automated release builds for multiple platforms. See the [Release Documentation](../.github/RELEASE.md) for detailed instructions.
+
+#### Manual Package Creation
+
+For Linux:
+```bash
+dx bundle --release --platform linux --package-types deb,appimage
+```
+
+For macOS:
+```bash
+dx bundle --release --platform macos --package-types macos,dmg
+```
+
+For Windows:
+```bash
+dx bundle --release --platform windows --package-types msi,nsis
+```
+
+### Automated Releases
+
+The project includes GitHub Actions workflows for automated cross-platform builds:
+
+1. **Tag-based releases**: Push a git tag (e.g., `v1.0.0`) to trigger automatic builds and GitHub release creation
+2. **Branch-based builds**: Push to a `release/*` branch to build artifacts without creating a release
+
+See [Release Documentation](../.github/RELEASE.md) for complete details.
+
+### Code Quality
+
+Before committing, ensure code quality:
+```bash
+cargo fmt --all                                    # Format code
+cargo clippy --all-targets --all-features -- -D warnings  # Lint code
+dx build --release                                 # Test build
 ```
 
