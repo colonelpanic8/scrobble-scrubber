@@ -157,7 +157,8 @@
       "Bash(gh run list:*)",
       "Bash(gh:*)",
       "Bash(git rm:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

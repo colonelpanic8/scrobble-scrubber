@@ -3,9 +3,9 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
     branches:
-      - 'release/*'
+      - "release/*"
 
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
             --platform windows \
             --package-types msi
 
-      - name: Build macOS bundle  
+      - name: Build macOS bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
@@ -114,17 +114,17 @@ jobs:
           find release-assets -type f | sort
           echo "Preparing release assets..."
           mkdir -p release-files
-          
+
           # Process Windows artifacts
           find release-assets -name "*.msi" | while read file; do
             cp "$file" release-files/
           done
-          
+
           # Process macOS artifacts
           find release-assets -name "*.dmg" | while read file; do
             cp "$file" release-files/
           done
-          
+
           # Process Linux artifacts
           find release-assets -name "*.deb" | while read file; do
             cp "$file" release-files/
@@ -132,7 +132,7 @@ jobs:
           find release-assets -name "scrobble-scrubber-app" -type f | while read file; do
             cp "$file" release-files/scrobble-scrubber-app-linux-x86_64
           done
-          
+
           echo "Release files prepared:"
           ls -la release-files/
 
