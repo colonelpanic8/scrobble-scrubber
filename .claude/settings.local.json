@@ -158,7 +158,9 @@
       "Bash(gh:*)",
       "Bash(git rm:*)",
       "Bash(git mv:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(env)",
+      "Bash(unset:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

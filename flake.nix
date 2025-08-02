@@ -53,10 +53,6 @@
 
               # GitHub CLI for monitoring releases
               gh
-
-              # Cross-compilation toolchains
-              pkgsCross.mingwW64.stdenv.cc
-              pkgsCross.mingwW64.windows.pthreads
             ]
             ++ lib.optionals stdenv.isDarwin [
               # macOS specific dependencies
@@ -78,6 +74,38 @@
             # Add library paths for system tray functionality
             export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
+        };
+
+        # Windows cross-compilation development shell
+        devShells.windows = pkgs.mkShell {
+          buildInputs = with pkgs;
+            [
+              # System dependencies for reqwest/openssl
+              pkg-config
+              openssl
+              just
+
+              # Cross-compilation toolchains
+              pkgsCross.mingwW64.stdenv.cc
+              pkgsCross.mingwW64.windows.pthreads
+
+              # GitHub CLI for monitoring releases
+              gh
+            ]
+            ++ lib.optionals stdenv.isDarwin [
+              # macOS specific dependencies
+              darwin.apple_sdk.frameworks.Security
+              darwin.apple_sdk.frameworks.CoreFoundation
+              darwin.apple_sdk.frameworks.SystemConfiguration
+            ];
+
+          # Environment variables
+          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+
+          # For OpenSSL on some systems
+          OPENSSL_DIR = "${pkgs.openssl.dev}";
+          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
         };
 
         # Optional: Define the package itself
