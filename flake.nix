@@ -76,8 +76,8 @@
           OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
           WEBKIT_DISABLE_DMABUF_RENDERER = 1;
 
-          shellHook = ''
-            # Add library paths for system tray functionality
+          shellHook = lib.optionalString stdenv.isLinux ''
+            # Add library paths for system tray functionality on Linux
             export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
         };
