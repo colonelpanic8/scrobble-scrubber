@@ -1,0 +1,47 @@
+name: Test Linux App
+
+on:
+  push:
+    branches:
+      - "test-app-linux"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux-app:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix (Linux only)
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store (Linux only)
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build app bundle (Linux with Nix)
+        working-directory: app
+        run: |
+          nix develop --command dx bundle --release --platform linux --package-types deb
+
+      - name: List artifacts
+        working-directory: app
+        run: |
+          echo "=== LINUX APP ARTIFACTS ==="
+          find ../target/dx/scrobble-scrubber-app -type f | sort
+
+      - name: Upload app packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-app-test
+          path: |
+            target/dx/scrobble-scrubber-app/**/*.deb
+            target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
+          if-no-files-found: error
