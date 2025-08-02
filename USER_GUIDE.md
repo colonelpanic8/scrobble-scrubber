@@ -48,105 +48,26 @@ Leverages the comprehensive MusicBrainz database to correct track metadata using
 #### LLM Provider (AI-Powered)
 Uses large language models (like OpenAI's GPT) to handle complex metadata issues requiring musical knowledge and context. Can identify subtle problems, suggest new rewrite rules, and handle edge cases that pattern-based rules miss. More expensive but highly effective for nuanced corrections.
 
-### How Rewrite Rules Work
+## Rewrite Rules
 
 Rewrite rules are the core pattern-based cleaning system in Scrobble Scrubber. They use regular expressions to find and replace problematic metadata patterns.
 
-#### Rule Structure
+**For complete documentation on creating and using rewrite rules, see the [Rewrite Rules Guide](REWRITE_RULES.md).**
 
-Each rewrite rule can target any combination of four metadata fields:
-- **Track Name** - Song titles
-- **Artist Name** - Performing artist
-- **Album Name** - Album titles
-- **Album Artist Name** - Album-level artist attribution
+### Quick Overview
 
-**Important**: For a rule to apply, **ALL** specified patterns must match. If you define patterns for both artist and album, the track must match both patterns or the rule won't trigger.
+- **Target any metadata field**: Track name, artist name, album name, or album artist
+- **Pattern-based matching**: Use regular expressions to find specific text patterns
+- **Capture groups**: Extract and reuse parts of the matched text with `$1`, `$2`, etc.
+- **Multi-field rules**: Combine patterns across fields (ALL must match for rule to apply)
+- **30+ default rules**: Ships with comprehensive rules for common issues
 
-#### Rule Format
+### Common Examples
 
-Rules consist of **find/replace patterns** using rust regular expressions:
-
-```
-Find Pattern: ^(.+) - \d{4} Remaster$
-Replace: $1
-```
-
-This rule finds tracks ending with "- [Year] Remaster" and replaces the entire title with just the captured song name.
-
-#### Capture Groups Explained
-
-Capture groups are the key to powerful rewrite rules - they let you extract and reuse parts of the matched text. They're created using parentheses `()` in your find pattern.
-
-**Basic Numbered Groups:**
-```
-Find: ^(.+) - (\d{4}) Remaster$
-Replace: $1 (originally from $2)
-```
-- `(.+)` captures the song title as group 1
-- `(\d{4})` captures the year as group 2
-- Input: "Hotel California - 1976 Remaster"
-- Output: "Hotel California (originally from 1976)"
-
-**Multiple Groups Example:**
-```
-Find: ^(.+) [Ff]eat\. (.+) - (.+)$
-Replace: $3 by $1 featuring $2
-```
-- Group 1: Main artist
-- Group 2: Featured artist
-- Group 3: Song title
-- Input: "Taylor Swift feat. Ed Sheeran - Everything Has Changed"
-- Output: "Everything Has Changed by Taylor Swift featuring Ed Sheeran"
-
-**Named Capture Groups:**
-```
-Find: ^(?P<artist>.+) - (?P<song>.+) \((?P<year>\d{4})\)$
-Replace: ${song} by ${artist}
-```
-- Uses `(?P<name>...)` syntax for named groups
-- Reference with `${name}` in replacement
-- Input: "The Beatles - Hey Jude (1968)"
-- Output: "Hey Jude by The Beatles"
-
-**Escaping Special Characters:**
-- Use `\$` for literal dollar signs
-- Use `\{` and `\}` for literal braces
-- Use `\\` for literal backslashes
-
-#### Real Examples
-
-**Remove Remaster Suffixes:**
-- Find: `^(.+) - \d{4} Digital Remaster$`
-- Replace: `$1`
-- Input: "The Big Ship - 2004 Digital Remaster"
-- Output: "The Big Ship"
-
-**Normalize Featuring Formats:**
-- Find: `(.+) [Ff]t\. (.+)`
-- Replace: `$1 feat. $2`
-- Input: "Artist ft. Other Artist"
-- Output: "Artist feat. Other Artist"
-
-**Complex Multi-Field Rule:**
-```
-Artist Name: ^Chris Thile$ → Chris Thile & Michael Daves
-Album Name: Sleep With One Eye Open → Sleep With One Eye Open
-Album Artist: .* → Chris Thile & Michael Daves
-```
-
-This rule demonstrates the "ALL patterns must match" requirement - it only applies when:
-1. The artist is exactly "Chris Thile" AND
-2. The album contains "Sleep With One Eye Open" AND
-3. There is an album artist field (any value)
-
-Only when all three conditions are met will the rule trigger and correct the collaboration attribution.
-
-#### Key Features
-
-- **All Patterns Must Match**: For multi-field rules, every specified pattern must match for the rule to apply
-- **Whole String Replacement**: When a pattern matches, the entire field is replaced
-- **30+ Default Rules**: Ships with comprehensive rules for common issues
-- **Custom Rules**: Create your own rules through the GUI or configuration
+- Remove remaster suffixes: `"Song - 2019 Remaster"` → `"Song"`
+- Normalize featuring: `"Artist ft. Other"` → `"Artist feat. Other"`
+- Clean whitespace and formatting issues
+- Fix artist attribution problems
 
 ## Desktop App Guide
 
