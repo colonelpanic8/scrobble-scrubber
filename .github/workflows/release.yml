@@ -28,11 +28,18 @@ jobs:
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: Install cross-compilation targets
+        working-directory: app
+        run: |
+          nix develop --command rustup target add x86_64-pc-windows-gnu
+          nix develop --command rustup target add x86_64-apple-darwin
+
       - name: Build Windows bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
             --platform windows \
+            --target x86_64-pc-windows-gnu \
             --package-types msi
 
       - name: Build macOS bundle  
@@ -40,6 +47,7 @@ jobs:
         run: |
           nix develop --command dx bundle --release \
             --platform macos \
+            --target x86_64-apple-darwin \
             --package-types dmg
 
       - name: Build Linux bundle
