@@ -55,42 +55,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Nix (Linux/macOS)
-        if: startsWith(matrix.platform, 'linux') || startsWith(matrix.platform, 'macos')
+      - name: Install Nix (Linux only)
+        if: startsWith(matrix.platform, 'linux')
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Cache Nix store (Linux/macOS)
-        if: startsWith(matrix.platform, 'linux') || startsWith(matrix.platform, 'macos')
+      - name: Cache Nix store (Linux only)
+        if: startsWith(matrix.platform, 'linux')
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Setup Rust (Windows only)
-        if: matrix.platform == 'windows'
+      - name: Setup Rust (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup Rust Cache (Windows only)
-        if: matrix.platform == 'windows'
+      - name: Setup Rust Cache (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform }}-app
 
-      - name: Install cargo-binstall (Windows only)
-        if: matrix.platform == 'windows'
+      - name: Install cargo-binstall (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
-      - name: Install Dioxus CLI (Windows)
-        if: matrix.platform == 'windows'
+      - name: Install Dioxus CLI (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         run: |
           cargo binstall --no-confirm dioxus-cli
 
-      - name: Build app bundle (Linux/macOS with Nix)
-        if: startsWith(matrix.platform, 'linux') || startsWith(matrix.platform, 'macos')
+      - name: Build app bundle (Linux with Nix)
+        if: startsWith(matrix.platform, 'linux')
         working-directory: app
         run: |
           nix develop --command dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}
 
-      - name: Build app bundle (Windows)
-        if: matrix.platform == 'windows'
+      - name: Build app bundle (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         working-directory: app
         run: |
           dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}

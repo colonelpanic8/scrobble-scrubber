@@ -45,33 +45,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Nix (Linux/macOS)
-        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
+      - name: Install Nix (Linux only)
+        if: matrix.platform == 'linux'
         uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Cache Nix store (Linux/macOS)
-        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
+      - name: Cache Nix store (Linux only)
+        if: matrix.platform == 'linux'
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Setup Rust (Windows only)
-        if: matrix.platform == 'windows'
+      - name: Setup Rust (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         uses: dtolnay/rust-toolchain@stable
         with:
           target: ${{ matrix.target }}
 
-      - name: Setup Rust Cache (Windows only)
-        if: matrix.platform == 'windows'
+      - name: Setup Rust Cache (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform }}
 
-      - name: Build CLI (Linux/macOS with Nix)
-        if: matrix.platform == 'linux' || startsWith(matrix.platform, 'macos')
+      - name: Build CLI (Linux with Nix)
+        if: matrix.platform == 'linux'
         run: |
           nix develop --command cargo build --release -p scrobble-scrubber-cli --target ${{ matrix.target }}
 
-      - name: Build CLI (Windows)
-        if: matrix.platform == 'windows'
+      - name: Build CLI (Windows/macOS)
+        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
         run: |
           cargo build --release -p scrobble-scrubber-cli --target ${{ matrix.target }}
 
