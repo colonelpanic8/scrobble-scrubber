@@ -22,24 +22,28 @@ jobs:
         include:
           - platform: linux
             os: ubuntu-latest
+            dx-platform: linux
             package-types: deb
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.deb
               target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
           - platform: windows
             os: windows-latest
+            dx-platform: windows
             package-types: msi
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.exe
               target/dx/scrobble-scrubber-app/**/*.msi
           - platform: macos-intel
             os: macos-13
+            dx-platform: macos
             package-types: dmg
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.app
               target/dx/scrobble-scrubber-app/**/*.dmg
           - platform: macos-arm
             os: macos-latest
+            dx-platform: macos
             package-types: dmg
             artifact-patterns: |
               target/dx/scrobble-scrubber-app/**/*.app
@@ -83,13 +87,13 @@ jobs:
         if: startsWith(matrix.platform, 'linux') || startsWith(matrix.platform, 'macos')
         working-directory: app
         run: |
-          nix develop --command dx bundle --release --platform ${{ matrix.platform }} --package-types ${{ matrix.package-types }}
+          nix develop --command dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}
 
       - name: Build app bundle (Windows)
         if: matrix.platform == 'windows'
         working-directory: app
         run: |
-          dx bundle --release --platform ${{ matrix.platform }} --package-types ${{ matrix.package-types }}
+          dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}
 
       - name: List artifacts
         working-directory: app
