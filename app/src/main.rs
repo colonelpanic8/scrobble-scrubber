@@ -211,11 +211,6 @@ fn main() {
 fn app() -> Element {
     use dioxus::desktop::{window, WindowCloseBehaviour};
 
-    // Initialize tray icon at app level
-    use_hook(|| {
-        tray::initialize_tray();
-    });
-
     // Set window close behavior to hide instead of exit
     use_effect(move || {
         spawn(async move {
@@ -241,6 +236,11 @@ fn App() -> Element {
 fn AppLayout() -> Element {
     let state = use_signal(AppState::default);
     use_context_provider(|| state);
+
+    // Initialize tray icon with access to state
+    use_hook(move || {
+        tray::initialize_tray(state);
+    });
 
     // Initialize config and storage
     use_effect(move || {

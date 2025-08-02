@@ -1,6 +1,33 @@
+use crate::types::ScrubberStatus;
 use dioxus::prelude::*;
 use image::ImageReader;
 use std::io::Cursor;
+
+/// Format scrubber status for tray menu display
+pub fn format_scrubber_status(status: &ScrubberStatus) -> String {
+    match status {
+        ScrubberStatus::Stopped => "Status: Stopped".to_string(),
+        ScrubberStatus::Starting => "Status: Starting...".to_string(),
+        ScrubberStatus::Running => "Status: Running".to_string(),
+        ScrubberStatus::Sleeping { until_timestamp } => {
+            let now = chrono::Utc::now();
+            let remaining = (*until_timestamp - now).num_seconds().max(0);
+            if remaining > 0 {
+                let minutes = remaining / 60;
+                let seconds = remaining % 60;
+                if minutes > 0 {
+                    format!("Status: 💤 Sleeping ({minutes}m {seconds}s)")
+                } else {
+                    format!("Status: 💤 Sleeping ({remaining}s)")
+                }
+            } else {
+                "Status: 💤 Sleeping".to_string()
+            }
+        }
+        ScrubberStatus::Stopping => "Status: Stopping...".to_string(),
+        ScrubberStatus::Error(err) => format!("Status: Error - {err}"),
+    }
+}
 
 /// Load an icon from raw bytes
 pub fn load_icon_from_bytes(
@@ -21,6 +48,7 @@ pub fn load_icon_from_bytes(
 pub fn create_tray_icon(
     tray_icon_image: tray_icon::Icon,
     _window: Option<dioxus::desktop::DesktopContext>,
+    status_text: &str,
 ) -> Result<
     (
         tray_icon::TrayIcon,
@@ -40,7 +68,7 @@ pub fn create_tray_icon(
     let separator1 = MenuItem::new("", false, None); // Separator
 
     // Status item (disabled, shows current state)
-    let status_item = MenuItem::new("Status: Loading...", false, None);
+    let status_item = MenuItem::new(status_text, false, None);
     let separator_status = MenuItem::new("", false, None); // Separator
 
     // Scrubber submenu
@@ -80,9 +108,14 @@ pub fn create_tray_icon(
 
     log::debug!("Building tray icon with TrayIconBuilder");
 
-    // Build tray icon with menu
+    // Build tray icon with menu and status in tooltip
+    let tooltip = if status_text.contains("💤 Sleeping") {
+        format!("Scrobble Scrubber - {status_text}\nRight-click for options")
+    } else {
+        format!("Scrobble Scrubber - {status_text} - Right-click for options")
+    };
     let tray_icon = TrayIconBuilder::new()
-        .with_tooltip("Scrobble Scrubber - Right-click for options")
+        .with_tooltip(tooltip)
         .with_icon(tray_icon_image)
         .with_menu(Box::new(menu))
         .build()?;
@@ -97,7 +130,7 @@ pub fn create_tray_icon(
 }
 
 /// Initialize tray icon and handle menu events
-pub fn initialize_tray() {
+pub fn initialize_tray(state: Signal<crate::types::AppState>) {
     let icon_data = include_bytes!("../assets/icons/256x256.png");
 
     // Load and decode PNG to RGBA for tray icon
@@ -118,7 +151,10 @@ pub fn initialize_tray() {
         }
     };
 
-    match create_tray_icon(tray_icon_image, None) {
+    // Get current status from app state
+    let status_text = format_scrubber_status(&state.read().scrubber_state.status);
+
+    match create_tray_icon(tray_icon_image, None, &status_text) {
         Ok((tray_icon, menu_channel)) => {
             log::info!("System tray icon initialized successfully");
 
@@ -129,6 +165,26 @@ pub fn initialize_tray() {
                         handle_tray_menu_event(&event.id.0);
                     }
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
+            });
+
+            // Periodically update tray status
+            spawn(async move {
+                let mut last_status = format_scrubber_status(&state.read().scrubber_state.status);
+
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+                    let current_status =
+                        format_scrubber_status(&state.read().scrubber_state.status);
+                    if current_status != last_status {
+                        last_status = current_status.clone();
+                        log::debug!("Tray status updated: {current_status}");
+
+                        // For now we just log the status change
+                        // In the future we could recreate the tray menu or update the tooltip
+                        // The tray-icon crate doesn't seem to support updating individual menu items
+                    }
                 }
             });
 
@@ -143,38 +199,30 @@ pub fn initialize_tray() {
 
 /// Handle tray menu events
 fn handle_tray_menu_event(menu_id: &str) {
-    use dioxus::desktop::window;
-
     match menu_id {
         "show_hide" => {
             log::info!("Show/Hide window clicked from tray menu");
-
-            // Toggle window visibility using window() function
-            let win = window();
-            let is_visible = win.is_visible();
-            if is_visible {
-                win.set_visible(false);
-                log::info!("Window hidden via tray menu");
-            } else {
-                win.set_visible(true);
-                win.set_focus();
-                log::info!("Window shown and focused via tray menu");
-            }
+            toggle_window_visibility();
         }
         "start_scrubber" => {
             log::info!("Start scrubber clicked from tray menu");
+            show_window_if_hidden();
         }
         "stop_scrubber" => {
             log::info!("Stop scrubber clicked from tray menu");
+            show_window_if_hidden();
         }
         "process_now" => {
             log::info!("Process now clicked from tray menu");
+            show_window_if_hidden();
         }
         "config" => {
             log::info!("Settings clicked from tray menu");
+            show_window_if_hidden();
         }
         "about" => {
             log::info!("About clicked from tray menu");
+            show_window_if_hidden();
         }
         "quit" => {
             log::info!("Exit clicked from tray menu - shutting down application");
@@ -183,5 +231,33 @@ fn handle_tray_menu_event(menu_id: &str) {
         _ => {
             log::warn!("Unknown tray menu item clicked: {menu_id}");
         }
+    }
+}
+
+/// Toggle window visibility (show if hidden, hide if shown)
+fn toggle_window_visibility() {
+    use dioxus::desktop::window;
+
+    let win = window();
+    let is_visible = win.is_visible();
+    if is_visible {
+        win.set_visible(false);
+        log::info!("Window hidden via tray menu");
+    } else {
+        win.set_visible(true);
+        win.set_focus();
+        log::info!("Window shown and focused via tray menu");
+    }
+}
+
+/// Show window if it's currently hidden
+fn show_window_if_hidden() {
+    use dioxus::desktop::window;
+
+    let win = window();
+    if !win.is_visible() {
+        win.set_visible(true);
+        win.set_focus();
+        log::info!("Window shown via tray menu action");
     }
 }
