@@ -160,7 +160,9 @@
       "Bash(git mv:*)",
       "Bash(git tag:*)",
       "Bash(env)",
-      "Bash(unset:*)"
+      "Bash(unset:*)",
+      "Bash(just fmt:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

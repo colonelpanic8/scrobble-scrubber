@@ -1,11 +1,11 @@
 [package]
 name = "scrobble-scrubber-js"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 authors = ["Ivan Malison <ivanmalison@gmail.com>"]
-license = "MIT"
+license.workspace = true
 description = "WebAssembly bindings for scrobble-scrubber - Last.fm track metadata cleaning"
-repository = "https://github.com/imalison/scrobble-scrubber"
+repository.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

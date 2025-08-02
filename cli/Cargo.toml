@@ -1,10 +1,10 @@
 [package]
 name = "scrobble-scrubber-cli"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Command-line interface for scrobble-scrubber"
-license = "MIT"
-repository = "https://github.com/imalison/lastfm-edit"
+license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "scrobble-scrubber"
