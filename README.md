@@ -9,10 +9,9 @@ Automated Last.fm track monitoring and scrubbing system that continuously monito
 - **Multiple Cleaning Providers**:
   - **Rewrite Rules**: Fast pattern-based cleaning (removes remaster suffixes, normalizes featuring formats, trims whitespace)
   - **OpenAI Provider**: AI-powered metadata cleaning for complex issues requiring musical knowledge
-  - **HTTP Provider**: Custom endpoint integration
+  - **MusicBrainze Provider**: Uses musicbrainz release library to correct metadata
 - **Self-Improving AI Integration**: The AI provider not only handles complex metadata issues but also identifies patterns for new automated rules, creating a system that gets smarter over time
 - **Dry Run Mode**: Test changes without actually modifying your scrobbles
-- **Configurable Limits**: Control how many tracks to process per cycle
 - **Flexible Configuration**: Environment variables, config files, and command-line arguments
 
 ## Usage
