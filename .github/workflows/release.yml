@@ -131,7 +131,7 @@ jobs:
           # Process macOS artifacts
           find release-assets -name "*.app" -type d | while read file; do
             # Zip the .app bundle for distribution
-            (cd "$(dirname "$file")" && zip -r "../../release-files/scrobble-scrubber-app-macos.app.zip" "$(basename "$file")")
+            zip -r "release-files/scrobble-scrubber-app-macos.app.zip" "$file"
           done
           find release-assets -name "*.dmg" | while read file; do
             cp "$file" release-files/
