@@ -153,7 +153,9 @@
       "Bash(git clone:*)",
       "Bash(direnv allow:*)",
       "Bash(kill:*)",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
