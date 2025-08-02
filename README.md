@@ -173,3 +173,4 @@ The scrubber uses the `lastfm-edit` library for all Last.fm interactions and imp
 4. **Action System**: Structured approach to track/artist modifications
 # Linux app test
 # macOS ARM app test
+# macOS Intel app test - updated
