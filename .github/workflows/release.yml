@@ -32,19 +32,22 @@ jobs:
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform windows
+            --platform windows \
+            --package-types msi
 
       - name: Build macOS bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform macos
+            --platform macos \
+            --package-types dmg
 
       - name: Build Linux bundle
         working-directory: app
         run: |
           nix develop --command dx bundle --release \
-            --platform linux
+            --platform linux \
+            --package-types deb
 
       - name: List all artifacts
         working-directory: app
