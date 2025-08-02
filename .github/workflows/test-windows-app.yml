@@ -39,7 +39,7 @@ jobs:
       - name: Build app bundle (Windows)
         working-directory: app
         run: |
-          dx bundle --release --platform windows --package-types exe
+          dx bundle --release --platform windows --package-types nsis
 
       - name: List artifacts
         working-directory: app
@@ -53,4 +53,5 @@ jobs:
           name: windows-app-test
           path: |
             target/dx/scrobble-scrubber-app/**/*.exe
+            target/dx/scrobble-scrubber-app/**/*.msi
           if-no-files-found: error

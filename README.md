@@ -172,4 +172,10 @@ The scrubber uses the `lastfm-edit` library for all Last.fm interactions and imp
 3. **Rule Engine**: Modular system for adding new cleaning rules
 4. **Action System**: Structured approach to track/artist modifications
 # Linux app test
+<<<<<<< HEAD
 # Windows app test
+||||||| cc0a3bc
+=======
+# macOS ARM app test
+>>>>>>> master
+# Windows app test - updated
