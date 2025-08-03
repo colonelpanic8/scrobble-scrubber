@@ -23,37 +23,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rust (macOS)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Nix (macOS)
+        uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Setup Rust Cache (macOS)
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: macos-arm-app
+      - name: Cache Nix store (macOS)
+        uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Install cargo-binstall (macOS)
+      - name: Build app bundle (macOS with Nix)
         run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-
-      - name: Install Dioxus CLI (macOS)
-        run: |
-          cargo binstall --no-confirm dioxus-cli
-
-      - name: Build app bundle (macOS)
-        working-directory: app
-        run: |
-          dx bundle --release --platform macos --package-types macos
+          NIXPKGS_ALLOW_UNFREE=1 nix build --impure .#app
 
       - name: List artifacts
-        working-directory: app
         run: |
           echo "=== MACOS ARM APP ARTIFACTS ==="
-          find ../target/dx/scrobble-scrubber-app -type f | sort
+          find result -type f | sort
+          echo "App bundle location:"
+          find result -name "*.app" -type d | head -5
 
       - name: Upload app packages
         uses: actions/upload-artifact@v4
         with:
           name: macos-arm-app-test
           path: |
-            target/dx/scrobble-scrubber-app/**/*.app
+            result/**/*.app
           if-no-files-found: error
