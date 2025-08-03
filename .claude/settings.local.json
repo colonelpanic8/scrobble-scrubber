@@ -139,7 +139,6 @@
       "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 1 -q remaster)",
       "Bash(RUST_LOG=scrobble_scrubber=info cargo run --bin scrobble-scrubber -- scrubber search --limit 3 -q \"beatles\")",
       "Bash(lastfm-edit:*)",
-      "Bash(lastfm-edit:*)",
       "Bash(./add_album_rules)",
       "Bash(RUST_LOG=info cargo run -- --state-file test_new_user.db rules show)",
       "Bash(RUST_LOG=info ./target/release/scrobble-scrubber --state-file test_embedded.db rules show)",
@@ -162,7 +161,13 @@
       "Bash(env)",
       "Bash(unset:*)",
       "Bash(just fmt:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(nix log:*)",
+      "Bash(wait)",
+      "Bash(sips:*)",
+      "Bash(iconutil:*)",
+      "Bash(./test-release-artifacts.sh:*)",
+      "Bash(unzip:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

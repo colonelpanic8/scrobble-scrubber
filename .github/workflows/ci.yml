@@ -34,3 +34,69 @@ jobs:
 
       - name: Run tests
         run: nix develop --command cargo test --verbose
+
+      - name: Build release
+        run: nix develop --command cargo build --release --verbose
+
+  build-app:
+    name: Build Dioxus App
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-14  # M1 runner
+            name: macos-arm64
+          - os: macos-13  # Intel runner
+            name: macos-x64
+    
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build Dioxus app
+        run: nix build .#scrobble-scrubber-app -L
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p artifacts
+          echo "Checking build results..."
+          ls -la result/
+          
+          if [ -d "result/ScrobbleScrubberApp.app" ]; then
+            # macOS - create a zip of the .app bundle
+            echo "Creating macOS app bundle zip for ${{ matrix.name }}"
+            # Copy to writable location first since result/ is from Nix store (readonly)
+            cp -r result/ScrobbleScrubberApp.app artifacts/
+            cd artifacts
+            zip -r scrobble-scrubber-${{ matrix.name }}.zip ScrobbleScrubberApp.app
+            chmod -R u+w ScrobbleScrubberApp.app 2>/dev/null || true
+            rm -rf ScrobbleScrubberApp.app
+            cd ..
+          elif [ -f "result/bin/scrobble-scrubber-app" ]; then
+            # Linux - copy the binary
+            echo "Creating Linux binary for ${{ matrix.name }}"
+            cp result/bin/scrobble-scrubber-app artifacts/scrobble-scrubber-${{ matrix.name }}
+            chmod +x artifacts/scrobble-scrubber-${{ matrix.name }}
+          else
+            echo "ERROR: No recognized output found!"
+            echo "Contents of result directory:"
+            find result -type f | head -20
+            exit 1
+          fi
+          
+          echo "Final artifacts:"
+          ls -la artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrobble-scrubber-${{ matrix.name }}
+          path: artifacts/*
