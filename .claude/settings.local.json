@@ -173,7 +173,22 @@
       "Bash(./result/bin/scrobble-scrubber-app:*)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo clippy --all-targets --all-features -- -D warnings)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo test)",
-      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo fmt --all)"
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo fmt --all)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo build --release)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh workflow list)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run list --limit 10)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run list --limit 8)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703064399)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703064399 --log-failed)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run list --limit 6)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703103330 --log-failed)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703103330)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703165350 --log-failed)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703165350)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703202651 --log-failed)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo binstall --help)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424 --log-failed)"
     ],
     "deny": [
       "Bash(dx serve:*)"
