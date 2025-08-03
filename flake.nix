@@ -158,13 +158,14 @@
               webkitgtk_4_1
               librsvg
               libsoup_3
-              libayatana-appindicator
+              libappindicator-gtk3
+              xdotool
             ];
 
           # Skip the default checks
           doCheck = false;
 
-          # Override the build phase to use dx bundle
+          # Override the build phase to use platform-specific building
           buildPhase = ''
             runHook preBuild
 
@@ -175,35 +176,38 @@
             mkdir -p assets
             cp -r ${./app/assets}/* assets/
 
-            # Build and bundle the application
-            # Only build the .app bundle, no DMG
-            dx bundle --release --platform ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "linux" else "windows"} --package-types ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "appimage" else "msi"}
+            # Platform-specific build
+            ${if pkgs.stdenv.isDarwin then ''
+              # macOS: Use dx bundle to create .app bundle
+              dx bundle --release --platform macos --package-types macos
+            '' else if pkgs.stdenv.isLinux then ''
+              # Linux: Use dx build to avoid AppImage sandbox issues
+              dx build --release
+            '' else ''
+              # Windows: Use dx bundle for MSI
+              dx bundle --release --platform windows --package-types msi
+            ''}
 
-            echo "Bundle phase completed"
+            echo "Build phase completed"
 
-            # The bundle is created in the source root's target directory
+            # Return to source root
             cd ..
 
             runHook postBuild
           '';
 
-          # Install the bundled app
+          # Install the platform-specific output
           installPhase = ''
             runHook preInstall
 
             mkdir -p $out
 
-            # We're now back in the source root directory
-            echo "Current directory: $(pwd)"
-            echo "Looking for .app bundles..."
-            find . -name "*.app" -type d 2>/dev/null | head -10
-
             # Platform-specific installation
             ${if pkgs.stdenv.isDarwin then ''
-              # The app bundle is created at a specific path by dx bundle
+              # macOS: Install the .app bundle
               APP_PATH="target/dx/scrobble-scrubber-app/bundle/macos/bundle/macos/ScrobbleScrubberApp.app"
               if [ -d "$APP_PATH" ]; then
-                echo "Found app at: $APP_PATH"
+                echo "Found app bundle at: $APP_PATH"
                 cp -r "$APP_PATH" $out/
 
                 # Create a wrapper script for easier execution
@@ -218,18 +222,21 @@
                 exit 1
               fi
             '' else if pkgs.stdenv.isLinux then ''
-              # Look for AppImage in the bundle output
-              APP_PATH=$(find target/dx -name "*.AppImage" 2>/dev/null | head -1)
-              if [ -n "$APP_PATH" ]; then
+              # Linux: Install the binary
+              BINARY_PATH="target/release/scrobble-scrubber-app"
+              if [ -f "$BINARY_PATH" ]; then
                 mkdir -p $out/bin
-                cp "$APP_PATH" $out/bin/scrobble-scrubber-app
+                echo "Found binary at: $BINARY_PATH"
+                cp "$BINARY_PATH" $out/bin/scrobble-scrubber-app
                 chmod +x $out/bin/scrobble-scrubber-app
               else
-                echo "ERROR: AppImage not found!"
+                echo "ERROR: Binary not found at expected location: $BINARY_PATH"
+                echo "Contents of target/release directory:"
+                ls -la target/release/ 2>/dev/null || echo "No target/release directory found"
                 exit 1
               fi
             '' else ''
-              # Windows
+              # Windows: Install the MSI
               EXE_PATH=$(find target/dx -name "*.exe" -o -name "*.msi" 2>/dev/null | head -1)
               if [ -n "$EXE_PATH" ]; then
                 mkdir -p $out/bin
