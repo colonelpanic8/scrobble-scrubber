@@ -51,6 +51,8 @@ jobs:
           fi
 
       - name: Wait for platform builds
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Checking for recent successful platform builds for tag ${{ steps.tag.outputs.tag }}"
           
@@ -58,36 +60,54 @@ jobs:
           COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
           echo "Looking for builds with commit SHA: $COMMIT_SHA"
           
-          # Check each platform workflow for successful runs with this commit
-          PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
-          SUCCESS_COUNT=0
+          # Wait up to 30 minutes for all platform builds to complete
+          MAX_WAIT=1800  # 30 minutes
+          WAIT_INTERVAL=60  # Check every minute
+          ELAPSED=0
           
-          for platform in "${PLATFORMS[@]}"; do
-            echo "Checking $platform..."
+          while [[ $ELAPSED -lt $MAX_WAIT ]]; do
+            echo "Checking platform builds (${ELAPSED}s elapsed)..."
             
-            # Get recent successful runs for this workflow
-            RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-              --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
-              | head -1)
+            # Check each platform workflow for successful runs with this commit
+            PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
+            SUCCESS_COUNT=0
             
-            if [[ -n "$RUNS" ]]; then
-              echo "✅ Found successful $platform build: $RUNS"
-              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-            else
-              echo "❌ No successful $platform build found"
+            for platform in "${PLATFORMS[@]}"; do
+              echo "Checking $platform..."
+              
+              # Get recent successful runs for this workflow
+              RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+                --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
+                | head -1)
+              
+              if [[ -n "$RUNS" ]]; then
+                echo "✅ Found successful $platform build: $RUNS"
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+              else
+                echo "⏳ No successful $platform build found yet"
+              fi
+            done
+            
+            echo "Found $SUCCESS_COUNT/4 successful platform builds"
+            
+            if [[ $SUCCESS_COUNT -eq 4 ]]; then
+              echo "All platform builds successful! Proceeding with release."
+              break
             fi
+            
+            echo "Waiting $WAIT_INTERVAL seconds before next check..."
+            sleep $WAIT_INTERVAL
+            ELAPSED=$((ELAPSED + WAIT_INTERVAL))
           done
           
-          echo "Found $SUCCESS_COUNT/4 successful platform builds"
-          
-          if [[ $SUCCESS_COUNT -eq 4 ]]; then
-            echo "All platform builds successful! Proceeding with release."
-          else
-            echo "Not all platform builds are successful. Cannot create release."
+          if [[ $SUCCESS_COUNT -ne 4 ]]; then
+            echo "Timeout: Not all platform builds completed successfully after ${MAX_WAIT}s"
             exit 1
           fi
 
       - name: Download artifacts from platform builds
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Downloading artifacts from platform builds..."
           mkdir -p release-assets
@@ -147,6 +167,23 @@ jobs:
           
           echo "Release files prepared:"
           ls -la release-files/ || echo "No files in release-files/"
+
+      - name: Delete old releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Cleaning up old releases..."
+          
+          # Keep only the last 3 releases
+          RELEASES_TO_DELETE=$(gh api repos/${{ github.repository }}/releases \
+            --jq '.[3:] | .[] | .id')
+          
+          for release_id in $RELEASES_TO_DELETE; do
+            echo "Deleting old release: $release_id"
+            gh api repos/${{ github.repository }}/releases/$release_id -X DELETE || echo "Failed to delete release $release_id"
+          done
+          
+          echo "Old releases cleanup completed"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
