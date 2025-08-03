@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "test-app-linux"
-      - "release/*"
     tags:
       - "v*"
   workflow_dispatch:

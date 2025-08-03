@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "test-app-macos-arm"
-      - "release/*"
     tags:
       - "v*"
   workflow_dispatch:
