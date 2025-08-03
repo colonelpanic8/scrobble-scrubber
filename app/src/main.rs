@@ -14,6 +14,7 @@ mod components;
 mod error_utils;
 mod icons;
 mod scrubber_manager;
+#[cfg(not(target_os = "macos"))]
 mod tray;
 mod types;
 mod utils;
@@ -239,7 +240,8 @@ fn AppLayout() -> Element {
     let state = use_signal(AppState::default);
     use_context_provider(|| state);
 
-    // Initialize tray icon with access to state
+    // Initialize tray icon with access to state (disabled on macOS due to muda compatibility issues)
+    #[cfg(not(target_os = "macos"))]
     use_hook(move || {
         tray::initialize_tray(state);
     });

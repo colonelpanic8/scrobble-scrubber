@@ -1,3 +1,6 @@
+// Tray functionality is disabled on macOS due to muda compatibility issues
+#![cfg(not(target_os = "macos"))]
+
 use crate::types::ScrubberStatus;
 use dioxus::prelude::*;
 use image::ImageReader;
