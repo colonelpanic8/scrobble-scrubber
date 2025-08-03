@@ -188,7 +188,8 @@
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703202651 --log-failed)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo binstall --help)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424)",
-      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424 --log-failed)"
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424 --log-failed)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703499015)"
     ],
     "deny": [
       "Bash(dx serve:*)"
