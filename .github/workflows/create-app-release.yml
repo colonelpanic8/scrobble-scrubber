@@ -37,7 +37,16 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
           else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            # For workflow_run events, get the head_branch which should be the tag
+            HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            echo "Head branch from triggering workflow: $HEAD_BRANCH"
+            if [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9] ]]; then
+              echo "tag=$HEAD_BRANCH" >> $GITHUB_OUTPUT
+              echo "Using tag: $HEAD_BRANCH"
+            else
+              echo "Error: Expected tag format but got: $HEAD_BRANCH"
+              exit 1
+            fi
           fi
 
       - name: Extract version from tag
@@ -56,8 +65,12 @@ jobs:
         run: |
           echo "Verifying all platform builds completed successfully for tag ${{ steps.tag.outputs.tag }}"
 
-          # Get the commit SHA for this tag
-          COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          # Get the commit SHA for this tag from the workflow run event
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          else
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+          fi
           echo "Looking for builds with commit SHA: $COMMIT_SHA"
 
           # Check each platform workflow for successful runs with this commit
@@ -107,7 +120,11 @@ jobs:
           echo "Downloading artifacts from platform builds..."
           mkdir -p release-assets
 
-          COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          else
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+          fi
 
           # Download artifacts from each platform
           PLATFORMS=("Build Linux App:linux-app-test" "Build Windows App:windows-app-test" "Build macOS ARM App:macos-arm-app-test")
