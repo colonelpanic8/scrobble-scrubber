@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["Build Linux App", "Build Windows App", "Build macOS Intel App", "Build macOS ARM App"]
     types: [completed]
-    branches: [master]
   workflow_dispatch:
     inputs:
       tag:
