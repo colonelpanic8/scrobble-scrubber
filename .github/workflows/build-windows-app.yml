@@ -37,7 +37,15 @@ jobs:
 
       - name: Install Dioxus CLI (Windows)
         run: |
-          cargo binstall --no-confirm dioxus-cli
+          echo "Attempting to install dioxus-cli with cargo-binstall..."
+          cargo binstall --no-confirm dioxus-cli --verbose
+          echo "Installation complete. Checking if dx was installed..."
+          if (-not (Test-Path "$env:USERPROFILE\.cargo\bin\dx.exe")) {
+            echo "dx.exe not found after binstall, trying cargo install as fallback..."
+            cargo install dioxus-cli
+          } else {
+            echo "dx.exe found after binstall installation"
+          }
 
       - name: Add cargo bin to PATH and verify dx installation
         run: |
