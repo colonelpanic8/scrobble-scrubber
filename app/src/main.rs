@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use ::scrobble_scrubber::config::{ScrobbleScrubberConfig, StorageConfig};
 use ::scrobble_scrubber::persistence::{FileStorage, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
@@ -95,7 +97,7 @@ async fn initialize_app_state_signal(mut state: Signal<AppState>) {
             });
         }
         Err(e) => {
-            eprintln!("Failed to initialize app: {e}");
+            log::error!("Failed to initialize app: {e}");
         }
     }
 }
@@ -151,7 +153,7 @@ async fn handle_session_restore_and_login(state: Signal<AppState>) {
             }
         }
         Err(e) => {
-            eprintln!("Failed to restore session: {e}");
+            log::error!("Failed to restore session: {e}");
             // Fallback to auto-login
             let config = state.read().config.as_ref().cloned();
             if let Some(session_str) = attempt_auto_login(config.as_ref()).await {
@@ -182,7 +184,7 @@ async fn attempt_auto_login(config: Option<&ScrobbleScrubberConfig>) -> Option<S
 
     login_to_lastfm(username.trim().to_string(), password.trim().to_string())
         .await
-        .map_err(|e| eprintln!("Auto-login failed: {e}"))
+        .map_err(|e| log::error!("Auto-login failed: {e}"))
         .ok()
 }
 

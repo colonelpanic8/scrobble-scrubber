@@ -105,17 +105,17 @@ pub async fn load_artist_tracks(
     // Deserialize session and create client for albums
     let session_for_albums = match deserialize_session(&session_str) {
         Ok(session) => {
-            println!("✅ Session deserialized successfully");
+            log::debug!("✅ Session deserialized successfully");
             session
         }
         Err(e) => {
-            eprintln!("❌ Failed to deserialize session: {e}");
+            log::error!("❌ Failed to deserialize session: {e}");
             return Err(e);
         }
     };
     let client_for_albums = create_client_from_session(session_for_albums);
 
-    println!("🔍 Fetching albums for artist: '{artist_name}'");
+    log::info!("🔍 Fetching albums for artist: '{artist_name}'");
 
     // Fetch all albums for the artist with timeout
     let albums = with_timeout(
@@ -125,11 +125,11 @@ pub async fn load_artist_tracks(
     )
     .await
     .unwrap_or_else(|e| {
-        eprintln!("❌ Error fetching artist albums: {e}");
+        log::error!("❌ Error fetching artist albums: {e}");
         Vec::new()
     });
 
-    println!(
+    log::info!(
         "📀 Found {} albums for artist '{artist_name}'",
         albums.len()
     );
@@ -143,7 +143,7 @@ pub async fn load_artist_tracks(
         let album_name = album.name.clone();
         let artist_name_clone = artist_name.clone();
 
-        println!(
+        log::info!(
             "🎧 Fetching tracks for album {}/{}: '{album_name}'",
             idx + 1,
             albums.len()
@@ -157,18 +157,18 @@ pub async fn load_artist_tracks(
         .await
         {
             Ok(Ok(tracks)) => {
-                println!(
+                log::debug!(
                     "✅ Successfully fetched {} tracks from album '{album_name}'",
                     tracks.len()
                 );
                 tracks
             }
             Ok(Err(e)) => {
-                eprintln!("❌ Error fetching tracks for album '{album_name}': {e}");
+                log::error!("❌ Error fetching tracks for album '{album_name}': {e}");
                 Vec::new()
             }
             Err(_) => {
-                eprintln!("⏱️ Timeout fetching tracks for album '{album_name}'");
+                log::warn!("⏱️ Timeout fetching tracks for album '{album_name}'");
                 Vec::new()
             }
         };
@@ -176,7 +176,7 @@ pub async fn load_artist_tracks(
         all_tracks.extend(album_tracks);
     }
 
-    println!("🎵 Total tracks collected: {}", all_tracks.len());
+    log::info!("🎵 Total tracks collected: {}", all_tracks.len());
 
     if all_tracks.is_empty() {
         return Err(Box::<dyn std::error::Error + Send + Sync>::from(format!(
@@ -188,8 +188,8 @@ pub async fn load_artist_tracks(
     cache.cache_artist_tracks(artist_name.clone(), all_tracks.clone());
     cache
         .save()
-        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
-    println!("💾 Cached tracks for artist '{artist_name}'");
+        .unwrap_or_else(|e| log::error!("⚠️ Failed to save cache: {e}"));
+    log::info!("💾 Cached tracks for artist '{artist_name}'");
 
     Ok(all_tracks)
 }
@@ -235,7 +235,7 @@ pub async fn load_recent_tracks_from_page(
                 .collect();
 
             if !cached_tracks.is_empty() {
-                println!("📂 Using cached recent tracks for page {page} (cache has ~{cached_page_count} pages)");
+                log::info!("📂 Using cached recent tracks for page {page} (cache has ~{cached_page_count} pages)");
                 return Ok(cached_tracks);
             }
         }
@@ -252,7 +252,7 @@ pub async fn load_recent_tracks_from_page(
                 .collect();
 
             if cached_tracks.len() == page_size as usize {
-                println!("📂 Using cached recent tracks for page {page} (partial cache hit)");
+                log::info!("📂 Using cached recent tracks for page {page} (partial cache hit)");
                 return Ok(cached_tracks);
             }
         }
@@ -271,7 +271,7 @@ pub async fn load_recent_tracks_from_page(
     )
     .await
     .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-        eprintln!("Error fetching tracks: {e}");
+        log::error!("Error fetching tracks: {e}");
         format!("Failed to load recent tracks for page {page}").into()
     })?;
 
@@ -285,8 +285,8 @@ pub async fn load_recent_tracks_from_page(
     cache.merge_recent_tracks(tracks.clone());
     cache
         .save()
-        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
-    println!("💾 Cached recent tracks for page {page}");
+        .unwrap_or_else(|e| log::error!("⚠️ Failed to save cache: {e}"));
+    log::info!("💾 Cached recent tracks for page {page}");
 
     Ok(tracks)
 }
@@ -329,7 +329,7 @@ pub async fn load_tracks_at_cache_end(
     )
     .await
     .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-        eprintln!("Error fetching tracks at cache end: {e}");
+        log::error!("Error fetching tracks at cache end: {e}");
         format!("Failed to load tracks at cache end from page {estimated_page}").into()
     })?;
 
@@ -343,8 +343,8 @@ pub async fn load_tracks_at_cache_end(
     cache.merge_recent_tracks(tracks.clone());
     cache
         .save()
-        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
-    println!("💾 Cached tracks at end from page {estimated_page}");
+        .unwrap_or_else(|e| log::error!("⚠️ Failed to save cache: {e}"));
+    log::info!("💾 Cached tracks at end from page {estimated_page}");
 
     Ok(tracks)
 }
@@ -368,7 +368,7 @@ pub async fn load_newer_tracks_fresh(
     )
     .await
     .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-        eprintln!("Error fetching fresh newer tracks: {e}");
+        log::error!("Error fetching fresh newer tracks: {e}");
         "Failed to load fresh newer tracks from page 1".into()
     })?;
 
@@ -383,8 +383,8 @@ pub async fn load_newer_tracks_fresh(
     cache.merge_recent_tracks(tracks.clone());
     cache
         .save()
-        .unwrap_or_else(|e| eprintln!("⚠️ Failed to save cache: {e}"));
-    println!("💾 Cached fresh newer tracks from page 1");
+        .unwrap_or_else(|e| log::error!("⚠️ Failed to save cache: {e}"));
+    log::info!("💾 Cached fresh newer tracks from page 1");
 
     Ok(tracks)
 }
@@ -438,7 +438,7 @@ pub async fn approve_pending_edit(
     let result = crate::error_utils::apply_edit_with_timeout(session, edit)
         .await
         .map_err(|e| {
-            eprintln!("Error applying edit to Last.fm: {e}");
+            log::error!("Error applying edit to Last.fm: {e}");
             e
         })?;
 

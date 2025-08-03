@@ -120,8 +120,7 @@ pub fn create_tray_icon(
         .with_menu(Box::new(menu))
         .build()?;
 
-    println!("🔧 TrayIconBuilder.build() completed successfully");
-    log::info!("TrayIconBuilder.build() completed successfully");
+    log::info!("🔧 TrayIconBuilder.build() completed successfully");
 
     // Get menu event receiver for handling clicks
     let menu_channel = tray_icon::menu::MenuEvent::receiver().clone();
