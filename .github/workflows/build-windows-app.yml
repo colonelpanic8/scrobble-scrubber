@@ -39,10 +39,22 @@ jobs:
         run: |
           cargo binstall --no-confirm dioxus-cli
 
+      - name: Add cargo bin to PATH and verify dx installation
+        run: |
+          echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
+          echo "PATH updated. Checking dx installation:"
+          & "$env:USERPROFILE\.cargo\bin\dx" --version
+
       - name: Build app bundle (Windows)
         working-directory: app
         run: |
-          dx bundle --release --platform windows --package-types nsis
+          # Try dx in PATH first, fallback to full path
+          try {
+            dx bundle --release --platform windows --package-types nsis
+          } catch {
+            Write-Host "dx not in PATH, using full path..."
+            & "$env:USERPROFILE\.cargo\bin\dx" bundle --release --platform windows --package-types nsis
+          }
 
       - name: List artifacts
         working-directory: app
