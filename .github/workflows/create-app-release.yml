@@ -147,17 +147,15 @@ jobs:
           # Handle macOS .app bundles by zipping them
           find release-assets/macos-intel-app-test -name "*.app" -type d | while read file; do
             if [[ -n "$file" ]]; then
-              cd "$(dirname "$file")"
-              zip -r "../../../release-files/scrobble-scrubber-app-macos-intel.app.zip" "$(basename "$file")"
-              cd - > /dev/null
+              echo "Creating zip for $file"
+              zip -r "release-files/scrobble-scrubber-app-macos-intel.app.zip" "$file"
             fi
           done
           
           find release-assets/macos-arm-app-test -name "*.app" -type d | while read file; do
             if [[ -n "$file" ]]; then
-              cd "$(dirname "$file")"
-              zip -r "../../../release-files/scrobble-scrubber-app-macos-arm64.app.zip" "$(basename "$file")"
-              cd - > /dev/null
+              echo "Creating zip for $file"
+              zip -r "release-files/scrobble-scrubber-app-macos-arm64.app.zip" "$file"
             fi
           done
           
