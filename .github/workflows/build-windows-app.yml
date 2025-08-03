@@ -44,31 +44,31 @@ jobs:
           } else {
             echo "Cargo bin directory does not exist yet"
           }
-          
+
           echo "=== DRY RUN ==="
           cargo binstall --dry-run --no-confirm dioxus-cli --verbose
-          
+
           echo "=== ACTUAL INSTALLATION ==="
           cargo binstall --no-confirm --force dioxus-cli --verbose
-          
+
           echo "=== AFTER INSTALLATION ==="
           echo "Contents of cargo bin directory after:"
           Get-ChildItem "$env:USERPROFILE\.cargo\bin" | Select-Object Name, Length, LastWriteTime | Format-Table
-          
+
           echo "Looking for dx executables:"
           Get-ChildItem "$env:USERPROFILE\.cargo\bin" -Filter "dx*" | Format-Table
 
       - name: Add cargo bin to PATH and verify dx installation
         run: |
           echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
-          
+
           echo "=== PATH UPDATE ==="
           echo "Added to PATH: $env:USERPROFILE\.cargo\bin"
-          
+
           echo "=== SEARCHING FOR DX ==="
           echo "Searching for all dx files in cargo bin:"
           Get-ChildItem "$env:USERPROFILE\.cargo\bin" | Where-Object { $_.Name -like 'dx*' } | Format-Table Name, Length, Extension
-          
+
           echo "=== VERSION CHECK ==="
           $dxPath = $null
           if (Test-Path "$env:USERPROFILE\.cargo\bin\dx.exe") {
@@ -83,7 +83,7 @@ jobs:
             Get-ChildItem "$env:USERPROFILE\.cargo\bin" | Format-Table
             exit 1
           }
-          
+
           echo "Checking dx version:"
           & $dxPath --version
 
