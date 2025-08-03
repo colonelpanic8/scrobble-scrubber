@@ -1,9 +1,12 @@
-name: Test Windows App
+name: Build Windows App
 
 on:
   push:
     branches:
       - "test-app-windows"
+      - "release/*"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:

@@ -1,9 +1,12 @@
-name: Test macOS Intel App
+name: Build macOS Intel App
 
 on:
   push:
     branches:
       - "test-app-macos-intel"
+      - "release/*"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:

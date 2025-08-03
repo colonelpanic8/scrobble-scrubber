@@ -16,206 +16,45 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-app-platforms:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux
-            os: ubuntu-latest
-            dx-platform: linux
-            package-types: deb
-            artifact-patterns: |
-              target/dx/scrobble-scrubber-app/**/*.deb
-              target/dx/scrobble-scrubber-app/**/scrobble-scrubber-app
-          - platform: windows
-            os: windows-latest
-            dx-platform: windows
-            package-types: exe
-            artifact-patterns: |
-              target/dx/scrobble-scrubber-app/**/*.exe
-          - platform: macos-intel
-            os: macos-13
-            dx-platform: macos
-            package-types: app
-            artifact-patterns: |
-              target/dx/scrobble-scrubber-app/**/*.app
-          - platform: macos-arm
-            os: macos-latest
-            dx-platform: macos
-            package-types: app
-            artifact-patterns: |
-              target/dx/scrobble-scrubber-app/**/*.app
-    
-    # Skip platforms based on branch name for targeted testing
-    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || contains(github.ref, 'release/') || (contains(github.ref, 'test-app-linux') && matrix.platform == 'linux') || (contains(github.ref, 'test-app-windows') && matrix.platform == 'windows') || (contains(github.ref, 'test-app-macos-intel') && matrix.platform == 'macos-intel') || (contains(github.ref, 'test-app-macos-arm') && matrix.platform == 'macos-arm') || (contains(github.ref, 'test-app-macos') && (matrix.platform == 'macos-intel' || matrix.platform == 'macos-arm')) || contains(github.ref, 'test-app-all')
-
-    runs-on: ${{ matrix.os }}
-
+  trigger-platform-builds:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || contains(github.ref, 'release/')
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Nix (Linux only)
-        if: startsWith(matrix.platform, 'linux')
-        uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Cache Nix store (Linux only)
-        if: startsWith(matrix.platform, 'linux')
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Setup Rust (Windows/macOS)
-        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust Cache (Windows/macOS)
-        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.platform }}-app
-
-      - name: Install cargo-binstall (Windows/macOS)
-        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
+      - name: Trigger platform builds
         run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          echo "Platform builds will be triggered automatically by the dedicated workflows"
+          echo "Check the following workflows for build status:"
+          echo "- Build Linux App"
+          echo "- Build Windows App"  
+          echo "- Build macOS Intel App"
+          echo "- Build macOS ARM App"
 
-      - name: Install Dioxus CLI (Windows/macOS)
-        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
-        run: |
-          cargo binstall --no-confirm dioxus-cli
-
-      - name: Build app bundle (Linux with Nix)
-        if: startsWith(matrix.platform, 'linux')
-        working-directory: app
-        run: |
-          nix develop --command dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}
-
-      - name: Build app bundle (Windows/macOS)
-        if: matrix.platform == 'windows' || startsWith(matrix.platform, 'macos')
-        working-directory: app
-        run: |
-          dx bundle --release --platform ${{ matrix.dx-platform }} --package-types ${{ matrix.package-types }}
-
-      - name: List artifacts
-        working-directory: app
-        run: |
-          echo "=== PLATFORM-SPECIFIC ARTIFACTS (${{ matrix.platform }}) ==="
-          find ../target/dx/scrobble-scrubber-app -type f | sort
-
-      - name: Upload app packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-packages-${{ matrix.platform }}
-          path: ${{ matrix.artifact-patterns }}
-          if-no-files-found: error
-
-  create-release:
-    needs: build-app-platforms
+  release-instructions:
+    needs: trigger-platform-builds
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || contains(github.ref, 'release/')
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-
-      - name: Extract version from tag
-        id: version
+      - name: Release Instructions
         run: |
-          if [[ ${{ github.ref }} =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
-            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-          else
-            echo "version=unknown" >> $GITHUB_OUTPUT
-          fi
+          echo "## 🚀 App Release Process with Dedicated Workflows"
+          echo ""
+          echo "This release now uses dedicated platform workflows for better reliability:"
+          echo ""
+          echo "### Platform Builds:"
+          echo "✅ Linux: Build Linux App workflow" 
+          echo "✅ Windows: Build Windows App workflow"
+          echo "✅ macOS Intel: Build macOS Intel App workflow"
+          echo "✅ macOS ARM: Build macOS ARM App workflow"
+          echo ""
+          echo "### To create a release:"
+          echo "1. Check that all platform workflows completed successfully"
+          echo "2. Download artifacts from each successful platform build"
+          echo "3. Manually create GitHub release with artifacts"
+          echo ""
+          echo "### Benefits:"
+          echo "- Individual platform debugging"
+          echo "- Faster iteration on fixes"  
+          echo "- No single point of failure"
+          echo "- Manual release control"
 
-      - name: Prepare release assets
-        run: |
-          echo "Downloaded artifacts:"
-          find release-assets -type f | sort
-          echo "Preparing release assets..."
-          mkdir -p release-files
-
-          # Copy all platform-specific artifacts from their respective folders
-          find release-assets -name "*.exe" -exec cp {} release-files/scrobble-scrubber-app-windows.exe \;
-          find release-assets -name "*.deb" -exec cp {} release-files/ \;
-          
-          # Handle .app bundles by zipping them (distinguish Intel vs ARM)
-          find release-assets/app-packages-macos-intel -name "*.app" -type d | while read file; do
-            zip -r "release-files/scrobble-scrubber-app-macos-intel.app.zip" "$file"
-          done
-          find release-assets/app-packages-macos-arm -name "*.app" -type d | while read file; do
-            zip -r "release-files/scrobble-scrubber-app-macos-arm64.app.zip" "$file"
-          done
-          
-          # Handle Linux standalone binary
-          find release-assets -name "scrobble-scrubber-app" -type f -exec cp {} release-files/scrobble-scrubber-app-linux-x86_64 \;
-
-          echo "Release files prepared:"
-          ls -la release-files/
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "Scrobble Scrubber v${{ steps.version.outputs.version }}"
-          body: |
-            ## Scrobble Scrubber v${{ steps.version.outputs.version }}
-
-            Desktop application for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
-
-            ### Downloads
-
-            **Windows:**
-            - `scrobble-scrubber-app-windows.exe` - Windows executable
-
-            **macOS:**
-            - `scrobble-scrubber-app-macos-intel.app.zip` - macOS Intel application bundle
-            - `scrobble-scrubber-app-macos-arm64.app.zip` - macOS Apple Silicon application bundle
-
-            **Linux:**
-            - `ScrobbleScrubberApp_*.deb` - Debian/Ubuntu package installer
-            - `scrobble-scrubber-app-linux-x86_64` - Standalone binary
-
-            ### Installation
-
-            **Windows:**
-            Download and run `scrobble-scrubber-app-windows.exe` directly.
-
-            **macOS:**
-            Download the appropriate version for your Mac:
-            - Intel Macs: `scrobble-scrubber-app-macos-intel.app.zip`
-            - Apple Silicon Macs: `scrobble-scrubber-app-macos-arm64.app.zip`
-            
-            Unzip and drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
-
-            **Debian/Ubuntu:**
-            ```bash
-            sudo dpkg -i ScrobbleScrubberApp_*.deb
-            ```
-
-            **Linux Standalone Binary:**
-            ```bash
-            chmod +x scrobble-scrubber-app-linux-x86_64
-            ./scrobble-scrubber-app-linux-x86_64
-            ```
-
-            ### Features
-            - System tray integration with dynamic status
-            - Automated scrobble processing and cleanup
-            - Configurable rewrite rules for track metadata
-            - Pending edits management
-            - Real-time status monitoring
-
-            ### Cross-Platform Support
-            This release provides native builds for Windows, macOS, and Linux platforms.
-
-            Built with Dioxus 0.7 and Rust.
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          files: release-files/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

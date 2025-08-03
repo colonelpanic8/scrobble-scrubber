@@ -1,9 +1,12 @@
-name: Test Linux App
+name: Build Linux App
 
 on:
   push:
     branches:
       - "test-app-linux"
+      - "release/*"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:

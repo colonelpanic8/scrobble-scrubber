@@ -1,9 +1,12 @@
-name: Test macOS ARM App
+name: Build macOS ARM App
 
 on:
   push:
     branches:
       - "test-app-macos-arm"
+      - "release/*"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
