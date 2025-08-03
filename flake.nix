@@ -48,7 +48,7 @@
               # Linux-specific tools
               # Dioxus development tools (only on Linux to avoid webkitgtk issues on macOS)
               dioxus-cli
-              
+
               # AppImage tooling
               appimage-run
             ]
@@ -65,6 +65,12 @@
               darwin.apple_sdk.frameworks.Security
               darwin.apple_sdk.frameworks.CoreFoundation
               darwin.apple_sdk.frameworks.SystemConfiguration
+
+              # Rust toolchain and Dioxus CLI for macOS
+              (rust-bin.stable.latest.default.override {
+                extensions = [ "rust-src" ];
+              })
+              dioxus-cli
             ];
 
           # Environment variables
@@ -112,13 +118,13 @@
         };
 
         # Dioxus app package
-        packages.scrobble-scrubber-app = pkgs.rustPlatform.buildRustPackage {
+        packages.app = pkgs.rustPlatform.buildRustPackage {
           pname = "scrobble-scrubber-app";
           version = "0.1.0";
 
           src = let
             # Use gitignore.nix to respect .gitignore files
-            gitignoreSource = pkgs.nix-gitignore.gitignoreSourcePure [ 
+            gitignoreSource = pkgs.nix-gitignore.gitignoreSourcePure [
               "*.nix"
               "result"
               "result-*"
@@ -161,37 +167,37 @@
           # Override the build phase to use dx bundle
           buildPhase = ''
             runHook preBuild
-            
+
             # Ensure we're in the app directory
             cd app
-            
+
             # Copy assets for bundling
             mkdir -p assets
             cp -r ${./app/assets}/* assets/
-            
+
             # Build and bundle the application
             # Only build the .app bundle, no DMG
             dx bundle --release --platform ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "linux" else "windows"} --package-types ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "appimage" else "msi"}
-            
+
             echo "Bundle phase completed"
-            
+
             # The bundle is created in the source root's target directory
             cd ..
-            
+
             runHook postBuild
           '';
 
           # Install the bundled app
           installPhase = ''
             runHook preInstall
-            
+
             mkdir -p $out
-            
+
             # We're now back in the source root directory
             echo "Current directory: $(pwd)"
             echo "Looking for .app bundles..."
             find . -name "*.app" -type d 2>/dev/null | head -10
-            
+
             # Platform-specific installation
             ${if pkgs.stdenv.isDarwin then ''
               # The app bundle is created at a specific path by dx bundle
@@ -199,7 +205,7 @@
               if [ -d "$APP_PATH" ]; then
                 echo "Found app at: $APP_PATH"
                 cp -r "$APP_PATH" $out/
-                
+
                 # Create a wrapper script for easier execution
                 mkdir -p $out/bin
                 echo '#!/bin/sh' > $out/bin/scrobble-scrubber-app
@@ -233,7 +239,7 @@
                 exit 1
               fi
             ''}
-            
+
             runHook postInstall
           '';
 

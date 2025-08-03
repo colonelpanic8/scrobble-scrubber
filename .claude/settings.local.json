@@ -167,7 +167,8 @@
       "Bash(sips:*)",
       "Bash(iconutil:*)",
       "Bash(./test-release-artifacts.sh:*)",
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "Bash(nix flake show:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
