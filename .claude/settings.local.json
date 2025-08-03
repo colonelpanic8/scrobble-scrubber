@@ -168,7 +168,9 @@
       "Bash(iconutil:*)",
       "Bash(./test-release-artifacts.sh:*)",
       "Bash(unzip:*)",
-      "Bash(nix flake show:*)"
+      "Bash(nix flake show:*)",
+      "Bash(nix log:*)",
+      "Bash(./result/bin/scrobble-scrubber-app:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

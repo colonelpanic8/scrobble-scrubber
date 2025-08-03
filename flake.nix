@@ -158,30 +158,30 @@
               webkitgtk_4_1
               librsvg
               libsoup_3
-              libayatana-appindicator
+              libappindicator-gtk3
+              xdotool
             ];
 
           # Skip the default checks
           doCheck = false;
 
-          # Override the build phase to use dx bundle
+          # Override the build phase to build the binary (skip bundling for Nix)
           buildPhase = ''
             runHook preBuild
 
             # Ensure we're in the app directory
             cd app
 
-            # Copy assets for bundling
+            # Copy assets for the build
             mkdir -p assets
             cp -r ${./app/assets}/* assets/
 
-            # Build and bundle the application
-            # Only build the .app bundle, no DMG
-            dx bundle --release --platform ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "linux" else "windows"} --package-types ${if pkgs.stdenv.isDarwin then "macos" else if pkgs.stdenv.isLinux then "appimage" else "msi"}
+            # Build the application binary (no packaging needed for Nix)
+            dx build --release
 
-            echo "Bundle phase completed"
+            echo "Build phase completed"
 
-            # The bundle is created in the source root's target directory
+            # Return to source root
             cd ..
 
             runHook postBuild
@@ -191,54 +191,27 @@
           installPhase = ''
             runHook preInstall
 
-            mkdir -p $out
+            mkdir -p $out/bin
 
-            # We're now back in the source root directory
+            # Install the binary from the dx build output
             echo "Current directory: $(pwd)"
-            echo "Looking for .app bundles..."
-            find . -name "*.app" -type d 2>/dev/null | head -10
+            echo "Looking for built binary..."
+            find . -name "scrobble-scrubber-app" -type f 2>/dev/null | head -10
 
-            # Platform-specific installation
-            ${if pkgs.stdenv.isDarwin then ''
-              # The app bundle is created at a specific path by dx bundle
-              APP_PATH="target/dx/scrobble-scrubber-app/bundle/macos/bundle/macos/ScrobbleScrubberApp.app"
-              if [ -d "$APP_PATH" ]; then
-                echo "Found app at: $APP_PATH"
-                cp -r "$APP_PATH" $out/
-
-                # Create a wrapper script for easier execution
-                mkdir -p $out/bin
-                echo '#!/bin/sh' > $out/bin/scrobble-scrubber-app
-                echo 'exec "'"$out"'"/ScrobbleScrubberApp.app/Contents/MacOS/scrobble-scrubber-app" "$@"' >> $out/bin/scrobble-scrubber-app
-                chmod +x $out/bin/scrobble-scrubber-app
-              else
-                echo "ERROR: App bundle not found at expected location: $APP_PATH"
-                echo "Contents of target directory:"
-                find target -type d -name "*.app" 2>/dev/null || echo "No target directory found"
-                exit 1
-              fi
-            '' else if pkgs.stdenv.isLinux then ''
-              # Look for AppImage in the bundle output
-              APP_PATH=$(find target/dx -name "*.AppImage" 2>/dev/null | head -1)
-              if [ -n "$APP_PATH" ]; then
-                mkdir -p $out/bin
-                cp "$APP_PATH" $out/bin/scrobble-scrubber-app
-                chmod +x $out/bin/scrobble-scrubber-app
-              else
-                echo "ERROR: AppImage not found!"
-                exit 1
-              fi
-            '' else ''
-              # Windows
-              EXE_PATH=$(find target/dx -name "*.exe" -o -name "*.msi" 2>/dev/null | head -1)
-              if [ -n "$EXE_PATH" ]; then
-                mkdir -p $out/bin
-                cp "$EXE_PATH" $out/bin/
-              else
-                echo "ERROR: Windows executable not found!"
-                exit 1
-              fi
-            ''}
+            # The binary is created by dx build in the target directory
+            BINARY_PATH="target/release/scrobble-scrubber-app"
+            if [ -f "$BINARY_PATH" ]; then
+              echo "Found binary at: $BINARY_PATH"
+              cp "$BINARY_PATH" $out/bin/scrobble-scrubber-app
+              chmod +x $out/bin/scrobble-scrubber-app
+            else
+              echo "ERROR: Binary not found at expected location: $BINARY_PATH"
+              echo "Contents of target/release directory:"
+              ls -la target/release/ 2>/dev/null || echo "No target/release directory found"
+              echo "Searching for any scrobble-scrubber-app binary:"
+              find . -name "scrobble-scrubber-app" -type f 2>/dev/null || echo "No binary found anywhere"
+              exit 1
+            fi
 
             runHook postInstall
           '';
