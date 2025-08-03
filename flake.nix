@@ -30,7 +30,6 @@
               # wasm-pack
               # nodejs
               # nodePackages.npm
-              claude-code
               # For TUI development
               libiconv
 
@@ -68,7 +67,7 @@
 
               # Rust toolchain and Dioxus CLI for macOS
               (rust-bin.stable.latest.default.override {
-                extensions = [ "rust-src" ];
+                extensions = ["rust-src"];
               })
               dioxus-cli
             ];
@@ -87,7 +86,6 @@
             export LD_LIBRARY_PATH="${pkgs.libappindicator-gtk3}/lib:${pkgs.gtk3}/lib:$LD_LIBRARY_PATH"
           '';
         };
-
 
         # Optional: Define the package itself
         packages.scrobble-scrubber = pkgs.rustPlatform.buildRustPackage {
@@ -124,15 +122,18 @@
 
           src = let
             # Use gitignore.nix to respect .gitignore files
-            gitignoreSource = pkgs.nix-gitignore.gitignoreSourcePure [
-              "*.nix"
-              "result"
-              "result-*"
-              ".envrc"
-              ".direnv"
-              "CLAUDE.md"
-            ] ./.;
-          in gitignoreSource;
+            gitignoreSource =
+              pkgs.nix-gitignore.gitignoreSourcePure [
+                "*.nix"
+                "result"
+                "result-*"
+                ".envrc"
+                ".direnv"
+                "CLAUDE.md"
+              ]
+              ./.;
+          in
+            gitignoreSource;
 
           cargoHash = "sha256-wjJJOXZm2Y6od76lEj+who+ut5gaoYi5kTVZ8H1u38A=";
 
@@ -177,16 +178,22 @@
             cp -r ${./app/assets}/* assets/
 
             # Platform-specific build
-            ${if pkgs.stdenv.isDarwin then ''
-              # macOS: Use dx bundle to create .app bundle
-              dx bundle --release --platform macos --package-types macos
-            '' else if pkgs.stdenv.isLinux then ''
-              # Linux: Use dx build to avoid AppImage sandbox issues
-              dx build --release
-            '' else ''
-              # Windows: Use dx bundle for MSI
-              dx bundle --release --platform windows --package-types msi
-            ''}
+            ${
+              if pkgs.stdenv.isDarwin
+              then ''
+                # macOS: Use dx bundle to create .app bundle
+                dx bundle --release --platform macos --package-types macos
+              ''
+              else if pkgs.stdenv.isLinux
+              then ''
+                # Linux: Use dx build to avoid AppImage sandbox issues
+                dx build --release
+              ''
+              else ''
+                # Windows: Use dx bundle for MSI
+                dx bundle --release --platform windows --package-types msi
+              ''
+            }
 
             echo "Build phase completed"
 
@@ -203,49 +210,55 @@
             mkdir -p $out
 
             # Platform-specific installation
-            ${if pkgs.stdenv.isDarwin then ''
-              # macOS: Install the .app bundle
-              APP_PATH="target/dx/scrobble-scrubber-app/bundle/macos/bundle/macos/ScrobbleScrubberApp.app"
-              if [ -d "$APP_PATH" ]; then
-                echo "Found app bundle at: $APP_PATH"
-                cp -r "$APP_PATH" $out/
+            ${
+              if pkgs.stdenv.isDarwin
+              then ''
+                # macOS: Install the .app bundle
+                APP_PATH="target/dx/scrobble-scrubber-app/bundle/macos/bundle/macos/ScrobbleScrubberApp.app"
+                if [ -d "$APP_PATH" ]; then
+                  echo "Found app bundle at: $APP_PATH"
+                  cp -r "$APP_PATH" $out/
 
-                # Create a wrapper script for easier execution
-                mkdir -p $out/bin
-                echo '#!/bin/sh' > $out/bin/scrobble-scrubber-app
-                echo 'exec "'"$out"'"/ScrobbleScrubberApp.app/Contents/MacOS/scrobble-scrubber-app" "$@"' >> $out/bin/scrobble-scrubber-app
-                chmod +x $out/bin/scrobble-scrubber-app
-              else
-                echo "ERROR: App bundle not found at expected location: $APP_PATH"
-                echo "Contents of target directory:"
-                find target -type d -name "*.app" 2>/dev/null || echo "No target directory found"
-                exit 1
-              fi
-            '' else if pkgs.stdenv.isLinux then ''
-              # Linux: Install the binary
-              BINARY_PATH="target/release/scrobble-scrubber-app"
-              if [ -f "$BINARY_PATH" ]; then
-                mkdir -p $out/bin
-                echo "Found binary at: $BINARY_PATH"
-                cp "$BINARY_PATH" $out/bin/scrobble-scrubber-app
-                chmod +x $out/bin/scrobble-scrubber-app
-              else
-                echo "ERROR: Binary not found at expected location: $BINARY_PATH"
-                echo "Contents of target/release directory:"
-                ls -la target/release/ 2>/dev/null || echo "No target/release directory found"
-                exit 1
-              fi
-            '' else ''
-              # Windows: Install the MSI
-              EXE_PATH=$(find target/dx -name "*.exe" -o -name "*.msi" 2>/dev/null | head -1)
-              if [ -n "$EXE_PATH" ]; then
-                mkdir -p $out/bin
-                cp "$EXE_PATH" $out/bin/
-              else
-                echo "ERROR: Windows executable not found!"
-                exit 1
-              fi
-            ''}
+                  # Create a wrapper script for easier execution
+                  mkdir -p $out/bin
+                  echo '#!/bin/sh' > $out/bin/scrobble-scrubber-app
+                  echo 'exec "'"$out"'"/ScrobbleScrubberApp.app/Contents/MacOS/scrobble-scrubber-app" "$@"' >> $out/bin/scrobble-scrubber-app
+                  chmod +x $out/bin/scrobble-scrubber-app
+                else
+                  echo "ERROR: App bundle not found at expected location: $APP_PATH"
+                  echo "Contents of target directory:"
+                  find target -type d -name "*.app" 2>/dev/null || echo "No target directory found"
+                  exit 1
+                fi
+              ''
+              else if pkgs.stdenv.isLinux
+              then ''
+                # Linux: Install the binary
+                BINARY_PATH="target/release/scrobble-scrubber-app"
+                if [ -f "$BINARY_PATH" ]; then
+                  mkdir -p $out/bin
+                  echo "Found binary at: $BINARY_PATH"
+                  cp "$BINARY_PATH" $out/bin/scrobble-scrubber-app
+                  chmod +x $out/bin/scrobble-scrubber-app
+                else
+                  echo "ERROR: Binary not found at expected location: $BINARY_PATH"
+                  echo "Contents of target/release directory:"
+                  ls -la target/release/ 2>/dev/null || echo "No target/release directory found"
+                  exit 1
+                fi
+              ''
+              else ''
+                # Windows: Install the MSI
+                EXE_PATH=$(find target/dx -name "*.exe" -o -name "*.msi" 2>/dev/null | head -1)
+                if [ -n "$EXE_PATH" ]; then
+                  mkdir -p $out/bin
+                  cp "$EXE_PATH" $out/bin/
+                else
+                  echo "ERROR: Windows executable not found!"
+                  exit 1
+                fi
+              ''
+            }
 
             runHook postInstall
           '';

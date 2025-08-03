@@ -170,7 +170,10 @@
       "Bash(unzip:*)",
       "Bash(nix flake show:*)",
       "Bash(nix log:*)",
-      "Bash(./result/bin/scrobble-scrubber-app:*)"
+      "Bash(./result/bin/scrobble-scrubber-app:*)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo clippy --all-targets --all-features -- -D warnings)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo test)",
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo fmt --all)"
     ],
     "deny": [
       "Bash(dx serve:*)"
