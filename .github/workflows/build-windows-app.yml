@@ -50,7 +50,7 @@ jobs:
           cargo binstall --dry-run --no-confirm dioxus-cli --verbose
           
           echo "=== ACTUAL INSTALLATION ==="
-          cargo binstall --no-confirm dioxus-cli --verbose
+          cargo binstall --no-confirm --force dioxus-cli --verbose
           
           echo "=== AFTER INSTALLATION ==="
           echo "Contents of cargo bin directory after:"
