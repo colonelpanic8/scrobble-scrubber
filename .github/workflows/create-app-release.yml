@@ -1,0 +1,213 @@
+name: Create App Release
+
+on:
+  workflow_run:
+    workflows: ["Build Linux App", "Build Windows App", "Build macOS Intel App", "Build macOS ARM App"]
+    types: [completed]
+    branches: [master]
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set tag name
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if [[ $TAG =~ v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "version=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for platform builds
+        run: |
+          echo "Checking for recent successful platform builds for tag ${{ steps.tag.outputs.tag }}"
+          
+          # Get the commit SHA for this tag
+          COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          echo "Looking for builds with commit SHA: $COMMIT_SHA"
+          
+          # Check each platform workflow for successful runs with this commit
+          PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
+          SUCCESS_COUNT=0
+          
+          for platform in "${PLATFORMS[@]}"; do
+            echo "Checking $platform..."
+            
+            # Get recent successful runs for this workflow
+            RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+              --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
+              | head -1)
+            
+            if [[ -n "$RUNS" ]]; then
+              echo "✅ Found successful $platform build: $RUNS"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "❌ No successful $platform build found"
+            fi
+          done
+          
+          echo "Found $SUCCESS_COUNT/4 successful platform builds"
+          
+          if [[ $SUCCESS_COUNT -eq 4 ]]; then
+            echo "All platform builds successful! Proceeding with release."
+          else
+            echo "Not all platform builds are successful. Cannot create release."
+            exit 1
+          fi
+
+      - name: Download artifacts from platform builds
+        run: |
+          echo "Downloading artifacts from platform builds..."
+          mkdir -p release-assets
+          
+          COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
+          
+          # Download artifacts from each platform
+          PLATFORMS=("Build Linux App:linux-app-test" "Build Windows App:windows-app-test" "Build macOS Intel App:macos-intel-app-test" "Build macOS ARM App:macos-arm-app-test")
+          
+          for platform_artifact in "${PLATFORMS[@]}"; do
+            IFS=':' read -r platform artifact <<< "$platform_artifact"
+            echo "Downloading $artifact from $platform..."
+            
+            # Get the run ID for this platform
+            RUN_ID=$(gh api repos/${{ github.repository }}/actions/runs \
+              --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
+              | head -1)
+            
+            if [[ -n "$RUN_ID" ]]; then
+              gh run download $RUN_ID --name "$artifact" --dir "release-assets/$artifact"
+              echo "Downloaded $artifact to release-assets/$artifact"
+            else
+              echo "Failed to find run for $platform"
+              exit 1
+            fi
+          done
+
+      - name: Prepare release assets
+        run: |
+          echo "Preparing release assets..."
+          mkdir -p release-files
+          
+          # Copy Windows executable/installer
+          find release-assets/windows-app-test -name "*.exe" -exec cp {} release-files/scrobble-scrubber-app-windows.exe \; || true
+          find release-assets/windows-app-test -name "*.msi" -exec cp {} release-files/ \; || true
+          
+          # Copy Linux packages
+          find release-assets/linux-app-test -name "*.deb" -exec cp {} release-files/ \; || true
+          find release-assets/linux-app-test -name "scrobble-scrubber-app" -type f -exec cp {} release-files/scrobble-scrubber-app-linux-x86_64 \; || true
+          
+          # Handle macOS .app bundles by zipping them
+          find release-assets/macos-intel-app-test -name "*.app" -type d | while read file; do
+            if [[ -n "$file" ]]; then
+              cd "$(dirname "$file")"
+              zip -r "../../../release-files/scrobble-scrubber-app-macos-intel.app.zip" "$(basename "$file")"
+              cd - > /dev/null
+            fi
+          done
+          
+          find release-assets/macos-arm-app-test -name "*.app" -type d | while read file; do
+            if [[ -n "$file" ]]; then
+              cd "$(dirname "$file")"
+              zip -r "../../../release-files/scrobble-scrubber-app-macos-arm64.app.zip" "$(basename "$file")"
+              cd - > /dev/null
+            fi
+          done
+          
+          echo "Release files prepared:"
+          ls -la release-files/ || echo "No files in release-files/"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Scrobble Scrubber v${{ steps.version.outputs.version }}"
+          body: |
+            ## Scrobble Scrubber v${{ steps.version.outputs.version }}
+
+            Desktop application for managing and cleaning Last.fm scrobbles with support for rewrite rules, pending edits, and automated processing.
+
+            ### Downloads
+
+            **Windows:**
+            - `scrobble-scrubber-app-windows.exe` - Windows executable
+
+            **macOS:**
+            - `scrobble-scrubber-app-macos-intel.app.zip` - macOS Intel application bundle  
+            - `scrobble-scrubber-app-macos-arm64.app.zip` - macOS Apple Silicon application bundle
+
+            **Linux:**
+            - `*.deb` - Debian/Ubuntu package installer
+            - `scrobble-scrubber-app-linux-x86_64` - Standalone binary
+
+            ### Installation
+
+            **Windows:**
+            Download and run `scrobble-scrubber-app-windows.exe` directly.
+
+            **macOS:**
+            Download the appropriate version for your Mac:
+            - Intel Macs: `scrobble-scrubber-app-macos-intel.app.zip`
+            - Apple Silicon Macs: `scrobble-scrubber-app-macos-arm64.app.zip`
+            
+            Unzip and drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
+
+            **Debian/Ubuntu:**
+            ```bash
+            sudo dpkg -i *.deb
+            ```
+
+            **Linux Standalone Binary:**
+            ```bash
+            chmod +x scrobble-scrubber-app-linux-x86_64
+            ./scrobble-scrubber-app-linux-x86_64
+            ```
+
+            ### Features
+            - System tray integration with dynamic status
+            - Automated scrobble processing and cleanup
+            - Configurable rewrite rules for track metadata
+            - Pending edits management
+            - Real-time status monitoring
+
+            ### Cross-Platform Support
+            This release provides native builds for Windows, macOS, and Linux platforms.
+
+            Built with Dioxus and Rust.
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+          files: release-files/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
