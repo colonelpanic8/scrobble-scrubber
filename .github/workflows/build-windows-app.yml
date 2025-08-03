@@ -42,18 +42,33 @@ jobs:
       - name: Add cargo bin to PATH and verify dx installation
         run: |
           echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
-          echo "PATH updated. Checking dx installation:"
-          & "$env:USERPROFILE\.cargo\bin\dx" --version
+          echo "Contents of cargo bin directory:"
+          Get-ChildItem "$env:USERPROFILE\.cargo\bin" | Format-Table
+          echo "Looking for dx executable:"
+          if (Test-Path "$env:USERPROFILE\.cargo\bin\dx.exe") {
+            echo "Found dx.exe, checking version:"
+            & "$env:USERPROFILE\.cargo\bin\dx.exe" --version
+          } elseif (Test-Path "$env:USERPROFILE\.cargo\bin\dx") {
+            echo "Found dx (no extension), checking version:"
+            & "$env:USERPROFILE\.cargo\bin\dx" --version
+          } else {
+            echo "dx executable not found in expected location!"
+            exit 1
+          }
 
       - name: Build app bundle (Windows)
         working-directory: app
         run: |
-          # Try dx in PATH first, fallback to full path
+          # Try dx in PATH first, fallback to full path with .exe extension
           try {
             dx bundle --release --platform windows --package-types nsis
           } catch {
-            Write-Host "dx not in PATH, using full path..."
-            & "$env:USERPROFILE\.cargo\bin\dx" bundle --release --platform windows --package-types nsis
+            Write-Host "dx not in PATH, trying full path with .exe..."
+            if (Test-Path "$env:USERPROFILE\.cargo\bin\dx.exe") {
+              & "$env:USERPROFILE\.cargo\bin\dx.exe" bundle --release --platform windows --package-types nsis
+            } else {
+              & "$env:USERPROFILE\.cargo\bin\dx" bundle --release --platform windows --package-types nsis
+            }
           }
 
       - name: List artifacts
