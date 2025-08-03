@@ -30,11 +30,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             binary-name: scrobble-scrubber.exe
             asset-name: scrobble-scrubber-windows-x86_64.exe
-          - platform: macos-intel
-            os: macos-13
-            target: x86_64-apple-darwin
-            binary-name: scrobble-scrubber
-            asset-name: scrobble-scrubber-macos-x86_64
           - platform: macos-arm
             os: macos-latest
             target: aarch64-apple-darwin
@@ -138,7 +133,6 @@ jobs:
 
             **Command-line interface binaries:**
             - `scrobble-scrubber-windows-x86_64.exe` - Windows CLI executable
-            - `scrobble-scrubber-macos-x86_64` - macOS Intel CLI binary  
             - `scrobble-scrubber-macos-arm64` - macOS Apple Silicon CLI binary
             - `scrobble-scrubber-linux-x86_64` - Linux CLI binary
 
@@ -147,10 +141,6 @@ jobs:
             # Linux
             chmod +x scrobble-scrubber-linux-x86_64
             ./scrobble-scrubber-linux-x86_64 --help
-
-            # macOS Intel
-            chmod +x scrobble-scrubber-macos-x86_64
-            ./scrobble-scrubber-macos-x86_64 --help
 
             # macOS Apple Silicon
             chmod +x scrobble-scrubber-macos-arm64

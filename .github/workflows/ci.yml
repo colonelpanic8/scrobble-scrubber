@@ -45,10 +45,8 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux
-          - os: macos-14  # M1 runner
+          - os: macos-latest  # ARM runner
             name: macos-arm64
-          - os: macos-13  # Intel runner
-            name: macos-x64
     
     runs-on: ${{ matrix.os }}
 

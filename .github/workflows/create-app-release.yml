@@ -2,7 +2,7 @@ name: Create App Release
 
 on:
   workflow_run:
-    workflows: ["Build Linux App", "Build Windows App", "Build macOS Intel App", "Build macOS ARM App"]
+    workflows: ["Build Linux App", "Build Windows App", "Build macOS ARM App"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -61,7 +61,7 @@ jobs:
           echo "Looking for builds with commit SHA: $COMMIT_SHA"
 
           # Check each platform workflow for successful runs with this commit
-          PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
+          PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS ARM App")
           SUCCESS_COUNT=0
 
           for platform in "${PLATFORMS[@]}"; do
@@ -85,10 +85,10 @@ jobs:
             fi
           done
 
-          echo "Found $SUCCESS_COUNT/4 successful platform builds"
+          echo "Found $SUCCESS_COUNT/3 successful platform builds"
 
-          if [[ $SUCCESS_COUNT -ne 4 ]]; then
-            echo "Not all platform builds completed successfully yet ($SUCCESS_COUNT/4)"
+          if [[ $SUCCESS_COUNT -ne 3 ]]; then
+            echo "Not all platform builds completed successfully yet ($SUCCESS_COUNT/3)"
             if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
               echo "Exiting gracefully - this workflow will run again when remaining platforms complete"
               exit 0
@@ -110,7 +110,7 @@ jobs:
           COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
 
           # Download artifacts from each platform
-          PLATFORMS=("Build Linux App:linux-app-test" "Build Windows App:windows-app-test" "Build macOS Intel App:macos-intel-app-test" "Build macOS ARM App:macos-arm-app-test")
+          PLATFORMS=("Build Linux App:linux-app-test" "Build Windows App:windows-app-test" "Build macOS ARM App:macos-arm-app-test")
 
           for platform_artifact in "${PLATFORMS[@]}"; do
             IFS=':' read -r platform artifact <<< "$platform_artifact"
@@ -144,13 +144,6 @@ jobs:
           find release-assets/linux-app-test -name "scrobble-scrubber-app" -type f -exec cp {} release-files/scrobble-scrubber-app-linux-x86_64 \; || true
 
           # Handle macOS .app bundles by zipping them
-          find release-assets/macos-intel-app-test -name "*.app" -type d | while read file; do
-            if [[ -n "$file" ]]; then
-              echo "Creating zip for $file"
-              zip -r "release-files/scrobble-scrubber-app-macos-intel.app.zip" "$file"
-            fi
-          done
-
           find release-assets/macos-arm-app-test -name "*.app" -type d | while read file; do
             if [[ -n "$file" ]]; then
               echo "Creating zip for $file"
@@ -194,7 +187,6 @@ jobs:
             - `scrobble-scrubber-app-windows.exe` - Windows executable
 
             **macOS:**
-            - `scrobble-scrubber-app-macos-intel.app.zip` - macOS Intel application bundle
             - `scrobble-scrubber-app-macos-arm64.app.zip` - macOS Apple Silicon application bundle
 
             **Linux:**
@@ -207,9 +199,7 @@ jobs:
             Download and run `scrobble-scrubber-app-windows.exe` directly.
 
             **macOS:**
-            Download the appropriate version for your Mac:
-            - Intel Macs: `scrobble-scrubber-app-macos-intel.app.zip`
-            - Apple Silicon Macs: `scrobble-scrubber-app-macos-arm64.app.zip`
+            Download `scrobble-scrubber-app-macos-arm64.app.zip` for Apple Silicon Macs.
 
             Unzip and drag the `.app` to your Applications folder. You may need to right-click and select "Open" the first time due to macOS security settings.
 
