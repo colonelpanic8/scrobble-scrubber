@@ -5,9 +5,6 @@ on:
     workflows: ["Build Linux App", "Build Windows App", "Build macOS Intel App", "Build macOS ARM App"]
     types: [completed]
     branches: [master]
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -25,7 +22,9 @@ env:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout code
@@ -50,60 +49,55 @@ jobs:
             echo "version=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: Wait for platform builds
+      - name: Verify all platform builds completed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Checking for recent successful platform builds for tag ${{ steps.tag.outputs.tag }}"
+          echo "Verifying all platform builds completed successfully for tag ${{ steps.tag.outputs.tag }}"
           
           # Get the commit SHA for this tag
           COMMIT_SHA=$(git rev-parse ${{ steps.tag.outputs.tag }})
           echo "Looking for builds with commit SHA: $COMMIT_SHA"
           
-          # Wait up to 30 minutes for all platform builds to complete
-          MAX_WAIT=1800  # 30 minutes
-          WAIT_INTERVAL=60  # Check every minute
-          ELAPSED=0
+          # Check each platform workflow for successful runs with this commit
+          PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
+          SUCCESS_COUNT=0
           
-          while [[ $ELAPSED -lt $MAX_WAIT ]]; do
-            echo "Checking platform builds (${ELAPSED}s elapsed)..."
+          for platform in "${PLATFORMS[@]}"; do
+            echo "Checking $platform..."
             
-            # Check each platform workflow for successful runs with this commit
-            PLATFORMS=("Build Linux App" "Build Windows App" "Build macOS Intel App" "Build macOS ARM App")
-            SUCCESS_COUNT=0
+            # Get recent successful runs for this workflow
+            RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+              --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
+              | head -1)
             
-            for platform in "${PLATFORMS[@]}"; do
-              echo "Checking $platform..."
-              
-              # Get recent successful runs for this workflow
-              RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-                --jq ".workflow_runs[] | select(.name == \"$platform\" and .head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | .id" \
-                | head -1)
-              
-              if [[ -n "$RUNS" ]]; then
-                echo "✅ Found successful $platform build: $RUNS"
-                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-              else
-                echo "⏳ No successful $platform build found yet"
+            if [[ -n "$RUNS" ]]; then
+              echo "✅ Found successful $platform build: $RUNS"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "❌ No successful $platform build found"
+              # For workflow_run trigger, we expect all to be successful
+              if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+                echo "This release was triggered by a platform build completion, but not all platforms succeeded."
+                echo "This is expected - release will be created when the last platform completes successfully."
               fi
-            done
-            
-            echo "Found $SUCCESS_COUNT/4 successful platform builds"
-            
-            if [[ $SUCCESS_COUNT -eq 4 ]]; then
-              echo "All platform builds successful! Proceeding with release."
-              break
             fi
-            
-            echo "Waiting $WAIT_INTERVAL seconds before next check..."
-            sleep $WAIT_INTERVAL
-            ELAPSED=$((ELAPSED + WAIT_INTERVAL))
           done
           
+          echo "Found $SUCCESS_COUNT/4 successful platform builds"
+          
           if [[ $SUCCESS_COUNT -ne 4 ]]; then
-            echo "Timeout: Not all platform builds completed successfully after ${MAX_WAIT}s"
-            exit 1
+            echo "Not all platform builds completed successfully yet ($SUCCESS_COUNT/4)"
+            if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+              echo "Exiting gracefully - this workflow will run again when remaining platforms complete"
+              exit 0
+            else
+              echo "Manual trigger requires all platforms to be successful"
+              exit 1
+            fi
           fi
+          
+          echo "All platform builds successful! Proceeding with release creation."
 
       - name: Download artifacts from platform builds
         env:
