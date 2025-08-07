@@ -30,8 +30,8 @@ macro_rules! test_no_match {
     };
 }
 
-#[test]
-fn test_whole_string_replacement() {
+#[test_log::test]
+fn should_replace_entire_string_with_pattern_match() {
     // If pattern matches anywhere, the entire string gets replaced
     let rule = SdRule::new(r"2023 Remaster", "2023 Version");
 
@@ -48,8 +48,8 @@ fn test_whole_string_replacement() {
     test_no_match!(rule, "Just a song");
 }
 
-#[test]
-fn test_artist_cleanup_example() {
+#[test_log::test]
+fn should_clean_up_artist_names_correctly() {
     // Classic example: "Vulfpeck ft. anyone" -> "Vulfpeck"
     let rule = SdRule::new(r"Vulfpeck", "Vulfpeck");
 
@@ -63,8 +63,8 @@ fn test_artist_cleanup_example() {
     test_no_match!(rule, "Cory Wong");
 }
 
-#[test]
-fn test_capture_groups_with_whole_string_replacement() {
+#[test_log::test]
+fn should_use_capture_groups_in_whole_string_replacement() {
     // Extract artist from complex string and replace entire string with just artist
     let rule = SdRule::new(r"(.+) ft\. .+", "$1");
 
@@ -92,8 +92,8 @@ fn test_capture_groups_with_whole_string_replacement() {
     test_no_match!(song_rule, "Just a song title");
 }
 
-#[test]
-fn test_exact_string_whole_matching() {
+#[test_log::test]
+fn should_match_exact_strings_completely() {
     let rule = SdRule::new("feat\\.", "featuring");
 
     // Should match if pattern is found anywhere and replace entire string
@@ -107,8 +107,8 @@ fn test_exact_string_whole_matching() {
     test_no_match!(rule, "Just a string");
 }
 
-#[test]
-fn test_remove_remaster_suffixes() {
+#[test_log::test]
+fn should_remove_remaster_suffixes_from_titles() {
     // Remove various remaster suffixes from the END of track names
     let rule = SdRule::new(r"(.*) - \d{4} Remaster.*", "$1");
 
@@ -133,8 +133,8 @@ fn test_remove_remaster_suffixes() {
     test_no_match!(rule, "Song without remaster");
 }
 
-#[test]
-fn test_clean_featuring_formats() {
+#[test_log::test]
+fn should_normalize_featuring_artist_formats() {
     // Transform various "featuring" formats to a standard format
     let rule = SdRule::new(r"(.+) (ft\.|feat\.|featuring) (.+)", "$1 feat. $3");
 
@@ -159,8 +159,8 @@ fn test_clean_featuring_formats() {
     test_no_match!(rule, "Artist with Someone");
 }
 
-#[test]
-fn test_remove_trailing_whitespace() {
+#[test_log::test]
+fn should_remove_trailing_whitespace() {
     let rule = SdRule::new(r"(.*?)\s+$", "$1");
 
     test_rule!(rule, "Song Name   ", "Song Name");
@@ -171,8 +171,8 @@ fn test_remove_trailing_whitespace() {
     test_no_match!(rule, "Clean String");
 }
 
-#[test]
-fn test_remove_leading_whitespace() {
+#[test_log::test]
+fn should_remove_leading_whitespace() {
     let rule = SdRule::new(r"^\s+(.*)", "$1");
 
     test_rule!(rule, "  Song Name", "Song Name");
@@ -183,8 +183,8 @@ fn test_remove_leading_whitespace() {
     test_no_match!(rule, "Clean String");
 }
 
-#[test]
-fn test_remove_parenthetical_content() {
+#[test_log::test]
+fn should_remove_parenthetical_content() {
     // Remove content in parentheses at the end
     let rule = SdRule::new(r"(.*?)\s*\([^)]*\)$", "$1");
 
@@ -197,8 +197,8 @@ fn test_remove_parenthetical_content() {
     test_no_match!(rule, "(Introduction) Song");
 }
 
-#[test]
-fn test_case_insensitive_matching() {
+#[test_log::test]
+fn should_perform_case_insensitive_matching() {
     let rule = SdRule::new("remaster", "version").with_flags("i");
 
     // Should match regardless of case when entire string matches
@@ -216,8 +216,8 @@ fn test_case_insensitive_matching() {
     test_no_match!(rule, "original");
 }
 
-#[test]
-fn test_complex_transformation() {
+#[test_log::test]
+fn handles_complex_multi_step_transformation() {
     // Transform: "Artist - Song (Year Remaster)" -> "Song by Artist"
     let rule = SdRule::new(r"(.+) - (.+) \(\d{4} Remaster\)", "$2 by $1");
 
@@ -244,8 +244,8 @@ fn test_complex_transformation() {
     test_no_match!(rule, "Just a song title");
 }
 
-#[test]
-fn test_empty_string_handling() {
+#[test_log::test]
+fn handles_empty_strings_gracefully() {
     let rule = SdRule::new(r".*", "replacement");
 
     // Should match empty string (since .* matches everything)
@@ -257,8 +257,8 @@ fn test_empty_string_handling() {
     test_no_match!(specific_rule, "");
 }
 
-#[test]
-fn test_special_regex_characters() {
+#[test_log::test]
+fn should_escape_special_regex_characters_correctly() {
     // Test that patterns with special regex chars work correctly
     let rule = SdRule::new(r"Song \(Live\)", "Song - Live Version");
 
@@ -268,8 +268,8 @@ fn test_special_regex_characters() {
     test_no_match!(rule, "Song Live"); // Parentheses are part of the pattern
 }
 
-#[test]
-fn test_multiple_capture_groups() {
+#[test_log::test]
+fn handles_multiple_capture_groups() {
     // Test with multiple named and numbered capture groups
     let rule = SdRule::new(
         r"(?P<artist>.+) - (?P<song>.+) \((?P<year>\d{4})\)",
@@ -309,8 +309,8 @@ fn test_multiple_capture_groups() {
     test_no_match!(strict_rule, "The Beatles - Yesterday (1965) Extended");
 }
 
-#[test]
-fn test_nested_capture_groups() {
+#[test_log::test]
+fn handles_nested_capture_groups() {
     // Test nested capture groups
     let rule = SdRule::new(r"((.+) - (.+)) \(Remix\)", "Remix: $2 - $3 (Original: $1)");
 
@@ -321,8 +321,8 @@ fn test_nested_capture_groups() {
     );
 }
 
-#[test]
-fn test_optional_capture_groups() {
+#[test_log::test]
+fn handles_optional_capture_groups() {
     // Test with optional groups using ?
     let _rule = SdRule::new(
         r"(.+?)(?: - (.+))?(?: \((.+)\))?",
@@ -336,8 +336,8 @@ fn test_optional_capture_groups() {
     test_no_match!(simple_rule, "Just a song title");
 }
 
-#[test]
-fn test_repeated_capture_groups() {
+#[test_log::test]
+fn handles_repeated_capture_groups() {
     // Test capturing repeated elements
     let rule = SdRule::new(r"(.+) feat\. (.+) feat\. (.+)", "$1 featuring $2 and $3");
 
@@ -349,15 +349,15 @@ fn test_repeated_capture_groups() {
 }
 
 // Note: Backreferences in patterns are not supported by the Rust regex crate
-// #[test]
+// #[test_log::test]
 // fn test_backreferences_in_pattern() {
 //     // This would require backreferences which aren't supported in Rust regex
 //     let rule = SdRule::new(r"(.+) \1", "$1"); // \1 not supported in pattern
 //     test_rule!(rule, "hello hello", "hello");
 // }
 
-#[test]
-fn test_capture_group_edge_cases() {
+#[test_log::test]
+fn handles_capture_group_edge_cases() {
     // Test empty captures
     let rule = SdRule::new(r"(.*)-(.*)", "$1|$2");
     test_rule!(rule, "hello-", "hello|");
@@ -370,8 +370,8 @@ fn test_capture_group_edge_cases() {
     test_rule!(rule2, "ft. Someone", "featuring Someone");
 }
 
-#[test]
-fn test_escaped_capture_references() {
+#[test_log::test]
+fn handles_escaped_capture_references() {
     // Test escaped dollar signs in replacement
     let rule = SdRule::new(r"(.+) costs (.+)", r"Price of $1 is \$$2");
     test_rule!(rule, "Album costs 15", r"Price of Album is $15");
@@ -385,8 +385,8 @@ fn test_escaped_capture_references() {
     test_rule!(rule3, "test", r"$$test$$");
 }
 
-#[test]
-fn test_literal_braces_and_special_chars() {
+#[test_log::test]
+fn handles_literal_braces_and_special_characters() {
     // Test literal braces that might be confused with named capture syntax
     let rule = SdRule::new(r"(.+)", r"{$1}");
     test_rule!(rule, "test", r"{test}");
@@ -404,8 +404,8 @@ fn test_literal_braces_and_special_chars() {
     test_rule!(rule4, "test", r"${} test");
 }
 
-#[test]
-fn test_mixed_escape_scenarios() {
+#[test_log::test]
+fn handles_mixed_escape_scenarios() {
     // Test mixing escaped dollars with capture groups
     let rule = SdRule::new(r"(.+) (\d+)\%", r"Item: $1, Discount: \$$2, Rate: $2%");
     test_rule!(
@@ -423,8 +423,8 @@ fn test_mixed_escape_scenarios() {
     test_rule!(rule3, "Widget 25", r"{Widget: $25}");
 }
 
-#[test]
-fn test_capture_group_syntax_edge_cases() {
+#[test_log::test]
+fn handles_capture_group_syntax_edge_cases() {
     // Test numbered captures at word boundaries
     let rule = SdRule::new(r"(.+) (.+)", r"$1ish-$2ly");
     test_rule!(rule, "quick brown", r"quickish-brownly");
@@ -442,8 +442,8 @@ fn test_capture_group_syntax_edge_cases() {
     test_rule!(rule4, "test", r"test ${word}");
 }
 
-#[test]
-fn test_literal_dollar_in_various_positions() {
+#[test_log::test]
+fn handles_literal_dollar_signs_in_various_positions() {
     // Dollar at start
     let rule1 = SdRule::new(r"(.+)", r"\$start-$1");
     test_rule!(rule1, "test", r"$start-test");
@@ -461,8 +461,8 @@ fn test_literal_dollar_in_various_positions() {
     test_rule!(rule4, "test", r"$$$test$$$");
 }
 
-#[test]
-fn test_complex_replacement_patterns() {
+#[test_log::test]
+fn handles_complex_replacement_patterns() {
     // Test replacement that looks like regex but should be literal
     let rule = SdRule::new(r"(.+) (.+)", r"Match: $1, Replace: $2, Pattern: (.+)");
     test_rule!(rule, "foo bar", r"Match: foo, Replace: bar, Pattern: (.+)");
@@ -479,8 +479,8 @@ fn test_complex_replacement_patterns() {
     );
 }
 
-#[test]
-fn test_backslash_escaping() {
+#[test_log::test]
+fn handles_backslash_escaping_correctly() {
     // Test literal backslashes
     let rule1 = SdRule::new(r"(.+)", r"\\$1\\");
     test_rule!(rule1, "test", r"\test\");
@@ -502,8 +502,8 @@ fn test_backslash_escaping() {
     test_rule!(rule5, "test", r"\\test\\");
 }
 
-#[test]
-fn test_comprehensive_escaping_combinations() {
+#[test_log::test]
+fn handles_comprehensive_escaping_combinations() {
     // Test all escape characters together
     let rule = SdRule::new(
         r"(?P<file>.+)\.(?P<ext>.+)",

@@ -3,8 +3,8 @@ use scrobble_scrubber::rewrite::{
     any_rules_apply, apply_all_rules, create_no_op_edit, RewriteRule, SdRule,
 };
 
-#[test]
-fn test_sd_rule_regex() {
+#[test_log::test]
+fn should_replace_using_regex_pattern() {
     // With new behavior: if pattern matches, entire string is replaced
     let rule = SdRule::new(r"(\d{4}) Remaster", "$1 Version");
     assert_eq!(
@@ -13,8 +13,8 @@ fn test_sd_rule_regex() {
     );
 }
 
-#[test]
-fn test_sd_rule_exact_match() {
+#[test_log::test]
+fn should_match_exact_strings() {
     // With regex behavior: if pattern matches exactly, entire string is replaced
     let rule = SdRule::new("feat\\.", "featuring");
     assert_eq!(
@@ -23,8 +23,8 @@ fn test_sd_rule_exact_match() {
     );
 }
 
-#[test]
-fn test_rewrite_rule_application() {
+#[test_log::test]
+fn should_apply_rewrite_rules_to_track() {
     let track = Track {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Artist ft. Someone".to_string(),
@@ -48,8 +48,8 @@ fn test_rewrite_rule_application() {
     assert_eq!(edit.timestamp, Some(1234567890));
 }
 
-#[test]
-fn test_capture_groups() {
+#[test_log::test]
+fn should_use_capture_groups_in_replacement() {
     // This test still works the same way with whole-string replacement
     let rule = SdRule::new(r"(.+) ft\. (.+)", "$1 feat. $2");
     assert_eq!(
@@ -58,8 +58,8 @@ fn test_capture_groups() {
     );
 }
 
-#[test]
-fn test_no_changes() {
+#[test_log::test]
+fn should_leave_track_unchanged_when_no_match() {
     let track = Track {
         name: "Clean Song".to_string(),
         artist: "Clean Artist".to_string(),
@@ -79,8 +79,8 @@ fn test_no_changes() {
     assert!(!changed);
 }
 
-#[test]
-fn test_multiple_rules_application() {
+#[test_log::test]
+fn should_apply_multiple_rules_sequentially() {
     let track = Track {
         name: "Song - 2023 Remaster  ".to_string(), // Extra spaces
         artist: "Artist ft. Someone".to_string(),
@@ -108,8 +108,8 @@ fn test_multiple_rules_application() {
     assert_eq!(edit.artist_name, "Artist feat. Someone"); // Entire string replaced
 }
 
-#[test]
-fn test_applies_to_check() {
+#[test_log::test]
+fn should_check_if_rule_applies_to_track() {
     let track = Track {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Clean Artist".to_string(),
@@ -129,8 +129,8 @@ fn test_applies_to_check() {
     assert!(!rule_that_doesnt_apply.matches(&track).unwrap());
 }
 
-#[test]
-fn test_applies_to_requires_all_non_empty_rules_to_match() {
+#[test_log::test]
+fn should_require_all_non_empty_rules_to_match() {
     let track = Track {
         name: "Song - 2023 Remaster".to_string(),
         artist: "Artist ft. Someone".to_string(),
@@ -187,8 +187,8 @@ fn test_applies_to_requires_all_non_empty_rules_to_match() {
     );
 }
 
-#[test]
-fn test_applies_to_with_album_fields() {
+#[test_log::test]
+fn handles_album_fields_in_rule_matching() {
     let track = Track {
         name: "Song Title".to_string(),
         artist: "Artist Name".to_string(),
@@ -218,8 +218,8 @@ fn test_applies_to_with_album_fields() {
     );
 }
 
-#[test]
-fn test_chris_thile_multiple_conditions_must_all_match() {
+#[test_log::test]
+fn should_match_all_conditions_for_chris_thile_case() {
     // Test case: Chris Thile track from "Not All Who Wander Are Lost" album
     // Should NOT match a rule that requires both artist "^Chris Thile$" AND album "^Sleep With One Eye Open"
     // because the album doesn't match (only artist matches)
@@ -266,8 +266,8 @@ fn test_chris_thile_multiple_conditions_must_all_match() {
     );
 }
 
-#[test]
-fn test_all_conditions_must_match_comprehensive() {
+#[test_log::test]
+fn should_match_all_conditions_comprehensively() {
     // Test various combinations to thoroughly exercise the "ALL must match" requirement
 
     // Test track with specific values
@@ -368,8 +368,8 @@ fn test_all_conditions_must_match_comprehensive() {
     );
 }
 
-#[test]
-fn test_partial_regex_matches_still_require_all_conditions() {
+#[test_log::test]
+fn should_require_all_conditions_even_with_partial_matches() {
     // Test that even partial regex matches must satisfy ALL conditions
 
     let track = Track {
@@ -422,8 +422,8 @@ fn test_partial_regex_matches_still_require_all_conditions() {
     );
 }
 
-#[test]
-fn test_edge_cases_all_conditions_must_match() {
+#[test_log::test]
+fn handles_edge_cases_requiring_all_conditions() {
     // Test edge cases for the ALL conditions requirement
 
     let track = Track {
@@ -476,8 +476,8 @@ fn test_edge_cases_all_conditions_must_match() {
     );
 }
 
-#[test]
-fn test_complex_regex_patterns_all_must_match() {
+#[test_log::test]
+fn should_match_complex_regex_patterns_completely() {
     // Test complex regex patterns where ALL conditions must match
 
     let track = Track {
@@ -534,8 +534,8 @@ fn test_complex_regex_patterns_all_must_match() {
     );
 }
 
-#[test]
-fn test_chris_thile_exact_match_behavior() {
+#[test_log::test]
+fn should_demonstrate_exact_match_behavior_for_chris_thile() {
     // Test the exact scenario the user reported: tracks with artist 'Chris Thile'
     // should match 'Chris Thil' and 'hris Thile' but not 'Chris Thile'
     // This test verifies that the core regex matching logic works correctly
@@ -595,8 +595,8 @@ fn test_chris_thile_exact_match_behavior() {
     );
 }
 
-#[test]
-fn test_anchored_regex_for_super_exact_matching() {
+#[test_log::test]
+fn should_use_anchored_regex_for_exact_matching() {
     // Test that anchored regex patterns (^...$) provide super exact matching behavior
 
     let track = Track {
@@ -681,8 +681,8 @@ fn test_anchored_regex_for_super_exact_matching() {
     );
 }
 
-#[test]
-fn test_queen_track_chris_thile_rules_issue() {
+#[test_log::test]
+fn handles_queen_track_with_chris_thile_rules() {
     // Replicate the exact issue from the log:
     // [2025-07-24T23:44:25Z INFO  scrobble_scrubber::scrubber] Applying edit to track 'You And I - Remastered 2011' by 'Queen':
     // track: 'You And I - Remastered 2011' -> 'You And I', album artist: 'unknown' -> 'Chris Thile & Michael Daves'
@@ -798,8 +798,8 @@ fn test_queen_track_chris_thile_rules_issue() {
     println!("✅ FIXED: Only rule 1 applied as expected. Rules 5, 6, 7 correctly did not apply.");
 }
 
-#[test]
-fn test_individual_rule_apply_vs_matches_inconsistency() {
+#[test_log::test]
+fn should_have_consistent_apply_and_matches_behavior() {
     // This test demonstrates the bug where apply() doesn't check matches() first
     let track = Track {
         name: "Some Song".to_string(),
@@ -850,8 +850,8 @@ fn test_individual_rule_apply_vs_matches_inconsistency() {
     println!("✅ FIXED: Rule correctly did not apply changes because it doesn't match.");
 }
 
-#[test]
-fn test_matches_scrobble_edit_semantic_none_handling() {
+#[test_log::test]
+fn handles_none_values_semantically_in_scrobble_edit() {
     // Test the semantic None handling in matches_scrobble_edit
 
     // Case 1: Rule field None, ScrobbleEdit field None -> MATCH
@@ -962,8 +962,8 @@ fn test_matches_scrobble_edit_semantic_none_handling() {
     println!("✅ All semantic None handling tests passed!");
 }
 
-#[test]
-fn test_matches_scrobble_edit_dot_star_special_case() {
+#[test_log::test]
+fn handles_dot_star_special_case_in_scrobble_edit() {
     // Test that .* pattern matches None fields (special case)
 
     // Rule with .* pattern should match None fields

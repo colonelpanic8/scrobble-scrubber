@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(grep:*)",
@@ -189,7 +190,14 @@
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command cargo binstall --help)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424)",
       "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703305424 --log-failed)",
-      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703499015)"
+      "Bash(NIXPKGS_ALLOW_UNFREE=1 nix develop --impure --command gh run view 16703499015)",
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=record LASTFM_EDIT_USERNAME=your_username LASTFM_EDIT_PASSWORD=your_password cargo test test_scrubber_end_to_end_with_default_rules -- --ignored)",
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=record cargo test test_scrubber_end_to_end_with_default_rules --test vcr_integration_tests -- --ignored)",
+      "Bash(RUST_BACKTRACE=1 SCROBBLE_SCRUBBER_VCR_RECORD=record cargo test test_scrubber_end_to_end_with_default_rules --test vcr_integration_tests -- --ignored)",
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=record cargo test test_scrubber_end_to_end_with_default_rules --test vcr_tests)",
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=record RUST_LOG=debug cargo test test_scrubber_end_to_end_with_default_rules --test vcr_tests)",
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=record cargo test test_scrubber_end_to_end_with_default_rules --test vcr_tests -- --nocapture)",
+      "Bash(vcr-inspect:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"

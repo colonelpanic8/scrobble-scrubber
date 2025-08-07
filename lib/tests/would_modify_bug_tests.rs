@@ -8,8 +8,8 @@ use scrobble_scrubber::rewrite::{any_rules_apply, RewriteRule, SdRule};
 /// album_artist, the `would_modify` check returns false, causing the rule to not apply
 /// even though it should.
 
-#[test]
-fn test_album_artist_constant_value_bug() {
+#[test_log::test]
+fn should_apply_rule_even_when_album_artist_already_matches_target() {
     // Create two tracks: one without album_artist, one that already has the target value
     let track_without_album_artist = Track {
         name: "Song 1".to_string(),
@@ -49,8 +49,8 @@ fn test_album_artist_constant_value_bug() {
     );
 }
 
-#[test]
-fn test_artist_name_constant_value_bug() {
+#[test_log::test]
+fn should_apply_rule_even_when_artist_name_already_matches_target() {
     // Similar test for artist name
     let track_different_artist = Track {
         name: "Song 1".to_string(),
@@ -86,8 +86,8 @@ fn test_artist_name_constant_value_bug() {
     );
 }
 
-#[test]
-fn test_track_name_normalization_bug() {
+#[test_log::test]
+fn should_normalize_track_name_regardless_of_existing_value() {
     // Test case where we normalize track names to title case
     let track_lowercase = Track {
         name: "song title".to_string(),
@@ -123,8 +123,8 @@ fn test_track_name_normalization_bug() {
     );
 }
 
-#[test]
-fn test_multiple_field_bug_with_mixed_scenarios() {
+#[test_log::test]
+fn handles_multiple_fields_with_mixed_scenarios() {
     // Test a rule that affects multiple fields where some tracks need changes and others don't
     let track_needs_all_changes = Track {
         name: "old song".to_string(),
@@ -178,8 +178,8 @@ fn test_multiple_field_bug_with_mixed_scenarios() {
     );
 }
 
-#[test]
-fn test_excessive_logging_demonstration() {
+#[test_log::test]
+fn should_demonstrate_excessive_logging_issue() {
     // This test demonstrates the excessive logging issue
     // Every call to applies_to generates multiple trace logs per rule
     let tracks = vec![
@@ -227,8 +227,8 @@ fn test_excessive_logging_demonstration() {
     // "Applied rules: [rule1, rule2] | Skipped rules: [rule3] for track 'Song 1'"
 }
 
-#[test]
-fn test_proposed_fix_with_matches_instead_of_would_modify() {
+#[test_log::test]
+fn should_use_matches_instead_of_would_modify_check() {
     // This test shows how the fix should work: use matches() instead of would_modify()
     let track = Track {
         name: "Test Song".to_string(),
@@ -256,8 +256,8 @@ fn test_proposed_fix_with_matches_instead_of_would_modify() {
     );
 }
 
-#[test]
-fn test_exact_user_example_dot_star_constant_value() {
+#[test_log::test]
+fn handles_dot_star_pattern_with_constant_value() {
     // This is the EXACT example the user gave that would have failed previously:
     // "A simple example, is where we have a .* for say album artist, and we set it to some
     // constant value, but some tracks already have that constant value."

@@ -175,8 +175,8 @@ impl SessionManager {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_session_manager_creation() {
+    #[test_log::test]
+    fn should_create_session_manager_with_username() {
         let manager = SessionManager::new("testuser");
         assert_eq!(manager.username, "testuser");
     }

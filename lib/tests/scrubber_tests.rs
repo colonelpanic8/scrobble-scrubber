@@ -14,8 +14,8 @@ use scrobble_scrubber::scrubber::ScrobbleScrubber;
 use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
 
-#[tokio::test]
-async fn test_scrubber_creation() {
+#[test_log::test(tokio::test)]
+async fn should_create_scrubber_instance_successfully() {
     // Create a dummy client (won't actually be used in this test)
     let http_client = http_client::native::NativeClient::new();
     let session = LastFmEditSession::new(
@@ -49,8 +49,8 @@ async fn test_scrubber_creation() {
     // If we can get here without panicking, the scrubber was created successfully
 }
 
-#[tokio::test]
-async fn test_scrubber_is_not_running_initially() {
+#[test_log::test(tokio::test)]
+async fn should_not_be_running_when_first_created() {
     // Create a minimal scrubber setup
     let http_client = http_client::native::NativeClient::new();
     let session = LastFmEditSession::new(
@@ -73,8 +73,8 @@ async fn test_scrubber_is_not_running_initially() {
     assert!(!scrubber.is_running().await);
 }
 
-#[tokio::test]
-async fn test_scrubber_with_mock_client() {
+#[test_log::test(tokio::test)]
+async fn should_work_with_mock_lastfm_client() {
     // Create a mock client instead of a real one
     let mut mock_client = MockLastFmEditClient::new();
 
@@ -104,8 +104,8 @@ async fn test_scrubber_with_mock_client() {
     assert!(!scrubber.is_running().await);
 }
 
-#[tokio::test]
-async fn test_scrubber_processes_tracks_in_chronological_order() {
+#[test_log::test(tokio::test)]
+async fn should_process_tracks_in_chronological_order() {
     // Create test tracks with timestamps (API returns newest first)
     let track_newest = Track {
         name: "Song Three".to_string(),
@@ -227,8 +227,8 @@ async fn test_scrubber_processes_tracks_in_chronological_order() {
     // in tests. A future improvement would be to make iterators work with the trait.
 }
 
-#[tokio::test]
-async fn test_track_chronological_ordering_pattern() {
+#[test_log::test(tokio::test)]
+async fn should_maintain_chronological_ordering_pattern() {
     // This test demonstrates the ordering behavior we expect from the scrubber:
     // API returns tracks newest-first, but processing should be oldest-first
 
@@ -294,8 +294,8 @@ async fn test_track_chronological_ordering_pattern() {
     // This ensures incremental processing works correctly with timestamps
 }
 
-#[tokio::test]
-async fn test_scrubber_track_processing_order_with_cache() {
+#[test_log::test(tokio::test)]
+async fn should_maintain_track_processing_order_with_cache() {
     // Create test tracks with specific timestamps
     let track1 = Track {
         name: "Song One".to_string(),

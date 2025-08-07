@@ -1,7 +1,7 @@
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
 
-#[test]
-fn test_default_config() {
+#[test_log::test]
+fn should_create_valid_default_configuration() {
     let config = ScrobbleScrubberConfig::default();
     assert_eq!(config.scrubber.interval, 300);
     assert!(!config.scrubber.dry_run);
@@ -11,8 +11,8 @@ fn test_default_config() {
     assert!(!config.providers.enable_openai);
 }
 
-#[test]
-fn test_get_default_config_paths() {
+#[test_log::test]
+fn should_return_valid_default_config_paths() {
     let paths = ScrobbleScrubberConfig::get_default_config_paths();
 
     // Should always include current directory paths
@@ -25,8 +25,8 @@ fn test_get_default_config_paths() {
     assert!(paths.len() >= 4);
 }
 
-#[test]
-fn test_get_preferred_config_path() {
+#[test_log::test]
+fn should_return_preferred_config_path_when_exists() {
     let preferred = ScrobbleScrubberConfig::get_preferred_config_path();
 
     // Should return a path (unless in a very unusual environment)

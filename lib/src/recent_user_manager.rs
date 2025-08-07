@@ -138,8 +138,8 @@ impl Default for RecentUserManager {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_recent_user_data_creation() {
+    #[test_log::test]
+    fn should_create_recent_user_data_with_current_timestamp() {
         let user_data = RecentUserData::new("testuser".to_string());
         assert_eq!(user_data.username, "testuser");
         assert_eq!(user_data.version, 1);
@@ -154,8 +154,8 @@ mod tests {
         assert!(user_data.last_used <= now && user_data.last_used >= (now - 10));
     }
 
-    #[test]
-    fn test_update_last_used() {
+    #[test_log::test]
+    fn should_update_last_used_timestamp() {
         let mut user_data = RecentUserData::new("testuser".to_string());
         let original_time = user_data.last_used;
 

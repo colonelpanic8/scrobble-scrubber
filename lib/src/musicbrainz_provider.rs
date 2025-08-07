@@ -354,8 +354,8 @@ impl ScrubActionProvider for MusicBrainzScrubActionProvider {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_similarity_calculation() {
+    #[test_log::test]
+    fn should_calculate_string_similarity_correctly() {
         let provider = MusicBrainzScrubActionProvider::default();
 
         // Exact match
@@ -369,8 +369,8 @@ mod tests {
         assert!(similarity < 1.0 && similarity > 0.0);
     }
 
-    #[tokio::test]
-    async fn test_provider_interface() {
+    #[test_log::test(tokio::test)]
+    async fn should_implement_provider_interface_correctly() {
         let provider = MusicBrainzScrubActionProvider::default();
         assert_eq!(provider.provider_name(), "MusicBrainzScrubActionProvider");
 

@@ -255,8 +255,8 @@ impl MetadataRewriteProcessor {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_regex_full_string_replacement() {
+    #[test_log::test]
+    fn should_replace_full_string_using_regex() {
         // Pattern that captures everything and replaces "feat." with "featuring"
         let rule = TransformRule::new(r"^(.*)feat\.(.*)$", "${1}featuring${2}");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
@@ -265,8 +265,8 @@ mod tests {
         assert_eq!(result, "Song Title (featuring Artist)");
     }
 
-    #[test]
-    fn test_case_insensitive_replacement() {
+    #[test_log::test]
+    fn should_perform_case_insensitive_replacement() {
         let rule = TransformRule::new(r"^(.*)FEAT\.(.*)$", "${1}featuring${2}").with_flags("i");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
 
@@ -274,8 +274,8 @@ mod tests {
         assert_eq!(result, "Song Title (featuring Artist)");
     }
 
-    #[test]
-    fn test_no_change_when_no_match() {
+    #[test_log::test]
+    fn should_leave_string_unchanged_when_no_match() {
         let rule = TransformRule::new(r"^(.*)feat\.(.*)$", "$1featuring$2");
         let processor = RewriteProcessor::new(vec![rule]).unwrap();
 
@@ -283,8 +283,8 @@ mod tests {
         assert_eq!(result, "Song Title");
     }
 
-    #[test]
-    fn test_metadata_processor() {
+    #[test_log::test]
+    fn should_process_metadata_fields_correctly() {
         let rule = MetadataRewriteRule {
             track_name: Some(TransformRule::new(r"^(.*)feat\.(.*)$", "${1}featuring${2}")),
             artist_name: Some(TransformRule::new(r"^(.*)&(.*)$", "${1} and ${2}")),

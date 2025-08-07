@@ -3,6 +3,7 @@ use lastfm_edit::{LastFmEditClient, Result, ScrobbleEdit};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
+use crate::edit::{apply_edit_to_lastfm, dry_run_edit};
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
 use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
@@ -11,6 +12,7 @@ use crate::scrub_action_provider::{
 };
 use crate::track_provider::{CachedTrackProvider, DirectTrackProvider, TrackProvider};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
@@ -168,7 +170,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             )));
         }
 
-        self.check_and_process_tracks().await
+        self.run_processing_cycle().await
     }
 
     /// Ensure timestamp state is initialized with the most recent track if not set
@@ -245,7 +247,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 // Regular interval tick
                 _ = interval.tick() => {
                     log::info!("Starting scheduled track monitoring cycle...");
-                    self.run_processing_cycle().await;
+                    if let Err(e) = self.run_processing_cycle().await {
+                        log::warn!("Error during scheduled processing cycle: {e}");
+                    }
                 }
 
                 // Immediate processing triggered
@@ -254,7 +258,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     self.emit_event(ScrubberEvent::info(
                         "Immediate processing triggered".to_string(),
                     ));
-                    self.run_processing_cycle().await;
+                    if let Err(e) = self.run_processing_cycle().await {
+                        log::warn!("Error during immediate processing cycle: {e}");
+                    }
                 }
 
                 // Stop signal received
@@ -270,10 +276,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     /// Run a single processing cycle with proper state management
-    async fn run_processing_cycle(&mut self) {
+    pub async fn run_processing_cycle(&mut self) -> Result<()> {
         *self.is_running.write().await = true;
-        let _ = self.check_and_process_tracks().await; // Error handling is done inside the method
+        let result = self.check_and_process_tracks().await;
         *self.is_running.write().await = false;
+        result
     }
 
     async fn check_and_process_tracks(&mut self) -> Result<()> {
@@ -1134,31 +1141,42 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(())
     }
 
+    /// Set the processing timestamp anchor directly
+    /// This allows manual control of where the scrubber starts processing from
+    pub async fn set_timestamp(&mut self, timestamp: DateTime<Utc>) -> Result<()> {
+        let updated_state = TimestampState {
+            last_processed_timestamp: Some(timestamp),
+        };
+
+        self.storage
+            .lock()
+            .await
+            .save_timestamp_state(&updated_state)
+            .await
+            .map_err(|e| {
+                lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                    "Failed to save timestamp state: {e}"
+                )))
+            })?;
+
+        log::info!("Manually set timestamp anchor to {timestamp}");
+
+        Ok(())
+    }
+
     /// Set the processing timestamp anchor to a specific track's timestamp
     /// This allows manual control of where the scrubber starts processing from
     pub async fn set_timestamp_to_track(&mut self, track: &lastfm_edit::Track) -> Result<()> {
         if let Some(ts) = track.timestamp {
             let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
-            let updated_state = TimestampState {
-                last_processed_timestamp: Some(track_time),
-            };
 
-            self.storage
-                .lock()
-                .await
-                .save_timestamp_state(&updated_state)
-                .await
-                .map_err(|e| {
-                    lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                        "Failed to save timestamp state: {e}"
-                    )))
-                })?;
+            self.set_timestamp(track_time).await?;
 
             log::info!(
-                "Manually set timestamp anchor to {} for track '{}' by '{}'",
-                track_time,
+                "Set timestamp anchor from track '{}' by '{}' to {}",
                 track.name,
-                track.artist
+                track.artist,
+                track_time
             );
 
             // Emit anchor update event
@@ -1605,7 +1623,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
             let log_context = context.unwrap_or(default_context);
 
-            match self.client.edit_scrobble(edit).await {
+            let timeout = Duration::from_secs(10);
+
+            let result = if self.config.scrubber.dry_run {
+                dry_run_edit(edit).await
+            } else {
+                apply_edit_to_lastfm(self.client.as_ref(), edit, timeout).await
+            };
+
+            match result {
                 Ok(_response) => {
                     // Emit event for successful edit
                     let edit_info = LogEditInfo {
@@ -1640,10 +1666,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         track,
                         Some(&edit_info),
                         log_context,
-                        format!("{e}"),
+                        e.to_string(),
                     ));
 
-                    return Err(e);
+                    return Err(lastfm_edit::LastFmError::EditFailed(e));
                 }
             }
         }

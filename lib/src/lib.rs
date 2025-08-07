@@ -1,3 +1,4 @@
+pub mod edit;
 pub mod event_logger;
 pub mod events;
 pub mod json_logger;
