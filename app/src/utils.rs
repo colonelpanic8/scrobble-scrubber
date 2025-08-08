@@ -1,7 +1,5 @@
 use crate::types::AppState;
-pub use ::scrobble_scrubber::default_rules::{
-    load_default_remaster_rules, DefaultRule, DefaultRuleSet,
-};
+pub use ::scrobble_scrubber::default_rules::{load_default_remaster_rules, DefaultRule};
 use ::scrobble_scrubber::persistence::{RewriteRulesState, StateStorage};
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use dioxus::document::eval;
@@ -160,7 +158,6 @@ pub fn copy_to_clipboard(text: String) {
         ));
     });
 }
-
 
 // Import selected default rules
 pub async fn import_default_rules(
