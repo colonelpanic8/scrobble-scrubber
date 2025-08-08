@@ -1,3 +1,4 @@
+pub mod default_rules;
 pub mod edit;
 pub mod event_logger;
 pub mod events;

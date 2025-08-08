@@ -639,32 +639,18 @@ pub enum RewriteError {
     InvalidUtf8(#[from] std::string::FromUtf8Error),
 }
 
-fn parse_sd_rule(value: &serde_json::Value) -> Option<SdRule> {
-    value.as_object().and_then(|obj| {
-        let find = obj.get("find")?.as_str()?.to_string();
-        let replace = obj.get("replace")?.as_str()?.to_string();
-        let flags = obj
-            .get("flags")
-            .and_then(|f| f.as_str())
-            .map(|s| s.to_string());
-        Some(SdRule {
-            find,
-            replace,
-            flags,
-        })
-    })
-}
-
 /// Load comprehensive default rewrite rules from the embedded JSON file
 ///
 /// This loads the full set of remaster cleanup rules from the default_remaster_rules.json file.
 /// If the file cannot be loaded or parsed, falls back to the basic default_rules().
 #[must_use]
 pub fn load_comprehensive_default_rules() -> Vec<RewriteRule> {
-    const DEFAULT_RULES_JSON: &str = include_str!("../../app/assets/default_remaster_rules.json");
+    use crate::default_rules::load_default_remaster_rules;
 
-    match load_rules_from_json_str(DEFAULT_RULES_JSON) {
-        Ok(rules) => {
+    match load_default_remaster_rules() {
+        Ok(rule_set) => {
+            let rules: Vec<RewriteRule> =
+                rule_set.rules.into_iter().map(|rule| rule.into()).collect();
             log::info!("Loaded {} comprehensive default rewrite rules", rules.len());
             rules
         }
@@ -675,47 +661,6 @@ pub fn load_comprehensive_default_rules() -> Vec<RewriteRule> {
             default_rules()
         }
     }
-}
-
-/// Parse rewrite rules from a JSON string
-fn load_rules_from_json_str(
-    json_str: &str,
-) -> Result<Vec<RewriteRule>, Box<dyn std::error::Error + Send + Sync>> {
-    let json: serde_json::Value = serde_json::from_str(json_str)?;
-
-    let rules_array = json
-        .get("rules")
-        .and_then(|r| r.as_array())
-        .ok_or("Invalid JSON format: missing 'rules' array")?;
-
-    let mut default_rules = Vec::new();
-    for rule_value in rules_array {
-        let rule_obj = rule_value.as_object().ok_or("Invalid rule format")?;
-
-        let name = rule_obj
-            .get("name")
-            .and_then(|n| n.as_str())
-            .map(|s| s.to_string());
-        let track_name = rule_obj.get("track_name").and_then(parse_sd_rule);
-        let artist_name = rule_obj.get("artist_name").and_then(parse_sd_rule);
-        let album_name = rule_obj.get("album_name").and_then(parse_sd_rule);
-        let album_artist_name = rule_obj.get("album_artist_name").and_then(parse_sd_rule);
-        let requires_confirmation = rule_obj
-            .get("requires_confirmation")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        default_rules.push(RewriteRule {
-            name,
-            track_name,
-            artist_name,
-            album_name,
-            album_artist_name,
-            requires_confirmation,
-        });
-    }
-
-    Ok(default_rules)
 }
 
 /// Default rewrite rules for common cleanup tasks
