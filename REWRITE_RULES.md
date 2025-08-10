@@ -231,3 +231,15 @@ Replace: $1
 ---
 
 *For more information on using rewrite rules in the Scrobble Scrubber interface, see the main [User Guide](USER_GUIDE.md).*
+
+## MusicBrainz Confirmation (Advanced)
+
+You can require MusicBrainz confirmation for a rule so that edits are only suggested when the rewritten metadata corresponds to a real track/release in MusicBrainz.
+
+- Add `"requires_musicbrainz_confirmation": true` to the rule definition.
+- The rewrite provider applies the rule in-memory, then queries MusicBrainz using the rewritten `artist`, `track`, and optional `album` values.
+- If no matching recording/release is found, the suggestion is skipped for that track (other rules may still apply).
+
+Notes:
+- Matching uses case-insensitive equality for artist/title and, if provided, album.
+- This check only runs for rules that set `requires_musicbrainz_confirmation`.

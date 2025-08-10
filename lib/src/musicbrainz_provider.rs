@@ -23,16 +23,18 @@ pub struct MusicBrainzMatch {
     pub album: Option<String>,
     pub confidence: f32,
     pub mbid: String,
+    pub release_id: Option<String>,
 }
 
 impl MusicBrainzScrubActionProvider {
-    /// Select the best release from a recording's releases and return its title
-    fn select_best_release_title(recording: &Recording) -> Option<String> {
-        recording
-            .releases
-            .as_ref()
-            .and_then(|releases| releases.first())
-            .map(|release| release.title.clone())
+    /// Select the best release from a recording's releases and return its (title, id)
+    fn select_best_release(recording: &Recording) -> (Option<String>, Option<String>) {
+        if let Some(releases) = &recording.releases {
+            if let Some(first) = releases.first() {
+                return (Some(first.title.clone()), Some(first.id.clone()));
+            }
+        }
+        (None, None)
     }
 
     /// Build a MusicBrainz search query for a track
@@ -94,7 +96,7 @@ impl MusicBrainzScrubActionProvider {
                     .unwrap_or_default();
 
                 let mb_title = recording.title.clone();
-                let mb_album = Self::select_best_release_title(recording);
+                let (mb_album, release_id) = Self::select_best_release(recording);
 
                 // Calculate confidence based on string similarity
                 let artist_confidence = self.calculate_similarity(artist, &mb_artist);
@@ -107,6 +109,7 @@ impl MusicBrainzScrubActionProvider {
                     album: mb_album,
                     confidence: overall_confidence,
                     mbid: recording.id.clone(),
+                    release_id,
                 });
             }
         }

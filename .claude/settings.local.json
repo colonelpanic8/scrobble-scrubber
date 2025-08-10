@@ -200,7 +200,15 @@
       "Bash(vcr-inspect:*)",
       "Bash(VCR_MODE=record cargo test tests::vcr::once::should_run_end_to_end_processing_with_default_rules -- --nocapture)",
       "Bash(VCR_MODE=record cargo test --test vcr once::should_run_end_to_end_processing_with_default_rules -- --nocapture)",
-      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=1 cargo test --test vcr_tests once::should_run_end_to_end_processing_with_default_rules -- --nocapture)"
+      "Bash(SCROBBLE_SCRUBBER_VCR_RECORD=1 cargo test --test vcr_tests once::should_run_end_to_end_processing_with_default_rules -- --nocapture)",
+      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber musicbrainz_confirmation_tests)",
+      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests)",
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_sublime -- --nocapture)",
+      "Bash(RUST_LOG=trace SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_sublime -- --nocapture)",
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo -- --nocapture)",
+      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_sublime)",
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)",
+      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace)"
     ],
     "deny": [
       "Bash(dx serve:*)"

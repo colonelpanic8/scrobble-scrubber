@@ -289,6 +289,10 @@ pub struct RewriteRule {
     pub album_artist_name: Option<SdRule>,
     /// Whether this rule requires user confirmation before applying
     pub requires_confirmation: bool,
+    /// Whether this rule requires MusicBrainz confirmation of the rewritten metadata
+    /// If true, the rewritten values must be validated against MusicBrainz before the edit is suggested/applied
+    #[serde(default)]
+    pub requires_musicbrainz_confirmation: bool,
 }
 
 impl RewriteRule {
@@ -302,6 +306,7 @@ impl RewriteRule {
             artist_name: None,
             album_artist_name: None,
             requires_confirmation: false,
+            requires_musicbrainz_confirmation: false,
         }
     }
 
@@ -344,6 +349,16 @@ impl RewriteRule {
     #[must_use]
     pub const fn with_confirmation_required(mut self, requires_confirmation: bool) -> Self {
         self.requires_confirmation = requires_confirmation;
+        self
+    }
+
+    /// Set whether this rule requires MusicBrainz confirmation
+    #[must_use]
+    pub const fn with_musicbrainz_confirmation_required(
+        mut self,
+        requires_musicbrainz_confirmation: bool,
+    ) -> Self {
+        self.requires_musicbrainz_confirmation = requires_musicbrainz_confirmation;
         self
     }
 

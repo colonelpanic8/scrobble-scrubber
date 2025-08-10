@@ -18,6 +18,9 @@ pub struct DefaultRule {
     pub album_name: Option<DefaultRulePattern>,
     pub album_artist_name: Option<DefaultRulePattern>,
     pub requires_confirmation: bool,
+    /// Optional flag: require MusicBrainz confirmation of the rewritten metadata
+    #[serde(default)]
+    pub requires_musicbrainz_confirmation: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -54,6 +57,7 @@ impl From<DefaultRule> for RewriteRule {
                 flags: Some("i".to_string()),
             }),
             requires_confirmation: default_rule.requires_confirmation,
+            requires_musicbrainz_confirmation: default_rule.requires_musicbrainz_confirmation,
         }
     }
 }

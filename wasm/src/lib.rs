@@ -62,6 +62,8 @@ pub struct JSRewriteRule {
     pub album_name: Option<JSSdRule>,
     pub album_artist_name: Option<JSSdRule>,
     pub requires_confirmation: bool,
+    #[serde(default)]
+    pub requires_musicbrainz_confirmation: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -99,6 +101,7 @@ impl From<&RewriteRule> for JSRewriteRule {
             album_name: rule.album_name.as_ref().map(JSSdRule::from),
             album_artist_name: rule.album_artist_name.as_ref().map(JSSdRule::from),
             requires_confirmation: rule.requires_confirmation,
+            requires_musicbrainz_confirmation: rule.requires_musicbrainz_confirmation,
         }
     }
 }
@@ -112,6 +115,7 @@ impl From<JSRewriteRule> for RewriteRule {
             album_name: js_rule.album_name.map(SdRule::from),
             album_artist_name: js_rule.album_artist_name.map(SdRule::from),
             requires_confirmation: js_rule.requires_confirmation,
+            requires_musicbrainz_confirmation: js_rule.requires_musicbrainz_confirmation,
         }
     }
 }
@@ -231,6 +235,7 @@ pub fn create_simple_rule(
         album_name: None,
         album_artist_name: None,
         requires_confirmation: false,
+        requires_musicbrainz_confirmation: false,
     };
 
     match field {

@@ -247,6 +247,57 @@ enum TrackCacheCommands {
     },
 }
 
+#[derive(clap::Args, Debug, Clone)]
+struct AddRuleArgs {
+    /// Rule name (optional)
+    #[arg(short, long)]
+    name: Option<String>,
+
+    /// Track name pattern to find (regex)
+    #[arg(long)]
+    track_find: Option<String>,
+
+    /// Track name replacement text
+    #[arg(long)]
+    track_replace: Option<String>,
+
+    /// Artist name pattern to find (regex)
+    #[arg(long)]
+    artist_find: Option<String>,
+
+    /// Artist name replacement text
+    #[arg(long)]
+    artist_replace: Option<String>,
+
+    /// Album name pattern to find (regex)
+    #[arg(long)]
+    album_find: Option<String>,
+
+    /// Album name replacement text
+    #[arg(long)]
+    album_replace: Option<String>,
+
+    /// Album artist name pattern to find (regex)
+    #[arg(long)]
+    album_artist_find: Option<String>,
+
+    /// Album artist name replacement text
+    #[arg(long)]
+    album_artist_replace: Option<String>,
+
+    /// Regex flags (e.g., 'i' for case insensitive)
+    #[arg(long)]
+    flags: Option<String>,
+
+    /// Require confirmation before applying this rule
+    #[arg(long)]
+    require_confirmation: bool,
+
+    /// Require MusicBrainz confirmation of the rewritten metadata
+    #[arg(long)]
+    require_musicbrainz_confirmation: bool,
+}
+
 #[derive(Subcommand, Debug)]
 enum RulesCommands {
     /// Show current active rewrite rules
@@ -254,51 +305,7 @@ enum RulesCommands {
     /// Enable all default rewrite rules (avoiding duplicates)
     EnableDefaults,
     /// Add a new rewrite rule
-    Add {
-        /// Rule name (optional)
-        #[arg(short, long)]
-        name: Option<String>,
-
-        /// Track name pattern to find (regex)
-        #[arg(long)]
-        track_find: Option<String>,
-
-        /// Track name replacement text
-        #[arg(long)]
-        track_replace: Option<String>,
-
-        /// Artist name pattern to find (regex)
-        #[arg(long)]
-        artist_find: Option<String>,
-
-        /// Artist name replacement text
-        #[arg(long)]
-        artist_replace: Option<String>,
-
-        /// Album name pattern to find (regex)
-        #[arg(long)]
-        album_find: Option<String>,
-
-        /// Album name replacement text
-        #[arg(long)]
-        album_replace: Option<String>,
-
-        /// Album artist name pattern to find (regex)
-        #[arg(long)]
-        album_artist_find: Option<String>,
-
-        /// Album artist name replacement text
-        #[arg(long)]
-        album_artist_replace: Option<String>,
-
-        /// Regex flags (e.g., 'i' for case insensitive)
-        #[arg(long)]
-        flags: Option<String>,
-
-        /// Require confirmation before applying this rule
-        #[arg(long)]
-        require_confirmation: bool,
-    },
+    Add(Box<AddRuleArgs>),
     /// Remove a rewrite rule
     Remove {
         /// Rule index to remove (1-based, as shown in show-rules)
@@ -792,32 +799,21 @@ async fn main() -> Result<()> {
                 enable_default_rules(&storage).await?;
                 return Ok(());
             }
-            RulesCommands::Add {
-                name,
-                track_find,
-                track_replace,
-                artist_find,
-                artist_replace,
-                album_find,
-                album_replace,
-                album_artist_find,
-                album_artist_replace,
-                flags,
-                require_confirmation,
-            } => {
+            RulesCommands::Add(args) => {
                 add_rewrite_rule(
                     &storage,
-                    name.as_deref(),
-                    track_find.as_deref(),
-                    track_replace.as_deref(),
-                    artist_find.as_deref(),
-                    artist_replace.as_deref(),
-                    album_find.as_deref(),
-                    album_replace.as_deref(),
-                    album_artist_find.as_deref(),
-                    album_artist_replace.as_deref(),
-                    flags.as_deref(),
-                    *require_confirmation,
+                    args.name.as_deref(),
+                    args.track_find.as_deref(),
+                    args.track_replace.as_deref(),
+                    args.artist_find.as_deref(),
+                    args.artist_replace.as_deref(),
+                    args.album_find.as_deref(),
+                    args.album_replace.as_deref(),
+                    args.album_artist_find.as_deref(),
+                    args.album_artist_replace.as_deref(),
+                    args.flags.as_deref(),
+                    args.require_confirmation,
+                    args.require_musicbrainz_confirmation,
                 )
                 .await?;
                 return Ok(());

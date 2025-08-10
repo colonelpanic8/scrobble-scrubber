@@ -63,6 +63,16 @@ pub async fn show_active_rules(
             );
         }
 
+        if rule.requires_confirmation || rule.requires_musicbrainz_confirmation {
+            println!("    Options:");
+            if rule.requires_confirmation {
+                println!("      - Requires user confirmation");
+            }
+            if rule.requires_musicbrainz_confirmation {
+                println!("      - Requires MusicBrainz confirmation");
+            }
+        }
+
         println!();
     }
 
@@ -84,6 +94,7 @@ pub async fn add_rewrite_rule(
     album_artist_replace: Option<&str>,
     flags: Option<&str>,
     require_confirmation: bool,
+    require_musicbrainz_confirmation: bool,
 ) -> Result<()> {
     println!("📝 Adding New Rewrite Rule");
     println!("==========================");
@@ -176,6 +187,7 @@ pub async fn add_rewrite_rule(
             None
         },
         requires_confirmation: require_confirmation,
+        requires_musicbrainz_confirmation: require_musicbrainz_confirmation,
     };
 
     // Load existing rules
@@ -231,6 +243,9 @@ pub async fn add_rewrite_rule(
     }
     if require_confirmation {
         println!("   Requires confirmation: yes");
+    }
+    if require_musicbrainz_confirmation {
+        println!("   Requires MusicBrainz confirmation: yes");
     }
 
     Ok(())

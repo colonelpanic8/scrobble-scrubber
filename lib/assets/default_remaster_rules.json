@@ -423,6 +423,19 @@
       "requires_confirmation": false
     },
     {
+      "name": "Remove Deluxe Edition (MB-confirmed)",
+      "description": "Removes '(Deluxe Edition)' from album names only when MusicBrainz confirms the track exists on the original non-deluxe release",
+      "examples": [
+        "XO (Deluxe Edition) → XO"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\([Dd]eluxe [Ee]dition\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
       "name": "Remove Remastered Original Album Mix",
       "description": "Removes patterns like 'Album (Remastered Original Album)'",
       "examples": [
