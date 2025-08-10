@@ -14,6 +14,7 @@ pub struct MusicBrainzScrubActionProvider {
     confidence_threshold: f32,
     max_results: usize,
     cache: RwLock<HashMap<String, Option<MusicBrainzMatch>>>,
+    prefer_non_japanese_releases: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +76,7 @@ impl MusicBrainzScrubActionProvider {
     fn select_matching_album_release(
         releases: &[musicbrainz_rs::entity::release::Release],
         album: &str,
+        prefer_non_japanese: bool,
     ) -> Option<(String, String)> {
         // Collect and sort matching releases by date
         let mut matching: Vec<_> = releases
@@ -88,13 +90,39 @@ impl MusicBrainzScrubActionProvider {
 
         matching.sort_by(|a, b| Self::compare_release_dates(a, b));
 
-        // First try to find a non-special edition
+        // First try to find a non-special edition, preferring non-Japanese releases if enabled
+        if prefer_non_japanese {
+            // Check if there are any non-Japanese releases available
+            let has_non_jp = matching
+                .iter()
+                .any(|r| r.country.as_ref().map(|c| c != "JP").unwrap_or(true));
+
+            if has_non_jp {
+                // First pass: non-special, non-Japanese releases
+                for release in &matching {
+                    let is_japanese = release.country.as_ref().map(|c| c == "JP").unwrap_or(false);
+                    if !Self::is_special_edition(release) && !is_japanese {
+                        log::debug!(
+                            "Selected non-Japanese release '{}' from {} (country: {:?}, disamb: {:?})",
+                            release.title,
+                            Self::get_release_date_str(release),
+                            release.country,
+                            release.disambiguation
+                        );
+                        return Some((release.title.clone(), release.id.clone()));
+                    }
+                }
+            }
+        }
+
+        // Second pass: any non-special edition (including Japanese if no alternatives)
         for release in &matching {
             if !Self::is_special_edition(release) {
                 log::debug!(
-                    "Selected release '{}' from {} (disamb: {:?})",
+                    "Selected release '{}' from {} (country: {:?}, disamb: {:?})",
                     release.title,
                     Self::get_release_date_str(release),
+                    release.country,
                     release.disambiguation
                 );
                 return Some((release.title.clone(), release.id.clone()));
@@ -119,6 +147,7 @@ impl MusicBrainzScrubActionProvider {
     /// Prioritizes releases matching the desired album if provided
     /// When multiple matches exist, prefers the earliest release (closest to original)
     fn select_best_release(
+        &self,
         recording: &Recording,
         desired_album: Option<&str>,
     ) -> Option<(String, String)> {
@@ -126,12 +155,46 @@ impl MusicBrainzScrubActionProvider {
 
         // If we have a desired album, try to find a matching release
         if let Some(album) = desired_album {
-            if let Some(result) = Self::select_matching_album_release(releases, album) {
+            if let Some(result) = Self::select_matching_album_release(
+                releases,
+                album,
+                self.prefer_non_japanese_releases,
+            ) {
                 return Some(result);
             }
         }
 
         // No desired album or no matches found - pick the earliest release overall
+        // Apply the same Japanese release preference here
+        if self.prefer_non_japanese_releases {
+            // Check if there are non-Japanese releases
+            let has_non_jp = releases
+                .iter()
+                .any(|r| r.country.as_ref().map(|c| c != "JP").unwrap_or(true));
+
+            if has_non_jp {
+                // Sort non-Japanese releases by date
+                let mut non_jp_releases: Vec<_> = releases
+                    .iter()
+                    .filter(|r| r.country.as_ref().map(|c| c != "JP").unwrap_or(true))
+                    .collect();
+
+                if !non_jp_releases.is_empty() {
+                    non_jp_releases.sort_by(|a, b| Self::compare_release_dates(a, b));
+                    if let Some(earliest) = non_jp_releases.first() {
+                        log::debug!(
+                            "Selected non-Japanese release '{}' from {} (country: {:?})",
+                            earliest.title,
+                            Self::get_release_date_str(earliest),
+                            earliest.country
+                        );
+                        return Some((earliest.title.clone(), earliest.id.clone()));
+                    }
+                }
+            }
+        }
+
+        // Fallback: pick the earliest release overall (including Japanese)
         let mut all_releases: Vec<_> = releases.iter().collect();
         if all_releases.is_empty() {
             return None;
@@ -166,7 +229,160 @@ impl MusicBrainzScrubActionProvider {
             confidence_threshold,
             max_results,
             cache: RwLock::new(HashMap::new()),
+            prefer_non_japanese_releases: true, // Default to preferring non-Japanese releases
         }
+    }
+
+    /// Set whether to prefer non-Japanese releases when multiple are available
+    pub fn with_japanese_preference(mut self, prefer_non_japanese: bool) -> Self {
+        self.prefer_non_japanese_releases = prefer_non_japanese;
+        self
+    }
+
+    /// Verify that a track exists in MusicBrainz with the given metadata
+    /// This is used for MusicBrainz confirmation in rewrite rules
+    /// IMPORTANT: This checks if the track exists on a CANONICAL release,
+    /// not just any release (e.g., excludes Japanese bonus track releases)
+    pub async fn verify_track_exists_on_canonical_release(
+        &self,
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        use musicbrainz_rs::entity::recording::Recording;
+        use musicbrainz_rs::Fetch;
+
+        log::debug!(
+            "MB verify: Checking if track exists on canonical release - '{}' by '{}' [{}] (max_results={})",
+            title,
+            artist,
+            album.unwrap_or("No Album"),
+            self.max_results
+        );
+
+        // Search for the track - this gives us recordings
+        let search_results = self
+            .search_musicbrainz_multiple(artist, title, album)
+            .await?;
+
+        log::debug!("MB verify: Found {} search results", search_results.len());
+
+        // For each matching recording, check if it exists on a canonical release
+        for (idx, result) in search_results.iter().enumerate() {
+            let artist_match = result.artist.eq_ignore_ascii_case(artist);
+            let title_match = result.title.eq_ignore_ascii_case(title);
+
+            log::debug!(
+                "Checking result #{}: '{}' by '{}' (artist_match={}, title_match={})",
+                idx + 1,
+                result.title,
+                result.artist,
+                artist_match,
+                title_match
+            );
+
+            if !artist_match || !title_match {
+                continue;
+            }
+
+            // If we have an album requirement, we need to check if this track
+            // exists on a canonical (non-Japanese when possible) release of that album
+            if let Some(desired_album) = album {
+                // Fetch the full recording with all its releases
+                let recording = Recording::fetch()
+                    .id(&result.mbid)
+                    .with_releases()
+                    .execute()
+                    .await?;
+
+                if let Some(releases) = recording.releases {
+                    // Filter to releases matching the album name
+                    // These are all releases of the album that contain this track
+                    let matching_albums: Vec<_> = releases
+                        .iter()
+                        .filter(|r| r.title.eq_ignore_ascii_case(desired_album))
+                        .collect();
+
+                    if matching_albums.is_empty() {
+                        continue; // This recording isn't on the desired album
+                    }
+
+                    // Log what we found for debugging
+                    for release in &matching_albums {
+                        log::debug!(
+                            "Found '{}' on {} release: {} ({}) - {:?}",
+                            title,
+                            release.country.as_ref().unwrap_or(&"??".to_string()),
+                            release.title,
+                            release
+                                .date
+                                .as_ref()
+                                .map(|d| d.0.as_str())
+                                .unwrap_or("no date"),
+                            release.disambiguation
+                        );
+                    }
+
+                    if self.prefer_non_japanese_releases {
+                        // Check if any matching release is a standard (non-Japanese, non-special) release
+                        let has_standard_release = matching_albums.iter().any(|r| {
+                            let is_japanese =
+                                r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
+                            let is_special = Self::is_special_edition(r);
+                            !is_japanese && !is_special
+                        });
+
+                        if has_standard_release {
+                            // Track exists on at least one standard release
+                            log::debug!(
+                                "MB verification successful - '{}' exists on standard '{}' release",
+                                title,
+                                desired_album
+                            );
+                            return Ok(true);
+                        } else {
+                            // Track only exists on Japanese or special editions
+                            log::debug!(
+                                "Track '{}' only exists on Japanese or special edition release(s) of '{}', rejecting",
+                                title, desired_album
+                            );
+                            continue;
+                        }
+                    } else {
+                        // Either we don't prefer non-JP or there are no non-JP releases
+                        log::debug!(
+                            "MB verification successful - '{}' exists on '{}' release",
+                            title,
+                            desired_album
+                        );
+                        return Ok(true);
+                    }
+                }
+            } else {
+                // No album requirement - just verify the track exists
+                log::debug!(
+                    "MB verification successful - track '{}' by '{}' exists",
+                    title,
+                    artist
+                );
+                return Ok(true);
+            }
+        }
+
+        log::debug!("MB verification failed - track not found on canonical release");
+        Ok(false)
+    }
+
+    /// Verify that a track exists in MusicBrainz with the given metadata
+    /// Wrapper for backwards compatibility
+    pub async fn verify_track_exists(
+        &self,
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        self.verify_track_exists_on_canonical_release(artist, title, album)
+            .await
     }
 
     /// Search MusicBrainz for multiple tracks and return all matches with confidence scores
@@ -216,7 +432,8 @@ impl MusicBrainzScrubActionProvider {
                     );
                 }
 
-                let (mb_album, release_id) = Self::select_best_release(recording, album)
+                let (mb_album, release_id) = self
+                    .select_best_release(recording, album)
                     .map(|(title, id)| (Some(title), Some(id)))
                     .unwrap_or((None, None));
 

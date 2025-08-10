@@ -209,7 +209,15 @@
       "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_sublime)",
       "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)",
       "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace)",
-      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)"
+      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)",
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests anniversary_edition_rule_mb_confirmation_on_nirvana_nevermind -- --nocapture)",
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo -- --nocapture --ignored)",
+      "WebFetch(domain:musicbrainz.org)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "Bash(RUST_LOG=trace SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo -- --nocapture)",
+      "Bash(RUST_LOG=trace SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)",
+      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests)",
+      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace)"
     ],
     "deny": [
       "Bash(dx serve:*)"
