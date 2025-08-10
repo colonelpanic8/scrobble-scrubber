@@ -42,7 +42,7 @@ async fn test_mb_confirmation_rule(
             name: tc.track_name.clone(),
             artist: artist.to_string(),
             album: Some(original_album.to_string()),
-            album_artistCan: None,
+            album_artist: None,
             playcount: 1,
             timestamp: Some(1_600_000_000 + idx as u64 * 100),
         })
@@ -106,7 +106,7 @@ async fn test_mb_confirmation_rule(
 }
 
 #[test_log::test(tokio::test)]
-async fn deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo() {
+async fn elliott_smith_xo() {
     // Rule: remove "(Deluxe Edition)" from album names, but only when MB confirms the (artist, title, album) exists
     let rule = RewriteRule::new()
         .with_album_name(SdRule::new(r"^(.*) \(Deluxe Edition\)$", "$1").with_flags("i"))
@@ -133,8 +133,8 @@ async fn deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo() {
 }
 
 #[test_log::test(tokio::test)]
-#[ignore = "Sublime MB data seems inconsistent - needs investigation"]
-async fn deluxe_edition_rule_mb_confirmation_on_sublime() {
+#[ignore = "MusicBrainz has conflicting 'Sublime' artists - search returns wrong band from 1987"]
+async fn sublime() {
     // Rule: remove any parenthetical that contains "Deluxe Edition" (case-insensitive), MB-confirmed
     let rule = RewriteRule::new()
         .with_album_name(
@@ -163,8 +163,7 @@ async fn deluxe_edition_rule_mb_confirmation_on_sublime() {
 }
 
 #[test_log::test(tokio::test)]
-#[ignore = "MusicBrainz search doesn't rank studio version of 'Grace' high enough - returns mostly live versions"]
-async fn legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace() {
+async fn jeff_buckley_grace() {
     // Rule: remove "(Legacy Edition)" from album names, but only when MB confirms
     let rule = RewriteRule::new()
         .with_album_name(SdRule::new(r"^(.*) \(Legacy Edition\)$", "$1").with_flags("i"))
@@ -191,7 +190,7 @@ async fn legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace() {
 }
 
 #[test_log::test(tokio::test)]
-async fn anniversary_edition_rule_mb_confirmation_on_nirvana_nevermind() {
+async fn nirvana_nevermind() {
     // Rule: remove "(20th Anniversary Edition)" and similar from album names
     let rule = RewriteRule::new()
         .with_album_name(

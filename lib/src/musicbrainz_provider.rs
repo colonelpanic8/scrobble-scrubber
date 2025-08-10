@@ -29,7 +29,7 @@ pub struct MusicBrainzMatch {
 
 impl MusicBrainzScrubActionProvider {
     /// Check if a release has special edition markers in its disambiguation
-    fn is_special_edition(release: &musicbrainz_rs::entity::release::Release) -> bool {
+    pub fn is_special_edition(release: &musicbrainz_rs::entity::release::Release) -> bool {
         release
             .disambiguation
             .as_ref()
@@ -72,8 +72,73 @@ impl MusicBrainzScrubActionProvider {
             .unwrap_or("unknown")
     }
 
+    /// Select the canonical release from a list of releases
+    pub fn select_canonical_release(
+        releases: &[musicbrainz_rs::entity::release::Release],
+        prefer_non_japanese: bool,
+    ) -> Option<&musicbrainz_rs::entity::release::Release> {
+        if releases.is_empty() {
+            return None;
+        }
+
+        // Sort releases by date
+        let mut sorted_releases: Vec<_> = releases.iter().collect();
+        sorted_releases.sort_by(|a, b| Self::compare_release_dates(a, b));
+
+        // Get earliest year
+        let earliest_year = sorted_releases
+            .first()
+            .and_then(|r| r.date.as_ref())
+            .and_then(|d| d.0.get(..4))
+            .and_then(|y| y.parse::<i32>().ok())
+            .unwrap_or(9999);
+
+        // Find contemporary releases (within 1 year of earliest)
+        let contemporary: Vec<_> = sorted_releases
+            .iter()
+            .filter(|r| {
+                let year = r
+                    .date
+                    .as_ref()
+                    .and_then(|d| d.0.get(..4))
+                    .and_then(|y| y.parse::<i32>().ok())
+                    .unwrap_or(9999);
+                (year - earliest_year).abs() <= 1
+            })
+            .copied()
+            .collect();
+
+        if prefer_non_japanese {
+            // Check if there are any non-Japanese releases available
+            let has_non_jp = contemporary
+                .iter()
+                .any(|r| r.country.as_ref().map(|c| c != "JP").unwrap_or(true));
+
+            if has_non_jp {
+                // First pass: non-special, non-Japanese releases
+                if let Some(release) = contemporary.iter().find(|r| {
+                    let is_japanese = r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
+                    !Self::is_special_edition(r) && !is_japanese
+                }) {
+                    return Some(release);
+                }
+            }
+        }
+
+        // Second pass: any non-special edition
+        if let Some(release) = contemporary.iter().find(|r| !Self::is_special_edition(r)) {
+            return Some(release);
+        }
+
+        // If all are special editions, take the earliest
+        contemporary
+            .first()
+            .copied()
+            .or_else(|| sorted_releases.first().copied())
+    }
+
     /// Select the best matching release for a specific album
-    fn select_matching_album_release(
+    pub fn select_matching_album_release(
         releases: &[musicbrainz_rs::entity::release::Release],
         album: &str,
         prefer_non_japanese: bool,
@@ -239,6 +304,46 @@ impl MusicBrainzScrubActionProvider {
         self
     }
 
+    /// Get the current Japanese release preference setting
+    pub fn prefer_non_japanese_releases(&self) -> bool {
+        self.prefer_non_japanese_releases
+    }
+
+    /// Search for album releases by artist and optional album filter
+    pub async fn search_album_releases(
+        artist: &str,
+        album_filter: Option<&str>,
+    ) -> Result<
+        Vec<musicbrainz_rs::entity::release::Release>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        use musicbrainz_rs::entity::release::{Release, ReleaseSearchQuery};
+        use musicbrainz_rs::Search;
+
+        let query = if let Some(album) = album_filter {
+            ReleaseSearchQuery::query_builder()
+                .release(album)
+                .and()
+                .artist(artist)
+                .build()
+        } else {
+            ReleaseSearchQuery::query_builder().artist(artist).build()
+        };
+
+        log::debug!("Searching for albums with query: {}", query);
+
+        let search_results = Release::search(query)
+            .execute()
+            .await
+            .map_err(|e| format!("Album search failed: {e}"))?;
+
+        // Sort releases by date
+        let mut releases = search_results.entities;
+        releases.sort_by(Self::compare_release_dates);
+
+        Ok(releases)
+    }
+
     /// Verify that a track exists in MusicBrainz with the given metadata
     /// This is used for MusicBrainz confirmation in rewrite rules
     /// IMPORTANT: This checks if the track exists on a CANONICAL release,
@@ -249,128 +354,156 @@ impl MusicBrainzScrubActionProvider {
         title: &str,
         album: Option<&str>,
     ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        use musicbrainz_rs::entity::recording::Recording;
-        use musicbrainz_rs::Fetch;
+        use musicbrainz_rs::entity::release::Release;
+        use musicbrainz_rs::entity::release::ReleaseSearchQuery;
+        use musicbrainz_rs::Search;
 
         log::debug!(
-            "MB verify: Checking if track exists on canonical release - '{}' by '{}' [{}] (max_results={})",
+            "MB verify: Checking if track exists on canonical release - '{}' by '{}' [{}]",
             title,
             artist,
-            album.unwrap_or("No Album"),
-            self.max_results
+            album.unwrap_or("No Album")
         );
 
-        // Search for the track - this gives us recordings
-        let search_results = self
-            .search_musicbrainz_multiple(artist, title, album)
-            .await?;
+        if let Some(desired_album) = album {
+            // First, find all releases of this album by this artist
+            let album_query = ReleaseSearchQuery::query_builder()
+                .release(desired_album)
+                .and()
+                .artist(artist)
+                .build();
 
-        log::debug!("MB verify: Found {} search results", search_results.len());
+            log::debug!("Searching for album releases with query: {}", album_query);
 
-        // For each matching recording, check if it exists on a canonical release
-        for (idx, result) in search_results.iter().enumerate() {
-            let artist_match = result.artist.eq_ignore_ascii_case(artist);
-            let title_match = result.title.eq_ignore_ascii_case(title);
+            let album_search = Release::search(album_query)
+                .execute()
+                .await
+                .map_err(|e| format!("Album search failed: {e}"))?;
 
-            log::debug!(
-                "Checking result #{}: '{}' by '{}' (artist_match={}, title_match={})",
-                idx + 1,
-                result.title,
-                result.artist,
-                artist_match,
-                title_match
-            );
-
-            if !artist_match || !title_match {
-                continue;
-            }
-
-            // If we have an album requirement, we need to check if this track
-            // exists on a canonical (non-Japanese when possible) release of that album
-            if let Some(desired_album) = album {
-                // Fetch the full recording with all its releases
-                let recording = Recording::fetch()
-                    .id(&result.mbid)
-                    .with_releases()
-                    .execute()
-                    .await?;
-
-                if let Some(releases) = recording.releases {
-                    // Filter to releases matching the album name
-                    // These are all releases of the album that contain this track
-                    let matching_albums: Vec<_> = releases
-                        .iter()
-                        .filter(|r| r.title.eq_ignore_ascii_case(desired_album))
-                        .collect();
-
-                    if matching_albums.is_empty() {
-                        continue; // This recording isn't on the desired album
-                    }
-
-                    // Log what we found for debugging
-                    for release in &matching_albums {
-                        log::debug!(
-                            "Found '{}' on {} release: {} ({}) - {:?}",
-                            title,
-                            release.country.as_ref().unwrap_or(&"??".to_string()),
-                            release.title,
-                            release
-                                .date
-                                .as_ref()
-                                .map(|d| d.0.as_str())
-                                .unwrap_or("no date"),
-                            release.disambiguation
-                        );
-                    }
-
-                    if self.prefer_non_japanese_releases {
-                        // Check if any matching release is a standard (non-Japanese, non-special) release
-                        let has_standard_release = matching_albums.iter().any(|r| {
-                            let is_japanese =
-                                r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
-                            let is_special = Self::is_special_edition(r);
-                            !is_japanese && !is_special
-                        });
-
-                        if has_standard_release {
-                            // Track exists on at least one standard release
-                            log::debug!(
-                                "MB verification successful - '{}' exists on standard '{}' release",
-                                title,
-                                desired_album
-                            );
-                            return Ok(true);
-                        } else {
-                            // Track only exists on Japanese or special editions
-                            log::debug!(
-                                "Track '{}' only exists on Japanese or special edition release(s) of '{}', rejecting",
-                                title, desired_album
-                            );
-                            continue;
-                        }
-                    } else {
-                        // Either we don't prefer non-JP or there are no non-JP releases
-                        log::debug!(
-                            "MB verification successful - '{}' exists on '{}' release",
-                            title,
-                            desired_album
-                        );
-                        return Ok(true);
-                    }
-                }
-            } else {
-                // No album requirement - just verify the track exists
+            if album_search.entities.is_empty() {
                 log::debug!(
-                    "MB verification successful - track '{}' by '{}' exists",
-                    title,
+                    "No album releases found for '{}' by '{}'",
+                    desired_album,
                     artist
                 );
-                return Ok(true);
+                return Ok(false);
             }
-        }
 
-        log::debug!("MB verification failed - track not found on canonical release");
-        Ok(false)
+            // Sort releases by date to find the canonical one
+            let mut releases = album_search.entities;
+            releases.sort_by(|a, b| {
+                let a_date = a.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
+                let b_date = b.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
+                a_date.cmp(b_date)
+            });
+
+            // Select the canonical release
+            let canonical_release = if self.prefer_non_japanese_releases {
+                // Get earliest release year
+                let earliest_year = releases
+                    .first()
+                    .and_then(|r| r.date.as_ref())
+                    .and_then(|d| d.0.get(..4))
+                    .and_then(|y| y.parse::<i32>().ok())
+                    .unwrap_or(9999);
+
+                // Find contemporary releases (within 1 year of earliest)
+                let contemporary: Vec<_> = releases
+                    .iter()
+                    .filter(|r| {
+                        let year = r
+                            .date
+                            .as_ref()
+                            .and_then(|d| d.0.get(..4))
+                            .and_then(|y| y.parse::<i32>().ok())
+                            .unwrap_or(9999);
+                        (year - earliest_year).abs() <= 1
+                    })
+                    .collect();
+
+                // Prefer non-Japanese, non-special edition from contemporary releases
+                contemporary
+                    .iter()
+                    .find(|r| {
+                        let is_jp = r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
+                        !is_jp && !Self::is_special_edition(r)
+                    })
+                    .copied()
+                    .or_else(|| {
+                        // Fallback to any non-special edition
+                        contemporary
+                            .iter()
+                            .find(|r| !Self::is_special_edition(r))
+                            .copied()
+                    })
+                    .or_else(|| contemporary.first().copied())
+                    .unwrap_or(&releases[0])
+            } else {
+                &releases[0] // Just take the earliest
+            };
+
+            log::debug!(
+                "Selected canonical release: '{}' from {} ({})",
+                canonical_release.title,
+                canonical_release
+                    .date
+                    .as_ref()
+                    .map(|d| d.0.as_str())
+                    .unwrap_or("unknown"),
+                canonical_release
+                    .country
+                    .as_ref()
+                    .unwrap_or(&"??".to_string())
+            );
+
+            // Now check if the track exists on this specific canonical release
+            // We need to fetch the full release with its recordings
+            use musicbrainz_rs::Fetch;
+            let full_release = Release::fetch()
+                .id(&canonical_release.id)
+                .with_recordings()
+                .execute()
+                .await?;
+
+            // Check if any track on this release matches our track
+            if let Some(media) = full_release.media {
+                for medium in media {
+                    if let Some(tracks) = medium.tracks {
+                        for track in tracks {
+                            // Check the track title directly (it's always present)
+                            if track.title.eq_ignore_ascii_case(title) {
+                                log::debug!("Track '{}' found on canonical release", title);
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+
+            log::debug!(
+                "Track '{}' NOT found on canonical release '{}'",
+                title,
+                canonical_release.title
+            );
+            Ok(false)
+        } else {
+            // No album specified - just check if track exists
+            let search_results = self
+                .search_musicbrainz_multiple(artist, title, None)
+                .await?;
+
+            // Just verify the track exists with matching artist
+            for result in search_results {
+                if result.artist.eq_ignore_ascii_case(artist)
+                    && result.title.eq_ignore_ascii_case(title)
+                {
+                    log::debug!("Track '{}' by '{}' exists", title, artist);
+                    return Ok(true);
+                }
+            }
+
+            Ok(false)
+        }
     }
 
     /// Verify that a track exists in MusicBrainz with the given metadata
