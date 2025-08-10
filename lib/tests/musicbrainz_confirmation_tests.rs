@@ -163,7 +163,6 @@ async fn deluxe_edition_rule_mb_confirmation_on_sublime() {
 }
 
 #[test_log::test(tokio::test)]
-#[ignore = "MusicBrainz confirmation logic needs adjustment for Grace releases"]
 async fn legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace() {
     // Rule: remove "(Legacy Edition)" from album names, but only when MB confirms
     let rule = RewriteRule::new()

@@ -156,7 +156,8 @@ impl RewriteRulesScrubActionProvider {
         let mut any_changes = false;
         let mut requires_confirmation_applied = false;
 
-        let mb_provider = crate::musicbrainz_provider::MusicBrainzScrubActionProvider::default();
+        // Use a higher limit to ensure we find all recordings
+        let mb_provider = crate::musicbrainz_provider::MusicBrainzScrubActionProvider::new(0.8, 20);
 
         for rule in &self.rules {
             if !rule.matches_scrobble_edit(&edit)? {
@@ -196,7 +197,125 @@ impl RewriteRulesScrubActionProvider {
         }
     }
 
-    // Verify that the candidate edit corresponds to a real MB match (case-insensitive exacts)
+    /// Check if a release should be accepted for validation
+    /// We want to verify tracks exist on the ORIGINAL release, not later expanded editions
+    async fn should_accept_release(release: &Release) -> bool {
+        // First check: reject releases with special edition keywords in disambiguation
+        if let Some(disamb) = &release.disambiguation {
+            let d = disamb.to_lowercase();
+            // These keywords indicate special editions with bonus/extra tracks
+            if d.contains("deluxe")
+                || d.contains("expanded")
+                || d.contains("bonus")
+                || d.contains("anniversary")
+                || d.contains("legacy")
+                || d.contains("special")
+                || d.contains("collector")
+                || d.contains("limited")
+                || d.contains("edition")
+            // catch "special edition", "deluxe edition" etc
+            {
+                log::debug!(
+                    "Rejecting due to disambiguation indicating special edition: '{disamb}'"
+                );
+                return false;
+            }
+        }
+
+        // Second check: only accept releases from the original release year (or within 1 year)
+        // This helps filter out later reissues that added bonus tracks without proper disambiguation
+        if let Some(rg) = &release.release_group {
+            if let (Some(first), Some(date)) = (&rg.first_release_date, &release.date) {
+                let first_year = first.0.get(..4).and_then(|y| y.parse::<i32>().ok());
+                let rel_year = date.0.get(..4).and_then(|y| y.parse::<i32>().ok());
+
+                if let (Some(fy), Some(ry)) = (first_year, rel_year) {
+                    log::debug!("Release year: {ry}, First release year: {fy}");
+                    // Allow the original year and one year after (for different regions/formats)
+                    if ry > fy + 1 {
+                        log::debug!(
+                            "Rejecting - release from {ry} is too far after original release year {fy}"
+                        );
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
+    }
+
+    /// Check if a release from a specific ID passes our validation rules
+    async fn validate_release(release_id: &str) -> Result<bool, ActionProviderError> {
+        let release = Release::fetch()
+            .id(release_id)
+            .with_release_groups()
+            .execute()
+            .await
+            .map_err(|e| ActionProviderError(format!("Failed to fetch release: {e}")))?;
+
+        log::debug!(
+            "Fetched release details - disambiguation: {:?}",
+            release.disambiguation
+        );
+
+        let accepted = Self::should_accept_release(&release).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        Ok(accepted)
+    }
+
+    /// Try to find and validate a specific album from a recording's releases
+    async fn find_album_in_recording_releases(
+        recording_id: &str,
+        desired_album: &str,
+    ) -> Result<bool, ActionProviderError> {
+        let full_rec = MbRecording::fetch()
+            .id(recording_id)
+            .with_releases()
+            .execute()
+            .await
+            .map_err(|e| ActionProviderError(format!("Failed to fetch recording: {e}")))?;
+
+        let Some(releases) = full_rec.releases else {
+            return Ok(false);
+        };
+
+        log::debug!("Found {} releases for recording", releases.len());
+
+        let matching_release = releases
+            .iter()
+            .find(|r| r.title.eq_ignore_ascii_case(desired_album));
+
+        let Some(rel) = matching_release else {
+            return Ok(false);
+        };
+
+        log::debug!("Found matching release with title '{}'", rel.title);
+        Self::validate_release(&rel.id).await
+    }
+
+    /// Helper to normalize album titles for comparison
+    fn normalize_album_title(title: &str) -> String {
+        let lower = title.to_lowercase();
+        // strip anything starting with space + ( or [ to the end
+        let re = Regex::new(r"\s*(\(|\[).*$").unwrap();
+        re.replace(&lower, "").to_string()
+    }
+
+    /// Check if album titles match (with normalization)
+    fn albums_match(album1: Option<&String>, album2: Option<&String>) -> bool {
+        match (album1, album2) {
+            (None, _) => true,
+            (Some(a1), Some(a2)) => {
+                a2.eq_ignore_ascii_case(a1)
+                    || Self::normalize_album_title(a2) == Self::normalize_album_title(a1)
+            }
+            (Some(_), None) => false,
+        }
+    }
+
+    // Verify that the candidate edit corresponds to a real MB match
     async fn verify_with_musicbrainz(
         mb_provider: &crate::musicbrainz_provider::MusicBrainzScrubActionProvider,
         candidate: &ScrobbleEdit,
@@ -209,151 +328,93 @@ impl RewriteRulesScrubActionProvider {
             .unwrap_or_else(|| track.name.clone());
         let album = candidate.album_name.clone();
 
-        log::trace!(
-            "MB verify '{}' by '{}' [{}]",
+        log::debug!(
+            "MB verify: Starting verification for '{}' by '{}' [{}]",
             title,
             artist,
             album.as_deref().unwrap_or("No Album")
         );
 
-        let res = mb_provider
+        let search_results = mb_provider
             .search_musicbrainz_multiple(&artist, &title, album.as_deref())
             .await
             .map_err(|e| ActionProviderError(format!("MusicBrainz verification failed: {e}")))?;
 
+        log::debug!("MB verify: Found {} search results", search_results.len());
+
         // Be gentle to MB API
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        // Helper to compare album titles, allowing bracket/paren qualifiers to be ignored
-        let norm = |s: &str| -> String {
-            let lower = s.to_lowercase();
-            // strip anything starting with space + ( or [ to the end
-            let re = Regex::new(r"\s*(\(|\[).*$").unwrap();
-            re.replace(&lower, "").to_string()
-        };
+        for result in search_results {
+            let artist_match = result.artist.eq_ignore_ascii_case(&artist);
+            let title_match = result.title.eq_ignore_ascii_case(&title);
+            let album_match = Self::albums_match(album.as_ref(), result.album.as_ref());
 
-        for m in res {
-            let artist_match = m.artist.eq_ignore_ascii_case(&artist);
-            let title_match = m.title.eq_ignore_ascii_case(&title);
-            let album_match = match (&album, &m.album) {
-                (None, _) => true,
-                (Some(a), Some(ma)) => ma.eq_ignore_ascii_case(a) || norm(ma) == norm(a),
-                (Some(_), None) => false,
-            };
+            log::debug!(
+                "MB result: artist='{}' (match={}), title='{}' (match={}), album={:?} (match={})",
+                result.artist,
+                artist_match,
+                result.title,
+                title_match,
+                result.album,
+                album_match
+            );
+
+            // Direct match found
             if artist_match && title_match && album_match {
-                // If we have a release_id, fetch details to exclude deluxe/expanded editions via disambiguation
-                if let Some(rel_id) = &m.release_id {
-                    if let Ok(release) = Release::fetch()
-                        .id(rel_id)
-                        .with_release_groups()
-                        .execute()
-                        .await
-                    {
-                        // If the release disambiguation mentions deluxe/expanded/etc, reject
-                        if let Some(disamb) = &release.disambiguation {
-                            let d = disamb.to_lowercase();
-                            if d.contains("deluxe")
-                                || d.contains("expanded")
-                                || d.contains("bonus")
-                                || d.contains("anniversary")
-                            {
-                                continue;
-                            }
-                        }
+                log::debug!(
+                    "Found potential match - checking release details for release_id: {:?}",
+                    result.release_id
+                );
 
-                        // If we have release group info, ensure this is the original release (dates match)
-                        if let Some(rg) = &release.release_group {
-                            if let (Some(first), Some(date)) =
-                                (&rg.first_release_date, &release.date)
-                            {
-                                // Compare years; if release date year is after first release year, likely reissue
-                                let first_year = first.0.get(..4);
-                                let rel_year = date.0.get(..4);
-                                if let (Some(fy), Some(ry)) = (first_year, rel_year) {
-                                    if ry > fy {
-                                        // Not the original release; skip
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
+                // If we have a release_id, validate it
+                if let Some(rel_id) = &result.release_id {
+                    log::debug!("Validating release ID: {rel_id}");
+                    let is_valid = Self::validate_release(rel_id).await?;
+                    if !is_valid {
+                        log::debug!("Release {rel_id} was rejected during validation");
+                        continue;
                     }
+                } else {
+                    log::debug!("No release_id available for validation");
                 }
-                // Small delay to be polite
-                tokio::time::sleep(Duration::from_millis(50)).await;
+
+                log::debug!("MB verification successful - track confirmed to exist");
                 return Ok(true);
             }
 
-            // Fallback: if album was provided but missing in search result, fetch recording and check its releases
+            // Fallback: if artist and title match but album doesn't, check recording's releases
             if artist_match && title_match {
                 if let Some(desired_album) = &album {
-                    // Attempt fallback if search result lacked a matching album title
-                    if m.album.is_none()
-                        || m.album
+                    let needs_fallback = result.album.is_none()
+                        || !result
+                            .album
                             .as_ref()
-                            .is_some_and(|ma| !ma.eq_ignore_ascii_case(desired_album))
-                    {
-                        if let Ok(full_rec) = MbRecording::fetch()
-                            .id(&m.mbid)
-                            .with_releases()
-                            .execute()
-                            .await
-                        {
-                            if let Some(rels) = full_rec.releases {
-                                if let Some(rel) = rels
-                                    .iter()
-                                    .find(|r| r.title.eq_ignore_ascii_case(desired_album))
-                                {
-                                    // Fetch that release to apply disambiguation/original checks
-                                    if let Ok(release) = Release::fetch()
-                                        .id(&rel.id)
-                                        .with_release_groups()
-                                        .execute()
-                                        .await
-                                    {
-                                        let mut reject = false;
-                                        if let Some(disamb) = &release.disambiguation {
-                                            let d = disamb.to_lowercase();
-                                            if d.contains("deluxe")
-                                                || d.contains("expanded")
-                                                || d.contains("bonus")
-                                                || d.contains("anniversary")
-                                            {
-                                                reject = true;
-                                            }
-                                        }
-                                        if !reject {
-                                            if let Some(rg) = &release.release_group {
-                                                if let (Some(first), Some(date)) =
-                                                    (&rg.first_release_date, &release.date)
-                                                {
-                                                    let first_year = first.0.get(..4);
-                                                    let rel_year = date.0.get(..4);
-                                                    if let (Some(fy), Some(ry)) =
-                                                        (first_year, rel_year)
-                                                    {
-                                                        if ry > fy {
-                                                            reject = true;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        tokio::time::sleep(Duration::from_millis(50)).await;
-                                        if !reject {
-                                            return Ok(true);
-                                        }
-                                    }
-                                }
-                            }
+                            .is_some_and(|ma| ma.eq_ignore_ascii_case(desired_album));
+
+                    if needs_fallback {
+                        log::debug!(
+                            "Album mismatch or missing - attempting fallback search for album '{desired_album}'"
+                        );
+
+                        let found =
+                            Self::find_album_in_recording_releases(&result.mbid, desired_album)
+                                .await?;
+                        if found {
+                            log::debug!("Fallback: MB verification successful via release fetch");
+                            return Ok(true);
                         }
-                        // space out MB requests
+
+                        // Space out MB requests
                         tokio::time::sleep(Duration::from_millis(50)).await;
                     }
                 }
             }
         }
 
+        log::debug!(
+            "MB verification failed - no matching track found for '{artist} - {title}' [album: {album:?}]"
+        );
         Ok(false)
     }
 }

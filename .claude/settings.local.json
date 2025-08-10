@@ -208,7 +208,8 @@
       "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo -- --nocapture)",
       "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_sublime)",
       "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)",
-      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace)"
+      "Bash(SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace)",
+      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests legacy_edition_rule_mb_confirmation_on_jeff_buckley_grace -- --nocapture)"
     ],
     "deny": [
       "Bash(dx serve:*)"
