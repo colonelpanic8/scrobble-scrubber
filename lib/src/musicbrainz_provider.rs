@@ -27,98 +27,120 @@ pub struct MusicBrainzMatch {
 }
 
 impl MusicBrainzScrubActionProvider {
-    /// Select the best release from a recording's releases and return its (title, id)
+    /// Check if a release has special edition markers in its disambiguation
+    fn is_special_edition(release: &musicbrainz_rs::entity::release::Release) -> bool {
+        release
+            .disambiguation
+            .as_ref()
+            .map(|d| {
+                let d_lower = d.to_lowercase();
+                d_lower.contains("deluxe")
+                    || d_lower.contains("legacy")
+                    || d_lower.contains("expanded")
+                    || d_lower.contains("anniversary")
+                    || d_lower.contains("special")
+                    || d_lower.contains("bonus")
+            })
+            .unwrap_or(false)
+    }
+
+    /// Compare releases by date for sorting (earliest first)
+    fn compare_release_dates(
+        a: &musicbrainz_rs::entity::release::Release,
+        b: &musicbrainz_rs::entity::release::Release,
+    ) -> std::cmp::Ordering {
+        match (&a.date, &b.date) {
+            (Some(date_a), Some(date_b)) => {
+                // Extract year from date strings for comparison
+                let year_a = date_a.0.get(..4).unwrap_or("9999");
+                let year_b = date_b.0.get(..4).unwrap_or("9999");
+                year_a.cmp(year_b)
+            }
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+    }
+
+    /// Get the date string for a release (for logging)
+    fn get_release_date_str(release: &musicbrainz_rs::entity::release::Release) -> &str {
+        release
+            .date
+            .as_ref()
+            .map(|d| d.0.as_str())
+            .unwrap_or("unknown")
+    }
+
+    /// Select the best matching release for a specific album
+    fn select_matching_album_release(
+        releases: &[musicbrainz_rs::entity::release::Release],
+        album: &str,
+    ) -> Option<(String, String)> {
+        // Collect and sort matching releases by date
+        let mut matching: Vec<_> = releases
+            .iter()
+            .filter(|r| r.title.eq_ignore_ascii_case(album))
+            .collect();
+
+        if matching.is_empty() {
+            return None;
+        }
+
+        matching.sort_by(|a, b| Self::compare_release_dates(a, b));
+
+        // First try to find a non-special edition
+        for release in &matching {
+            if !Self::is_special_edition(release) {
+                log::debug!(
+                    "Selected release '{}' from {} (disamb: {:?})",
+                    release.title,
+                    Self::get_release_date_str(release),
+                    release.disambiguation
+                );
+                return Some((release.title.clone(), release.id.clone()));
+            }
+        }
+
+        // If all are special editions, take the earliest
+        if let Some(earliest) = matching.first() {
+            log::debug!(
+                "All releases have special edition markers, selecting earliest: '{}' from {} (disamb: {:?})",
+                earliest.title,
+                Self::get_release_date_str(earliest),
+                earliest.disambiguation
+            );
+            return Some((earliest.title.clone(), earliest.id.clone()));
+        }
+
+        None
+    }
+
+    /// Select the best release from a recording's releases
     /// Prioritizes releases matching the desired album if provided
     /// When multiple matches exist, prefers the earliest release (closest to original)
     fn select_best_release(
         recording: &Recording,
         desired_album: Option<&str>,
-    ) -> (Option<String>, Option<String>) {
-        if let Some(releases) = &recording.releases {
-            // If we have a desired album, try to find a matching release
-            if let Some(album) = desired_album {
-                // Collect all releases matching the album title
-                let mut matching_releases: Vec<_> = releases
-                    .iter()
-                    .filter(|r| r.title.eq_ignore_ascii_case(album))
-                    .collect();
+    ) -> Option<(String, String)> {
+        let releases = recording.releases.as_ref()?;
 
-                if !matching_releases.is_empty() {
-                    // Sort by date (earliest first), with None dates last
-                    matching_releases.sort_by(|a, b| {
-                        match (&a.date, &b.date) {
-                            (Some(date_a), Some(date_b)) => {
-                                // Extract year from date strings for comparison
-                                let year_a = date_a.0.get(..4).unwrap_or("9999");
-                                let year_b = date_b.0.get(..4).unwrap_or("9999");
-                                year_a.cmp(year_b)
-                            }
-                            (Some(_), None) => std::cmp::Ordering::Less,
-                            (None, Some(_)) => std::cmp::Ordering::Greater,
-                            (None, None) => std::cmp::Ordering::Equal,
-                        }
-                    });
-
-                    // Prefer releases without special edition disambiguation
-                    for release in &matching_releases {
-                        let has_special_edition = release
-                            .disambiguation
-                            .as_ref()
-                            .map(|d| {
-                                let d_lower = d.to_lowercase();
-                                d_lower.contains("deluxe")
-                                    || d_lower.contains("legacy")
-                                    || d_lower.contains("expanded")
-                                    || d_lower.contains("anniversary")
-                                    || d_lower.contains("special")
-                                    || d_lower.contains("bonus")
-                            })
-                            .unwrap_or(false);
-
-                        if !has_special_edition {
-                            log::debug!(
-                                "Selected release '{}' from {} (disamb: {:?})",
-                                release.title,
-                                release
-                                    .date
-                                    .as_ref()
-                                    .map(|d| &d.0)
-                                    .unwrap_or(&"unknown".to_string()),
-                                release.disambiguation
-                            );
-                            return (Some(release.title.clone()), Some(release.id.clone()));
-                        }
-                    }
-
-                    // If all have special edition markers, just take the earliest
-                    if let Some(earliest) = matching_releases.first() {
-                        log::debug!("All releases have special edition markers, selecting earliest: '{}' from {} (disamb: {:?})", 
-                                   earliest.title,
-                                   earliest.date.as_ref().map(|d| &d.0).unwrap_or(&"unknown".to_string()),
-                                   earliest.disambiguation);
-                        return (Some(earliest.title.clone()), Some(earliest.id.clone()));
-                    }
-                }
-            }
-
-            // No desired album specified - pick the earliest release
-            let mut all_releases: Vec<_> = releases.iter().collect();
-            all_releases.sort_by(|a, b| match (&a.date, &b.date) {
-                (Some(date_a), Some(date_b)) => {
-                    let year_a = date_a.0.get(..4).unwrap_or("9999");
-                    let year_b = date_b.0.get(..4).unwrap_or("9999");
-                    year_a.cmp(year_b)
-                }
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => std::cmp::Ordering::Equal,
-            });
-
-            if let Some(earliest) = all_releases.first() {
-                return (Some(earliest.title.clone()), Some(earliest.id.clone()));
+        // If we have a desired album, try to find a matching release
+        if let Some(album) = desired_album {
+            if let Some(result) = Self::select_matching_album_release(releases, album) {
+                return Some(result);
             }
         }
-        (None, None)
+
+        // No desired album or no matches found - pick the earliest release overall
+        let mut all_releases: Vec<_> = releases.iter().collect();
+        if all_releases.is_empty() {
+            return None;
+        }
+
+        all_releases.sort_by(|a, b| Self::compare_release_dates(a, b));
+
+        let earliest = all_releases.first()?;
+        Some((earliest.title.clone(), earliest.id.clone()))
     }
 
     /// Build a MusicBrainz search query for a track
@@ -194,7 +216,9 @@ impl MusicBrainzScrubActionProvider {
                     );
                 }
 
-                let (mb_album, release_id) = Self::select_best_release(recording, album);
+                let (mb_album, release_id) = Self::select_best_release(recording, album)
+                    .map(|(title, id)| (Some(title), Some(id)))
+                    .unwrap_or((None, None));
 
                 // Calculate confidence based on string similarity
                 let artist_confidence = self.calculate_similarity(artist, &mb_artist);

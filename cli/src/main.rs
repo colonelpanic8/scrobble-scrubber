@@ -355,6 +355,9 @@ enum Commands {
     /// Timestamp anchor management
     #[command(subcommand)]
     Timestamp(TimestampCommands),
+    /// MusicBrainz operations
+    #[command(subcommand)]
+    MusicBrainz(MusicBrainzCommands),
     /// Clear saved session data (forces fresh login on next run)
     ClearSession,
 }
@@ -498,6 +501,9 @@ fn merge_args_into_config(
         }
         Commands::Timestamp(_) => {
             // No specific configuration needed for timestamp commands
+        }
+        Commands::MusicBrainz(_) => {
+            // No specific configuration needed for MusicBrainz commands
         }
         Commands::ClearSession => {
             // No specific configuration needed for clearing session
@@ -848,6 +854,13 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
         },
+        Commands::MusicBrainz(mb_cmd) => {
+            mb_cmd.clone().execute().await.map_err(|e| {
+                log::error!("MusicBrainz command failed: {e}");
+                LastFmError::Io(std::io::Error::other(e.to_string()))
+            })?;
+            return Ok(());
+        }
         Commands::ClearSession => {
             let session_manager = SessionManager::new(&config.lastfm.username);
             if let Err(e) = session_manager.clear_session() {
@@ -982,6 +995,7 @@ async fn main() -> Result<()> {
         | Commands::Rules(_)
         | Commands::Pending(_)
         | Commands::Timestamp(_)
+        | Commands::MusicBrainz(_)
         | Commands::ClearSession => {
             // These cases are handled above
             unreachable!("Non-scrubber commands should have been handled earlier");
