@@ -62,9 +62,20 @@ impl From<DefaultRule> for RewriteRule {
     }
 }
 
-/// Load default remaster rules from embedded JSON
-pub fn load_default_remaster_rules() -> Result<DefaultRuleSet, Box<dyn std::error::Error>> {
-    let json_content = include_str!("../assets/default_remaster_rules.json");
+/// Load default rewrite rules from embedded JSON
+pub fn load_default_rewrite_rules() -> Result<DefaultRuleSet, Box<dyn std::error::Error>> {
+    let json_content = include_str!("../assets/default_rewrite_rules.json");
     let rule_set: DefaultRuleSet = serde_json::from_str(json_content)?;
     Ok(rule_set)
+}
+
+/// Backwards compatibility - redirect to load_default_rewrite_rules
+pub fn load_default_remaster_rules() -> Result<DefaultRuleSet, Box<dyn std::error::Error>> {
+    load_default_rewrite_rules()
+}
+
+/// Load all default rules - now just loads from the single consolidated file
+pub fn load_all_default_rules() -> Result<Vec<DefaultRule>, Box<dyn std::error::Error>> {
+    let rule_set = load_default_rewrite_rules()?;
+    Ok(rule_set.rules)
 }

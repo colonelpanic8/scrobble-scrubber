@@ -654,20 +654,23 @@ pub enum RewriteError {
     InvalidUtf8(#[from] std::string::FromUtf8Error),
 }
 
-/// Load comprehensive default rewrite rules from the embedded JSON file
+/// Load comprehensive default rewrite rules from the embedded JSON files
 ///
-/// This loads the full set of remaster cleanup rules from the default_remaster_rules.json file.
-/// If the file cannot be loaded or parsed, falls back to the basic default_rules().
+/// This loads the full set of remaster and special edition cleanup rules from the JSON files.
+/// If the files cannot be loaded or parsed, falls back to the basic default_rules().
 #[must_use]
 pub fn load_comprehensive_default_rules() -> Vec<RewriteRule> {
-    use crate::default_rules::load_default_remaster_rules;
+    use crate::default_rules::load_all_default_rules;
 
-    match load_default_remaster_rules() {
-        Ok(rule_set) => {
-            let rules: Vec<RewriteRule> =
-                rule_set.rules.into_iter().map(|rule| rule.into()).collect();
-            log::info!("Loaded {} comprehensive default rewrite rules", rules.len());
-            rules
+    match load_all_default_rules() {
+        Ok(rules) => {
+            let rewrite_rules: Vec<RewriteRule> =
+                rules.into_iter().map(|rule| rule.into()).collect();
+            log::info!(
+                "Loaded {} comprehensive default rewrite rules (including special editions)",
+                rewrite_rules.len()
+            );
+            rewrite_rules
         }
         Err(e) => {
             log::warn!(

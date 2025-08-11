@@ -1,0 +1,821 @@
+{
+  "title": "Default Rewrite Rules",
+  "description": "Comprehensive set of rewrite rules to remove remaster and special edition information from track and album names",
+  "version": "1.0",
+  "rules": [
+    {
+      "name": "Remove Year Digital Remaster",
+      "description": "Removes patterns like 'Song - 2004 Digital Remaster'",
+      "examples": [
+        "The Big Ship - 2004 Digital Remaster → The Big Ship",
+        "Bitter Sweet Symphony - 2004 Digital Remaster → Bitter Sweet Symphony"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Digital Remaster$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year Remaster",
+      "description": "Removes patterns like 'Song - 2016 Remaster'",
+      "examples": [
+        "Blitzkrieg Bop - 2016 Remaster → Blitzkrieg Bop",
+        "1999 - 2019 Remaster → 1999"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Remaster$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Year",
+      "description": "Removes patterns like 'Song - Remastered 2000'",
+      "examples": [
+        "He's So Fine - Remastered 2000 → He's So Fine",
+        "Express Yourself - Remastered 2000 → Express Yourself"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Remastered (\\d{4})$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year Remastered Version",
+      "description": "Removes patterns like 'Song - 2008 Remastered Version'",
+      "examples": [
+        "Do Wah Diddy Diddy - 2007 Remastered Version → Do Wah Diddy Diddy",
+        "The Air That I Breathe - 2008 Remastered Version → The Air That I Breathe"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) Remastered Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Version",
+      "description": "Removes patterns like 'Song - Remastered Version'",
+      "examples": [
+        "Mighty Tight Woman - Remastered Version → Mighty Tight Woman",
+        "Big Road - Remastered Version → Big Road"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Remastered Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Plain Remastered",
+      "description": "Removes patterns like 'Song - Remastered'",
+      "examples": [
+        "Such Great Heights - Remastered → Such Great Heights",
+        "Virtual Insanity - Remastered → Virtual Insanity"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Remastered$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Digitally Remastered",
+      "description": "Removes patterns like 'Song - Digitally Remastered'",
+      "examples": [
+        "Skating In Central Park - Digitally Remastered → Skating In Central Park",
+        "Steps-What Was - Digitally Remastered → Steps-What Was"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Digitally Remastered$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered LP Version",
+      "description": "Removes patterns like 'Song - 2007 Remastered LP Version' or 'Song - Remastered LP Version'",
+      "examples": [
+        "Handle With Care - 2007 Remastered LP Version → Handle With Care",
+        "They Reminisce Over You - Remastered LP Version → They Reminisce Over You"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Remastered LP Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Digital Remaster Variations",
+      "description": "Removes patterns like 'Song - Digital Remaster 00'",
+      "examples": [
+        "Express Yourself - Digital Remaster 00 → Express Yourself"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Digital Remaster \\d+$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Rudy Van Gelder Remaster",
+      "description": "Removes patterns with Rudy Van Gelder remaster information",
+      "examples": [
+        "Bags' Groove - Rudy Van Gelder 2001 - Remaster → Bags' Groove",
+        "Inner Urge - Rudy Van Gelder Edition;2003 Digital Remaster → Inner Urge"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Rudy Van Gelder.*?Remaster.*?$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Album Version",
+      "description": "Removes patterns like 'Song - Remastered Album Version'",
+      "examples": [
+        "Track Name - Remastered Album Version → Track Name"
+      ],
+      "track_name": {
+        "find": "^(.+?) - Remastered Album Version$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Edition",
+      "description": "Removes patterns like 'Song - 2004 Remastered Edition'",
+      "examples": [
+        "Dreams - 2004 Remastered Edition → Dreams",
+        "The Chain - 2004 Remastered Edition → The Chain"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Remastered Edition$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Year - Remaster Format",
+      "description": "Removes patterns like 'Song - 2000 - Remaster'",
+      "examples": [
+        "The Beach Boys - Wouldn't it Be Nice - 1999 - Remaster → Wouldn't it Be Nice",
+        "Billy Idol - Eyes Without A Face - 1999 - Remaster → Eyes Without A Face"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4}) - Remaster(ed)?$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Remastered",
+      "description": "Removes patterns like 'Song (Remastered)'",
+      "examples": [
+        "Orion (Remastered) → Orion",
+        "Enter Sandman (Remastered) → Enter Sandman"
+      ],
+      "track_name": {
+        "find": "^(.+?) \\(Remastered\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Year Remaster",
+      "description": "Removes patterns like 'Song (2018 Remaster)'",
+      "examples": [
+        "Lazy Sunday (Mono Version) (2018 Remaster) → Lazy Sunday (Mono Version)",
+        "My Sweet Lord (2000) (2014 Remaster) → My Sweet Lord (2000)"
+      ],
+      "track_name": {
+        "find": "^(.+?) \\((\\d{4}) Remaster\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Re-Recorded",
+      "description": "Removes patterns like 'Song (Re-Recorded / Remastered)' or 'Song (Re-Recorded)'",
+      "examples": [
+        "Stand By Me (Re-Recorded / Remastered) → Stand By Me",
+        "Build Me Up Buttercup (Re-Recorded) → Build Me Up Buttercup"
+      ],
+      "track_name": {
+        "find": "^(.+?) \\(Re-Recorded.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Bracketed Remastered",
+      "description": "Removes patterns like 'Song [Remastered Version]' or 'Song [2023 Remaster]'",
+      "examples": [
+        "Mighty Tight Woman [Remastered Version] → Mighty Tight Woman",
+        "Search and Destroy [2023 Remaster] → Search and Destroy"
+      ],
+      "track_name": {
+        "find": "^(.+?) \\[.*?Remaster.*?\\]$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove 24-Bit Digitally Remastered",
+      "description": "Removes patterns like 'Song - 24-Bit Digitally Remastered'",
+      "examples": [
+        "White Wedding - Parts 1 And 2 - 24-Bit Digitally Remastered 01 → White Wedding - Parts 1 And 2",
+        "Mack The Knife - 24-Bit Digitally Remastered → Mack The Knife"
+      ],
+      "track_name": {
+        "find": "^(.+?) - 24-Bit Digitally Remastered.*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Complex Punctuation Patterns",
+      "description": "Removes patterns with semicolons and complex formatting",
+      "examples": [
+        "I Ain't Tha 1 - Edited;2000 Digital Remaster → I Ain't Tha 1",
+        "Un Poco Loco - 1998 Digital Remaster;The Rudy Van Gelder Edition → Un Poco Loco"
+      ],
+      "track_name": {
+        "find": "^(.+?) - (\\d{4} )?Digital Remaster;.*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Complex Slash Patterns",
+      "description": "Removes patterns with slashes like 'Song - Pt. 1 / Remastered/2019'",
+      "examples": [
+        "Precious Lord - Pt. 1 / Remastered/2019 → Precious Lord",
+        "White Wedding - Pt. 1 / Remastered 2002 → White Wedding"
+      ],
+      "track_name": {
+        "find": "^(.+?) - .*?Remastered.*?/(\\d{4})$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Year Remastered",
+      "description": "Removes patterns like 'Album (2014 Remastered)' or 'Album (2018 Remaster Version)'",
+      "examples": [
+        "All Things Must Pass (2014 Remastered) → All Things Must Pass",
+        "Small Faces (2018 Remaster) → Small Faces"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\((\\d{4}) Remaster(ed)?.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Deluxe Remastered Edition",
+      "description": "Removes patterns like 'Album (Deluxe Remastered Edition)' or 'Album (Deluxe Edition Remastered)'",
+      "examples": [
+        "Idlewild South (Deluxe Edition Remastered) → Idlewild South",
+        "Ready To Die (The Remaster) → Ready To Die"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\((Deluxe .*?Remaster.*?|.*?Remaster.*? Deluxe.*?|The Remaster)\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Expanded & Remastered",
+      "description": "Removes patterns like 'Album (Expanded & Remastered Original Album Mix)'",
+      "examples": [
+        "Red (Expanded & Remastered Original Album Mix) → Red",
+        "Larks' Tongues In Aspic (Expanded & Remastered Original Album Mix) → Larks' Tongues In Aspic"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(Expanded & Remastered.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remaster Edition Text",
+      "description": "Removes patterns like 'Album (Remaster)' or 'Album (2006 Remastered Version)'",
+      "examples": [
+        "Paranoid (Remaster) → Paranoid",
+        "Pink Flag (2006 Remastered Version) → Pink Flag"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\((\\d{4} )?Remaster(ed)?(?: Version)?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Bracketed Remaster Info",
+      "description": "Removes patterns like 'Album [RVG Remaster]' or 'Album [Original Jazz Classics Remasters]'",
+      "examples": [
+        "We Three [RVG Remaster] → We Three",
+        "Waltz For Debby [Original Jazz Classics Remasters] → Waltz For Debby"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\[.*?Remaster.*?\\]$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove HD Digital Remastered",
+      "description": "Removes patterns like 'Album - HD Digital Remastered 2009'",
+      "examples": [
+        "Time Out - HD Digital Remastered 2009 → Time Out"
+      ],
+      "album_name": {
+        "find": "^(.+?) - HD Digital Remastered \\d{4}$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Anniversary Remaster Editions",
+      "description": "Removes patterns like 'Album (40th Anniversary Deluxe Edition; 2016 Remaster)'",
+      "examples": [
+        "Ramones (40th Anniversary Deluxe Edition; 2016 Remaster) → Ramones"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(\\d+th Anniversary.*?Remaster.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove CTI Anniversary Remastered",
+      "description": "Removes patterns like 'Album (CTI Records 40th Anniversary Edition - Original recording remastered)'",
+      "examples": [
+        "Red Clay (CTI Records 40th Anniversary Edition - Original recording remastered) → Red Clay"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(CTI Records.*?remastered\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Remastered Bonus Version",
+      "description": "Removes patterns like 'Album [Remastered (Bonus Version)]'",
+      "examples": [
+        "Brushfire Fairytales [Remastered (Bonus Version)] → Brushfire Fairytales"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\[Remastered \\(Bonus Version\\)\\]$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove OJC Remaster",
+      "description": "Removes patterns like 'Album (OJC Remaster)' for Original Jazz Classics releases",
+      "examples": [
+        "Jazz Impressions Of Black Orpheus (OJC Remaster) → Jazz Impressions Of Black Orpheus"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(OJC Remaster\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Gould Remaster Reference",
+      "description": "Removes patterns like 'Album (1981 Gould Remaster)' for classical music",
+      "examples": [
+        "Bach: The Goldberg Variations, BWV 988 (1981 Gould Remaster) → Bach: The Goldberg Variations, BWV 988"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(\\d{4} Gould Remaster\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Anniversary Remaster Suffix",
+      "description": "Removes patterns like 'Album (20th Anniversary Remaster)'",
+      "examples": [
+        "Oh, Inverted World (20th Anniversary Remaster) → Oh, Inverted World"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(\\d+th Anniversary Remaster\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Digitally Remastered Parenthetical",
+      "description": "Removes patterns like 'Album (Digitally Remastered)'",
+      "examples": [
+        "Elvis Restored (Digitally Remastered) → Elvis Restored"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(Digitally Remastered\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Deluxe Edition (MB-confirmed)",
+      "description": "Removes '(Deluxe Edition)' from album names only when MusicBrainz confirms the track exists on the original non-deluxe release",
+      "examples": [
+        "XO (Deluxe Edition) → XO"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\([Dd]eluxe [Ee]dition\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Remastered Original Album Mix",
+      "description": "Removes patterns like 'Album (Remastered Original Album)'",
+      "examples": [
+        "Daydream Nation (Remastered Original Album) → Daydream Nation"
+      ],
+      "album_name": {
+        "find": "^(.+?) \\(Remastered Original Album.*?\\)$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Deluxe Edition",
+      "description": "Removes patterns like 'Album (Deluxe Edition)' or 'Album [Deluxe Edition]'",
+      "examples": [
+        "XO (Deluxe Edition) → XO",
+        "Endtroducing (Deluxe Edition) → Endtroducing",
+        "By the Way (Deluxe Edition) → By the Way",
+        "The Fame Monster (Deluxe Edition) → The Fame Monster"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Deluxe Edition\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Anniversary Deluxe Edition",
+      "description": "Removes patterns like 'Album (10th Anniversary Edition / Deluxe Edition)'",
+      "examples": [
+        "Sublime (10th Anniversary Edition / Deluxe Edition) → Sublime",
+        "Songs in A Minor (10th Anniversary Edition) (Deluxe Edition) → Songs in A Minor"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(.*Anniversary Edition.*Deluxe Edition.*\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Anniversary Edition",
+      "description": "Removes patterns like 'Album (50th Anniversary Edition)' or 'Album: 10th Anniversary Edition'",
+      "examples": [
+        "Harvest (50th Anniversary Edition) → Harvest",
+        "Songs About Jane: 10th Anniversary Edition → Songs About Jane",
+        "The Velvet Underground & Nico 45th Anniversary → The Velvet Underground & Nico"
+      ],
+      "album_name": {
+        "find": "^(.+?)(?:\\s*[:–-])?\\s*(?:\\(|\\[)?\\s*\\d+(?:st|nd|rd|th)?\\s+Anniversary\\s+(?:Edition|Super Deluxe Edition|Special Anniversary Edition)\\s*(?:\\)|\\])?\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Super Deluxe Edition",
+      "description": "Removes patterns like 'Album (Super Deluxe Edition)'",
+      "examples": [
+        "Nevermind (Super Deluxe Edition) → Nevermind",
+        "Come Away With Me (Super Deluxe Edition) → Come Away With Me",
+        "Songs From The Big Chair (Super Deluxe Edition) → Songs From The Big Chair"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Super Deluxe Edition\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Expanded Edition",
+      "description": "Removes patterns like 'Album (Expanded Edition)' or 'Album [Expanded & Remastered]'",
+      "examples": [
+        "Learning to Crawl (Expanded & Remastered) → Learning to Crawl",
+        "Get Close (Expanded & Remastered) → Get Close"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Expanded(?:\\s+(?:&|and)\\s+Remastered)?(?:\\s+Edition)?\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Legacy Edition",
+      "description": "Removes patterns like 'Album (Legacy Edition)'",
+      "examples": [
+        "Grace (Legacy Edition) → Grace"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Legacy Edition\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Special Edition",
+      "description": "Removes patterns like 'Album (Special Edition)' or 'Album - Special 2 CD Set'",
+      "examples": [
+        "Sublime (Special Edition) → Sublime",
+        "Album - Special 2 CD Set → Album"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*(?:[\\(\\[]\\s*Special Edition\\s*[\\)\\]]|\\s*-\\s*[Ss]pecial\\s+\\d+\\s*CD\\s+[Ss]et)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Bonus Track Version",
+      "description": "Removes patterns like 'Album (Bonus Track Version)' or 'Album - bonus track version'",
+      "examples": [
+        "Album (Bonus Track Version) → Album",
+        "Sublime - bonus track version → Sublime"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*(?:[\\(\\[]|\\s*-\\s*)\\s*[Bb]onus\\s+[Tt]rack\\s+[Vv]ersion\\s*[\\)\\]]?\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Edition Suffix",
+      "description": "Removes generic edition patterns like 'Album (Edition)' or 'Album [Edition]'",
+      "examples": [
+        "Album (Edited Edition) → Album",
+        "Album [Club Edition] → Album"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*(?:Edited|Club|BMG|Columbia House|UML|Cinram|Richmond)\\s*(?:club\\s+)?[Ee]dition.*?[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Live Edition",
+      "description": "Removes patterns like 'Album (Live Version; Deluxe Edition)' or 'Album [Live]'",
+      "examples": [
+        "Waiting for Columbus (Live Version; Deluxe Edition) → Waiting for Columbus",
+        "Stop Making Sense (Deluxe Edition) [Live] → Stop Making Sense"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*(?:[\\(\\[]\\s*Live.*?(?:Deluxe Edition)?.*?[\\)\\]]|\\s*[\\(\\[].*?Deluxe Edition.*?\\[Live\\].*?[\\)\\]])\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove CTI Records Anniversary Edition",
+      "description": "Removes patterns specific to CTI Records anniversary releases",
+      "examples": [
+        "Red Clay (CTI Records 40th Anniversary Edition) → Red Clay",
+        "Concierto (CTI Records 40th Anniversary Edition - Original recording remastered) → Concierto"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(CTI Records \\d+(?:st|nd|rd|th) Anniversary Edition(?:\\s*-\\s*Original recording remastered)?\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Original Jazz Classics Remasters",
+      "description": "Removes patterns like 'Album [Original Jazz Classics Remasters]'",
+      "examples": [
+        "Waltz For Debby [Original Jazz Classics Remasters] → Waltz For Debby",
+        "Jazz Impressions Of Black Orpheus [Original Jazz Classics Remasters] (OJC Remaster) → Jazz Impressions Of Black Orpheus"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[Original Jazz Classics Remasters\\](?:\\s*\\(OJC Remaster\\))?\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove HD Digital Remastered",
+      "description": "Removes patterns like 'Album - HD Digital Remastered 2009'",
+      "examples": [
+        "Time Out - HD Digital Remastered 2009 → Time Out"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*-\\s*HD Digital Remastered \\d{4}\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Remastered & Expanded Edition",
+      "description": "Removes patterns like 'Album [2012 Remastered & Expanded Edition]'",
+      "examples": [
+        "A Charlie Brown Christmas [2012 Remastered & Expanded Edition] → A Charlie Brown Christmas"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[\\d{4} Remastered & Expanded Edition\\]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Disc Number Suffixes",
+      "description": "Removes disc number suffixes like 'Album (disc 2)' from special editions",
+      "examples": [
+        "Sublime: 10th Anniversary Deluxe Edition (disc 2) → Sublime"
+      ],
+      "album_name": {
+        "find": "^(.+?)(?:\\s*[:–-]\\s*\\d+(?:st|nd|rd|th)?\\s*Anniversary.*?)?\\s*\\(disc \\d+\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove The Steven Wilson Remix",
+      "description": "Removes patterns like 'Album (The Steven Wilson Remix)'",
+      "examples": [
+        "Songs from the Wood (40th Anniversary Edition; The Steven Wilson Remix) → Songs from the Wood"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(.*?(?:The Steven Wilson Remix|Steven Wilson \\d{4} Remix).*?\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Restored Digitally Remastered",
+      "description": "Removes patterns like 'Album (Digitally Remastered)' or 'Album Restored (Digitally Remastered)'",
+      "examples": [
+        "Elvis Restored (Digitally Remastered) → Elvis"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s+Restored\\s*\\(Digitally Remastered\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Disney+ Special Edition",
+      "description": "Removes patterns from special streaming releases",
+      "examples": [
+        "folklore: the long pond studio sessions (from the Disney+ special) [deluxe edition] → folklore"
+      ],
+      "album_name": {
+        "find": "^(.+?)(?:\\s*[:–-]\\s*[^(\\[]+)?\\s*\\(from the Disney\\+ special\\)\\s*\\[deluxe edition\\]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Octave Remastered Series",
+      "description": "Removes patterns like 'Album (Octave Remastered Series)'",
+      "examples": [
+        "Gemini (Octave Remastered Series) → Gemini"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(Octave Remastered Series\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Stax Remasters",
+      "description": "Removes patterns like 'Album [Stax Remasters]'",
+      "examples": [
+        "McLemore Avenue [Stax Remasters] → McLemore Avenue"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[Stax Remasters\\]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Explicit Version",
+      "description": "Removes patterns like 'Album (Explicit Version)' or 'Album [Explicit Version]'",
+      "examples": [
+        "The Big Picture (Explicit Version) → The Big Picture",
+        "Power In Numbers (Explicit Version) → Power In Numbers",
+        "40oz To Freedom (Explicit Version) → 40oz To Freedom"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit Version\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Explicit Marker",
+      "description": "Removes patterns like 'Album (Explicit)' or 'Album [Explicit]'",
+      "examples": [
+        "Extinction Level Event: The Final World Front [Explicit] → Extinction Level Event: The Final World Front",
+        "Word Of Mouf (Explicit) → Word Of Mouf",
+        "Hell On Earth (Explicit) → Hell On Earth"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Explicit Deluxe",
+      "description": "Removes patterns like 'Album (Explicit Deluxe)' or 'Album (Deluxe Explicit)'",
+      "examples": [
+        "Take Care (Explicit Deluxe) → Take Care",
+        "Curtain Call (Deluxe Explicit) → Curtain Call"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\((?:Explicit Deluxe|Deluxe Explicit)\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Regional Explicit Version",
+      "description": "Removes patterns like 'Album [U.S. Explicit Version]'",
+      "examples": [
+        "Watermelon, Chicken & Gritz [U.S. Explicit Version] → Watermelon, Chicken & Gritz"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[.*?Explicit Version\\]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Package Explicit",
+      "description": "Removes patterns like 'Album (New Package-Explicit)'",
+      "examples": [
+        "Most Known Unknown (New Package-Explicit) → Most Known Unknown"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(.*?-Explicit\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
+      "name": "Remove Explicit from Track Names",
+      "description": "Removes explicit markers from track names",
+      "examples": [
+        "Song Title (Explicit) → Song Title",
+        "Song Title [Explicit] → Song Title"
+      ],
+      "track_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Explicit Version from Track Names",
+      "description": "Removes explicit version markers from track names",
+      "examples": [
+        "Song Title (Explicit Version) → Song Title"
+      ],
+      "track_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit Version\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    }
+  ]
+}
