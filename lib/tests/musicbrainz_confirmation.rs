@@ -62,10 +62,9 @@ async fn check_mb_confirmation_rule(
     // Check each test case
     for (idx, tc) in test_cases.iter().enumerate() {
         if tc.should_be_renamed {
-            let suggestions = map.get(&idx).expect(&format!(
-                "Track '{}' should produce a suggestion",
-                tc.track_name
-            ));
+            let suggestions = map
+                .get(&idx)
+                .unwrap_or_else(|| panic!("Track '{}' should produce a suggestion", tc.track_name));
             assert!(
                 !suggestions.is_empty(),
                 "Expected at least one suggestion for '{}'",
