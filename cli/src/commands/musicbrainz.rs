@@ -93,17 +93,17 @@ impl MusicBrainzCommands {
         album_filter: Option<&str>,
         limit: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Searching for albums by '{}'...\n", artist);
+        println!("Searching for albums by '{artist}'...\n");
 
         // Use the provider's search method
         let releases = MusicBrainzScrubActionProvider::search_album_releases(artist, album_filter)
             .await
-            .map_err(|e| format!("Provider error: {}", e))?;
+            .map_err(|e| format!("Provider error: {e}"))?;
 
         if releases.is_empty() {
-            println!("No releases found for artist '{}'", artist);
+            println!("No releases found for artist '{artist}'");
             if let Some(album) = album_filter {
-                println!("  Album filter: '{}'", album);
+                println!("  Album filter: '{album}'");
             }
             return Ok(());
         }
@@ -134,7 +134,7 @@ impl MusicBrainzCommands {
         let prefer_non_japanese = provider.prefer_non_japanese_releases();
 
         for (album_title, group) in album_groups.iter() {
-            println!("📀 Album: {}", album_title);
+            println!("📀 Album: {album_title}");
 
             // Convert group to owned vec for the provider method
             let group_owned: Vec<_> = group.iter().map(|r| (*r).clone()).collect();
@@ -160,16 +160,16 @@ impl MusicBrainzCommands {
                 }
 
                 if let Some(country) = &release.country {
-                    print!("[{}] ", country);
+                    print!("[{country}] ");
                 } else {
                     print!("[??] ");
                 }
 
                 if let Some(disamb) = &release.disambiguation {
-                    print!("- {} ", disamb);
+                    print!("- {disamb} ");
                 }
 
-                println!("{}", canonical_marker);
+                println!("{canonical_marker}");
             }
             println!();
         }
@@ -189,15 +189,14 @@ impl MusicBrainzCommands {
         let provider = MusicBrainzScrubActionProvider::new(0.8, 20);
 
         println!(
-            "Checking if '{}' by '{}' exists on canonical release of '{}'...\n",
-            title, artist, album
+            "Checking if '{title}' by '{artist}' exists on canonical release of '{album}'...\n"
         );
 
         // Use the provider's actual verification method
         let exists = provider
             .verify_track_exists_on_canonical_release(artist, title, Some(album))
             .await
-            .map_err(|e| format!("Provider error: {}", e))?;
+            .map_err(|e| format!("Provider error: {e}"))?;
 
         // For detailed output, use the provider's search to show what was selected
         if show_tracks || show_all {
@@ -208,7 +207,7 @@ impl MusicBrainzCommands {
             let releases =
                 MusicBrainzScrubActionProvider::search_album_releases(artist, Some(album))
                     .await
-                    .map_err(|e| format!("Provider error: {}", e))?;
+                    .map_err(|e| format!("Provider error: {e}"))?;
 
             if !releases.is_empty() {
                 // Use provider's method to select canonical release
@@ -233,7 +232,7 @@ impl MusicBrainzCommands {
                     canonical.country.as_ref().unwrap_or(&"??".to_string())
                 );
                 if let Some(disamb) = &canonical.disambiguation {
-                    println!("   Disambiguation: {}", disamb);
+                    println!("   Disambiguation: {disamb}");
                 }
                 println!("   MusicBrainz ID: {}", canonical.id);
                 println!();
@@ -286,7 +285,7 @@ impl MusicBrainzCommands {
                             release
                                 .disambiguation
                                 .as_ref()
-                                .map(|d| format!(" [{}]", d))
+                                .map(|d| format!(" [{d}]"))
                                 .unwrap_or_default(),
                             marker
                         );
@@ -300,10 +299,10 @@ impl MusicBrainzCommands {
         println!("{}", "=".repeat(80));
         println!("PROVIDER RESULT:");
         if exists {
-            println!("✅ Track '{}' EXISTS on the canonical release", title);
+            println!("✅ Track '{title}' EXISTS on the canonical release");
             println!("   This track would PASS MusicBrainz confirmation");
         } else {
-            println!("❌ Track '{}' is NOT on the canonical release", title);
+            println!("❌ Track '{title}' is NOT on the canonical release");
             println!("   This track would FAIL MusicBrainz confirmation");
             println!("   (likely a bonus track from a special edition or regional release)");
         }
@@ -322,9 +321,9 @@ impl MusicBrainzCommands {
         // Create the provider
         let provider = MusicBrainzScrubActionProvider::new(0.8, limit);
 
-        println!("Searching MusicBrainz for '{}' by '{}'", title, artist);
+        println!("Searching MusicBrainz for '{title}' by '{artist}'");
         if let Some(alb) = album {
-            println!("Album filter: '{}'", alb);
+            println!("Album filter: '{alb}'");
         }
         println!();
 
@@ -332,7 +331,7 @@ impl MusicBrainzCommands {
         let results = provider
             .search_musicbrainz_multiple(artist, title, album)
             .await
-            .map_err(|e| format!("Provider error: {}", e))?;
+            .map_err(|e| format!("Provider error: {e}"))?;
 
         if results.is_empty() {
             println!("No results found");
@@ -343,12 +342,12 @@ impl MusicBrainzCommands {
         for (idx, result) in results.iter().enumerate() {
             println!("{}. '{}' by '{}'", idx + 1, result.title, result.artist);
             if let Some(ref alb) = result.album {
-                println!("   Album: {}", alb);
+                println!("   Album: {alb}");
             }
             println!("   Confidence: {:.2}%", result.confidence * 100.0);
             println!("   MBID: {}", result.mbid);
             if let Some(ref release_id) = result.release_id {
-                println!("   Release ID: {}", release_id);
+                println!("   Release ID: {release_id}");
             }
             println!();
         }
@@ -367,7 +366,7 @@ impl MusicBrainzCommands {
             let suggestions = provider
                 .analyze_tracks(&[track], None, None)
                 .await
-                .map_err(|e| format!("Provider error: {}", e))?;
+                .map_err(|e| format!("Provider error: {e}"))?;
 
             if !suggestions.is_empty() {
                 println!("PROVIDER SUGGESTIONS:");

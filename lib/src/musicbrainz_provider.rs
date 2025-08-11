@@ -330,7 +330,7 @@ impl MusicBrainzScrubActionProvider {
             ReleaseSearchQuery::query_builder().artist(artist).build()
         };
 
-        log::debug!("Searching for albums with query: {}", query);
+        log::debug!("Searching for albums with query: {query}");
 
         let search_results = Release::search(query)
             .execute()
@@ -373,7 +373,7 @@ impl MusicBrainzScrubActionProvider {
                 .artist(artist)
                 .build();
 
-            log::debug!("Searching for album releases with query: {}", album_query);
+            log::debug!("Searching for album releases with query: {album_query}");
 
             let album_search = Release::search(album_query)
                 .execute()
@@ -381,16 +381,25 @@ impl MusicBrainzScrubActionProvider {
                 .map_err(|e| format!("Album search failed: {e}"))?;
 
             if album_search.entities.is_empty() {
+                log::debug!("No album releases found for '{desired_album}' by '{artist}'");
+                return Ok(false);
+            }
+
+            // Filter to only releases that match the album title exactly
+            let mut releases: Vec<_> = album_search
+                .entities
+                .into_iter()
+                .filter(|r| r.title.eq_ignore_ascii_case(desired_album))
+                .collect();
+
+            if releases.is_empty() {
                 log::debug!(
-                    "No album releases found for '{}' by '{}'",
-                    desired_album,
-                    artist
+                    "No releases with exact title match for '{desired_album}' by '{artist}'"
                 );
                 return Ok(false);
             }
 
             // Sort releases by date to find the canonical one
-            let mut releases = album_search.entities;
             releases.sort_by(|a, b| {
                 let a_date = a.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
                 let b_date = b.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
@@ -472,7 +481,7 @@ impl MusicBrainzScrubActionProvider {
                         for track in tracks {
                             // Check the track title directly (it's always present)
                             if track.title.eq_ignore_ascii_case(title) {
-                                log::debug!("Track '{}' found on canonical release", title);
+                                log::debug!("Track '{title}' found on canonical release");
                                 return Ok(true);
                             }
                         }
@@ -497,7 +506,7 @@ impl MusicBrainzScrubActionProvider {
                 if result.artist.eq_ignore_ascii_case(artist)
                     && result.title.eq_ignore_ascii_case(title)
                 {
-                    log::debug!("Track '{}' by '{}' exists", title, artist);
+                    log::debug!("Track '{title}' by '{artist}' exists");
                     return Ok(true);
                 }
             }

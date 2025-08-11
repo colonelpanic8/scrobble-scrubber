@@ -222,7 +222,9 @@
       "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests deluxe_edition_rule_mb_confirmation_on_elliott_smith_xo)",
       "Bash(RUST_LOG=info ./target/debug/scrobble-scrubber musicbrainz canonical-release --artist \"Elliott Smith\" --album \"XO\" --track \"Miss Misery\")",
       "Bash(RUST_LOG=info ./target/debug/scrobble-scrubber music-brainz canonical-release --artist \"Elliott Smith\" --album \"XO\" --track \"Miss Misery\")",
-      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests sublime -- --nocapture)"
+      "Bash(RUST_LOG=debug SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests sublime -- --nocapture)",
+      "Bash(RUST_LOG=info SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=0 cargo test -p scrobble-scrubber --test musicbrainz_confirmation_tests sublime)",
+      "Bash(RUST_LOG=debug cargo run --bin scrobble-scrubber -- music-brainz track-match --artist \"Sublime\" --title \"Don''''t Push\" --album \"Sublime\")"
     ],
     "deny": [
       "Bash(dx serve:*)"

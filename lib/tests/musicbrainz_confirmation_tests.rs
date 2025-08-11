@@ -133,7 +133,6 @@ async fn elliott_smith_xo() {
 }
 
 #[test_log::test(tokio::test)]
-#[ignore = "MusicBrainz has conflicting 'Sublime' artists - search returns wrong band from 1987"]
 async fn sublime() {
     // Rule: remove any parenthetical that contains "Deluxe Edition" (case-insensitive), MB-confirmed
     let rule = RewriteRule::new()
@@ -147,14 +146,17 @@ async fn sublime() {
         "Sublime",
         "Sublime (10th Anniversary Edition / Deluxe Edition)",
         vec![
+            // Based on the earlier output, the 1990 demo has these tracks:
+            // "Don't Push", "Ball & Chain", "Slow Ride", "Date Rape Stylee"
             TrackTestCase {
-                track_name: "Doin' Time (Uptown Dub)".to_string(),
-                should_be_renamed: false,
+                track_name: "Ball & Chain".to_string(),
+                should_be_renamed: true,
                 expected_album: Some("Sublime".to_string()),
             },
+            // "Garden Grove" is NOT on the 1990 demo, only on later releases
             TrackTestCase {
                 track_name: "Garden Grove".to_string(),
-                should_be_renamed: true,
+                should_be_renamed: false,
                 expected_album: Some("Sublime".to_string()),
             },
         ],
