@@ -464,6 +464,24 @@
       "requires_musicbrainz_confirmation": true
     },
     {
+      "name": "Remove Deluxe",
+      "description": "Removes patterns like 'Album (Deluxe)' without 'Edition'",
+      "examples": [
+        "Purpose (Deluxe) → Purpose",
+        "Oxymoron (Deluxe) → Oxymoron",
+        "Nothing Was the Same (Deluxe) → Nothing Was the Same",
+        "The Fame Monster (Deluxe) → The Fame Monster",
+        "Starboy (Deluxe) → Starboy"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(Deluxe\\)\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": false
+    },
+    {
       "name": "Remove Anniversary Deluxe Edition",
       "description": "Removes patterns like 'Album (10th Anniversary Edition / Deluxe Edition)'",
       "examples": [
