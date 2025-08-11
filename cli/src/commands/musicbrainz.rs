@@ -61,6 +61,25 @@ pub enum MusicBrainzCommands {
         #[arg(short = 'l', long, default_value = "5")]
         limit: usize,
     },
+
+    /// Look up the canonical album for an artist/album pair
+    CanonicalAlbum {
+        /// Artist name
+        #[arg(short, long)]
+        artist: String,
+
+        /// Album name
+        #[arg(short = 'A', long)]
+        album: String,
+
+        /// Show all releases (not just the canonical one)
+        #[arg(long)]
+        show_all: bool,
+
+        /// Show track list of the canonical release
+        #[arg(long)]
+        show_tracks: bool,
+    },
 }
 
 impl MusicBrainzCommands {
@@ -84,6 +103,12 @@ impl MusicBrainzCommands {
                 album,
                 limit,
             } => Self::search_track(&artist, &title, album.as_deref(), limit).await,
+            Self::CanonicalAlbum {
+                artist,
+                album,
+                show_all,
+                show_tracks,
+            } => Self::show_canonical_album(&artist, &album, show_all, show_tracks).await,
         }
     }
 
@@ -373,6 +398,208 @@ impl MusicBrainzCommands {
             } else {
                 println!("Provider would not suggest any corrections for this track.");
             }
+        }
+
+        Ok(())
+    }
+
+    /// Show the canonical album for an artist/album pair
+    async fn show_canonical_album(
+        artist: &str,
+        album: &str,
+        show_all: bool,
+        show_tracks: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use musicbrainz_rs::entity::release::Release;
+        use musicbrainz_rs::Fetch;
+
+        // Create the provider with default settings
+        let provider = MusicBrainzScrubActionProvider::new(0.8, 20);
+
+        println!("Looking up canonical album for '{album}' by '{artist}'...\n");
+
+        // Search for the album releases
+        let releases = MusicBrainzScrubActionProvider::search_album_releases(artist, Some(album))
+            .await
+            .map_err(|e| format!("Provider error: {e}"))?;
+
+        if releases.is_empty() {
+            println!("❌ No releases found for album '{album}' by '{artist}'");
+            return Ok(());
+        }
+
+        // Filter releases to only those matching the album name
+        let matching_releases: Vec<_> = releases
+            .iter()
+            .filter(|r| r.title.eq_ignore_ascii_case(album))
+            .cloned()
+            .collect();
+
+        if matching_releases.is_empty() {
+            println!("❌ No exact matches found for album '{album}'");
+            println!(
+                "   Found {} releases with different titles:",
+                releases.len()
+            );
+            for (idx, release) in releases.iter().take(5).enumerate() {
+                println!("   {}. '{}'", idx + 1, release.title);
+            }
+            return Ok(());
+        }
+
+        // Use provider's method to select canonical release
+        let canonical = provider
+            .select_canonical_release(&matching_releases)
+            .ok_or("Failed to select canonical release")?;
+
+        println!("✅ CANONICAL ALBUM FOUND\n");
+        println!("{}", "=".repeat(80));
+        println!("📀 Album: {}", canonical.title);
+        println!("🎤 Artist: {artist}");
+        println!(
+            "📅 Release Date: {}",
+            canonical
+                .date
+                .as_ref()
+                .map(|d| d.0.as_str())
+                .unwrap_or("unknown")
+        );
+        println!(
+            "🌍 Country: {}",
+            canonical.country.as_ref().unwrap_or(&"Unknown".to_string())
+        );
+
+        if let Some(disamb) = &canonical.disambiguation {
+            println!("📝 Disambiguation: {disamb}");
+        }
+
+        println!("🆔 Release UUID: {}", canonical.id);
+
+        // Fetch additional metadata
+        let full_release = Release::fetch()
+            .id(&canonical.id)
+            .with_recordings()
+            .with_artist_credits()
+            .with_labels()
+            .execute()
+            .await?;
+
+        // Show status
+        if let Some(status) = &full_release.status {
+            println!("📊 Status: {status:?}");
+        }
+
+        // Show labels
+        if let Some(label_info) = &full_release.label_info {
+            if !label_info.is_empty() {
+                println!("🏷️  Labels:");
+                for info in label_info {
+                    if let Some(label) = &info.label {
+                        let catalog = info.catalog_number.as_deref().unwrap_or("N/A");
+                        println!("   - {} (Catalog: {})", label.name, catalog);
+                    }
+                }
+            }
+        }
+
+        // Show format
+        if let Some(media) = &full_release.media {
+            if let Some(first_medium) = media.first() {
+                if let Some(format) = &first_medium.format {
+                    println!("💿 Format: {format}");
+                }
+            }
+
+            // Show total tracks
+            let total_tracks: usize = media
+                .iter()
+                .filter_map(|m| m.tracks.as_ref().map(|t| t.len()))
+                .sum();
+            println!("🎵 Total Tracks: {total_tracks}");
+
+            if media.len() > 1 {
+                println!("💽 Discs: {}", media.len());
+            }
+        }
+
+        // Show barcode if available
+        if let Some(barcode) = &full_release.barcode {
+            if !barcode.is_empty() {
+                println!("📊 Barcode: {barcode}");
+            }
+        }
+
+        println!("{}", "=".repeat(80));
+
+        // Show track list if requested
+        if show_tracks {
+            println!("\n📜 TRACK LIST:");
+            if let Some(media) = &full_release.media {
+                for (disc_idx, medium) in media.iter().enumerate() {
+                    if media.len() > 1 {
+                        println!("\n  💿 Disc {}:", disc_idx + 1);
+                        if let Some(title) = &medium.title {
+                            println!("     Title: {title}");
+                        }
+                    }
+                    if let Some(tracks) = &medium.tracks {
+                        for track in tracks {
+                            let duration = track
+                                .length
+                                .map(|ms| {
+                                    let seconds = ms / 1000;
+                                    let minutes = seconds / 60;
+                                    let secs = seconds % 60;
+                                    format!("{minutes}:{secs:02}")
+                                })
+                                .unwrap_or_else(|| "?:??".to_string());
+
+                            println!("   {:3}. {} ({})", track.position, track.title, duration);
+                        }
+                    }
+                }
+            }
+            println!();
+        }
+
+        // Show all releases if requested
+        if show_all {
+            println!(
+                "\n📚 ALL RELEASES FOR THIS ALBUM ({} total):",
+                matching_releases.len()
+            );
+            println!("{}", "-".repeat(80));
+            for release in &matching_releases {
+                let is_canonical = release.id == canonical.id;
+                let marker = if is_canonical { " ⭐ [CANONICAL]" } else { "" };
+
+                let date_str = release
+                    .date
+                    .as_ref()
+                    .map(|d| d.0.as_str())
+                    .unwrap_or("????");
+                let country = release.country.as_deref().unwrap_or("??");
+                let disamb = release
+                    .disambiguation
+                    .as_ref()
+                    .map(|d| format!(" - {d}"))
+                    .unwrap_or_default();
+
+                println!("   {date_str} [{country}]{disamb}");
+                println!("     UUID: {}{marker}", release.id);
+
+                // Show why it wasn't selected if not canonical
+                if !is_canonical {
+                    if provider.should_exclude_release(release) {
+                        println!("     ❌ Excluded by filter rules");
+                    } else if provider.should_deprioritize_release(release) {
+                        println!("     ⬇️  Deprioritized (likely Japanese release)");
+                    } else if MusicBrainzScrubActionProvider::is_special_edition(release) {
+                        println!("     📦 Special edition");
+                    }
+                }
+            }
+            println!("{}", "-".repeat(80));
         }
 
         Ok(())
