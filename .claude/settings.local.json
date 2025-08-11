@@ -68,7 +68,9 @@
       "WebFetch(domain:en.wikipedia.org)",
       "Bash(RUST_LOG=debug cargo run -- music-brainz album-search --artist 'Sublime' --album 'Sublime' --limit 30)",
       "Bash(jq:*)",
-      "Bash(cargo fmt:*)"
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)"
     ],
     "deny": [
       "Bash(dx serve:*)"
