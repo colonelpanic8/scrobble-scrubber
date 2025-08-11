@@ -1,6 +1,6 @@
 # Scrobble Scrubber
 
-[![CI](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml/badge.svg)](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml)
+[![CI](https://github.com/colonelpanic8/scrobble-scrubber/actions/workflows/ci.yml/badge.svg)](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/scrobble-scrubber.svg)](https://crates.io/crates/scrobble-scrubber)
 [![docs.rs](https://docs.rs/scrobble-scrubber/badge.svg)](https://docs.rs/scrobble-scrubber)
