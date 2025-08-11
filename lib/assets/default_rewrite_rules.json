@@ -868,6 +868,117 @@
         "replace": "$1"
       },
       "requires_confirmation": false
+    },
+    {
+      "name": "Remove (Explicit) from Album Names - No MB",
+      "description": "Removes (Explicit) from album names without MusicBrainz confirmation",
+      "examples": [
+        "Album Name (Explicit) → Album Name",
+        "Album Name [Explicit] → Album Name"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": false
+    },
+    {
+      "name": "Remove (Explicit Version) from Album Names - No MB",
+      "description": "Removes (Explicit Version) from album names without MusicBrainz confirmation",
+      "examples": [
+        "Album Name (Explicit Version) → Album Name",
+        "Album Name [Explicit Version] → Album Name"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[\\(\\[]\\s*Explicit Version\\s*[\\)\\]]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": false
+    },
+    {
+      "name": "Remove [Single] from album names",
+      "description": "Removes '[Single]' suffix from album names",
+      "examples": [
+        "Lady Madonna [Single] → Lady Madonna",
+        "Help! [Single] → Help!",
+        "Let It Be [Single ] → Let It Be"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[Single\\s*\\]\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove [UK Single] from album names",
+      "description": "Removes '[UK Single]' and similar region-specific single suffixes",
+      "examples": [
+        "A Hard Day's Night [UK Single] → A Hard Day's Night",
+        "Love Me Do [UK Single] → Love Me Do"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[(?:UK|US|EU|JP)\\s+Single\\]\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove [single] lowercase from album names",
+      "description": "Removes '[single]' in lowercase from album names",
+      "examples": [
+        "All You Need Is Love [single] → All You Need Is Love",
+        "Hello Goodbye [single] → Hello Goodbye"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[single\\]\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove [Double A-Side Single] from album names",
+      "description": "Removes '[Double A-Side Single]' and similar from album names",
+      "examples": [
+        "Yellow Submarine/Eleanor Rigby [Double A-Side Single] → Yellow Submarine/Eleanor Rigby",
+        "We Can Work It Out/Day Tripper [Double A-Side Single] → We Can Work It Out/Day Tripper"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[Double A-Side Single\\]\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove 'Single' suffix from album names",
+      "description": "Removes standalone 'Single' word at the end of album names",
+      "examples": [
+        "Yesterday Single → Yesterday",
+        "Something Single → Something"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s+Single\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove trailing slash from album names",
+      "description": "Removes trailing slash from incomplete album names",
+      "examples": [
+        "Past Masters (Vols. 1 & 2 / → Past Masters (Vols. 1 & 2)",
+        "Album Name / → Album Name"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*/\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": false
     }
   ]
 }
