@@ -168,11 +168,12 @@ impl RewriteRulesScrubActionProvider {
                 let confirmed =
                     Self::verify_with_musicbrainz(&mb_provider, &candidate, track).await?;
                 if !confirmed {
-                    log::debug!(
-                        "MB confirmation failed for rule '{}' on '{} - {}'",
+                    log::info!(
+                        "Rewrite rule '{}' rejected by MusicBrainz confirmation for track '{} - {}' (album: {})",
                         rule.name.as_deref().unwrap_or("Unnamed"),
                         track.artist,
-                        track.name
+                        track.name,
+                        track.album.as_deref().unwrap_or("none")
                     );
                     continue; // Skip this rule only
                 }
