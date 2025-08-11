@@ -218,3 +218,150 @@ async fn nirvana_nevermind() {
     )
     .await;
 }
+
+#[test_log::test(tokio::test)]
+async fn drake_nothing_was_the_same_deluxe() {
+    // Rule: remove "(Deluxe)" and "(Deluxe Edition)" from album names
+    let rule = RewriteRule::new()
+        .with_album_name(SdRule::new(r"^(.*) \(Deluxe(?:\s+Edition)?\)$", "$1").with_flags("i"))
+        .with_musicbrainz_confirmation_required(true);
+
+    check_mb_confirmation_rule(
+        rule,
+        "Drake",
+        "Nothing Was the Same (Deluxe)",
+        vec![
+            // Standard album track - should be renamed
+            TrackTestCase {
+                track_name: "Tuscan Leather".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("Nothing Was the Same".to_string()),
+            },
+            // Another standard track
+            TrackTestCase {
+                track_name: "Started From the Bottom".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("Nothing Was the Same".to_string()),
+            },
+            // Bonus/deluxe only tracks - should NOT be renamed
+            TrackTestCase {
+                track_name: "All Me".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("Nothing Was the Same".to_string()),
+            },
+            TrackTestCase {
+                track_name: "Come Thru".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("Nothing Was the Same".to_string()),
+            },
+        ],
+    )
+    .await;
+}
+
+#[test_log::test(tokio::test)]
+async fn red_hot_chili_peppers_by_the_way_deluxe() {
+    // Rule: remove "(Deluxe Edition)" from album names
+    let rule = RewriteRule::new()
+        .with_album_name(SdRule::new(r"^(.*) \(Deluxe Edition\)$", "$1").with_flags("i"))
+        .with_musicbrainz_confirmation_required(true);
+
+    check_mb_confirmation_rule(
+        rule,
+        "Red Hot Chili Peppers",
+        "By the Way (Deluxe Edition)",
+        vec![
+            // Standard album tracks
+            TrackTestCase {
+                track_name: "By the Way".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("By the Way".to_string()),
+            },
+            TrackTestCase {
+                track_name: "The Zephyr Song".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("By the Way".to_string()),
+            },
+            // Bonus/B-side tracks from deluxe edition
+            TrackTestCase {
+                track_name: "Body of Water".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("By the Way".to_string()),
+            },
+            TrackTestCase {
+                track_name: "Someone".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("By the Way".to_string()),
+            },
+        ],
+    )
+    .await;
+}
+
+#[test_log::test(tokio::test)]
+async fn lady_gaga_fame_monster_deluxe() {
+    // Rule: remove "(Deluxe)" from album names
+    let rule = RewriteRule::new()
+        .with_album_name(SdRule::new(r"^(.*) \(Deluxe\)$", "$1").with_flags("i"))
+        .with_musicbrainz_confirmation_required(true);
+
+    check_mb_confirmation_rule(
+        rule,
+        "Lady Gaga",
+        "The Fame Monster (Deluxe)",
+        vec![
+            // Standard Fame Monster tracks
+            TrackTestCase {
+                track_name: "Bad Romance".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("The Fame Monster".to_string()),
+            },
+            TrackTestCase {
+                track_name: "Alejandro".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("The Fame Monster".to_string()),
+            },
+            // Tracks that are not on standard Fame Monster
+            TrackTestCase {
+                track_name: "Retro Dance Freak".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("The Fame Monster".to_string()),
+            },
+        ],
+    )
+    .await;
+}
+
+#[test_log::test(tokio::test)]
+async fn weeknd_starboy_deluxe() {
+    // Rule: remove "(Deluxe)" from album names
+    let rule = RewriteRule::new()
+        .with_album_name(SdRule::new(r"^(.*) \(Deluxe\)$", "$1").with_flags("i"))
+        .with_musicbrainz_confirmation_required(true);
+
+    check_mb_confirmation_rule(
+        rule,
+        "The Weeknd",
+        "Starboy (Deluxe)",
+        vec![
+            // Standard album tracks
+            TrackTestCase {
+                track_name: "Starboy".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("Starboy".to_string()),
+            },
+            TrackTestCase {
+                track_name: "I Feel It Coming".to_string(),
+                should_be_renamed: true,
+                expected_album: Some("Starboy".to_string()),
+            },
+            // Deluxe edition bonus tracks (some of these might be on both)
+            TrackTestCase {
+                track_name: "Stargirl Interlude (Extended)".to_string(),
+                should_be_renamed: false,
+                expected_album: Some("Starboy".to_string()),
+            },
+        ],
+    )
+    .await;
+}
