@@ -543,49 +543,6 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         Ok(items)
     }
 
-    /// Collect all tracks from a list of albums
-    async fn collect_tracks_from_albums(
-        &mut self,
-        albums: &[lastfm_edit::Album],
-    ) -> Result<Vec<lastfm_edit::Track>> {
-        let mut all_tracks = Vec::new();
-
-        for album in albums {
-            log::debug!(
-                "Loading tracks for album: {} - {}",
-                album.artist,
-                album.name
-            );
-
-            // Get tracks for this specific album
-            match self
-                .client
-                .get_album_tracks(&album.name, &album.artist)
-                .await
-            {
-                Ok(tracks) => {
-                    log::debug!(
-                        "Found {} tracks in album '{}' by '{}'",
-                        tracks.len(),
-                        album.name,
-                        album.artist
-                    );
-                    all_tracks.extend(tracks);
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Failed to load tracks for album '{}' by '{}': {e}",
-                        album.name,
-                        album.artist
-                    );
-                    // Continue with other albums even if one fails
-                }
-            }
-        }
-
-        Ok(all_tracks)
-    }
-
     /// Shared helper to process collected tracks with optional logging
     async fn process_collected_tracks(
         &mut self,
@@ -1104,38 +1061,73 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             return Ok(());
         }
 
-        // Collect all tracks from these albums
-        let all_tracks = self.collect_tracks_from_albums(&albums_found).await?;
+        // Process albums incrementally - load and process tracks from each album one at a time
+        let mut total_tracks_processed = 0;
+        let total_albums = albums_found.len();
 
-        log::info!(
-            "Collected {} tracks from {} albums matching query '{query}'",
-            all_tracks.len(),
-            albums_found.len()
-        );
+        for (album_index, album) in albums_found.iter().enumerate() {
+            log::info!(
+                "Processing album {}/{}: {} - {}",
+                album_index + 1,
+                total_albums,
+                album.artist,
+                album.name
+            );
 
-        if all_tracks.is_empty() {
-            log::warn!("No tracks found in the matched albums");
-            return Ok(());
+            // Load tracks for this specific album
+            match self
+                .client
+                .get_album_tracks(&album.name, &album.artist)
+                .await
+            {
+                Ok(tracks) => {
+                    log::debug!(
+                        "Found {} tracks in album '{}' by '{}'",
+                        tracks.len(),
+                        album.name,
+                        album.artist
+                    );
+
+                    if !tracks.is_empty() {
+                        // Process tracks from this album immediately
+                        self.process_tracks_individually_no_timestamp_update_with_context(
+                            &tracks,
+                            ProcessingType::Search,
+                        )
+                        .await?;
+
+                        total_tracks_processed += tracks.len();
+
+                        log::info!(
+                            "Processed {} tracks from album '{}' by '{}' (total processed: {})",
+                            tracks.len(),
+                            album.name,
+                            album.artist,
+                            total_tracks_processed
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to load tracks for album '{}' by '{}': {e}",
+                        album.name,
+                        album.artist
+                    );
+                }
+            }
+
+            // Yield control periodically to allow other tasks to run
+            tokio::task::yield_now().await;
         }
-
-        // Process using shared helper without artist context
-        self.process_collected_tracks(
-            &all_tracks,
-            ProcessingType::Search,
-            "Album search processing complete",
-        )
-        .await?;
 
         // Emit cycle completed event for UI progress
         self.emit_event(ScrubberEvent::cycle_completed(
-            all_tracks.len(),
+            total_tracks_processed,
             0, // TODO: track applied count in future enhancement
         ));
 
         log::info!(
-            "Album search processing complete: processed {} tracks from {} albums matching query '{query}'",
-            all_tracks.len(),
-            albums_found.len()
+            "Album search processing complete: processed {total_tracks_processed} tracks from {total_albums} albums matching query '{query}'"
         );
 
         Ok(())
@@ -1623,7 +1615,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             };
             let log_context = context.unwrap_or(default_context);
 
-            let timeout = Duration::from_secs(10);
+            let timeout = Duration::from_secs(30);
 
             let result = if self.config.scrubber.dry_run {
                 dry_run_edit(edit).await
@@ -1648,7 +1640,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     self.emit_event(ScrubberEvent::track_edited(track, &edit_info, log_context));
                 }
                 Err(e) => {
-                    log::warn!("Failed to apply edit: {e}");
+                    // Check if this is a timeout error
+                    if e.contains("Timeout") {
+                        log::warn!("Timeout applying edit after 30s, continuing: {e}");
+                    } else {
+                        log::warn!("Failed to apply edit: {e}");
+                    }
 
                     // Emit event for failed edit
                     let edit_info = LogEditInfo {
@@ -1669,7 +1666,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         e.to_string(),
                     ));
 
-                    return Err(lastfm_edit::LastFmError::EditFailed(e));
+                    // For timeout errors, warn and continue instead of failing
+                    if e.contains("Timeout") {
+                        log::info!("Continuing after timeout error");
+                        // Don't return an error, just continue processing
+                    } else {
+                        return Err(lastfm_edit::LastFmError::EditFailed(e));
+                    }
                 }
             }
         }

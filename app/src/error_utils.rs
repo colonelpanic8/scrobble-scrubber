@@ -103,13 +103,13 @@ pub async fn apply_edit_with_timeout(
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async move {
             let client = create_client_from_session(session);
-            let timeout = std::time::Duration::from_secs(10);
+            let timeout = std::time::Duration::from_secs(30);
             scrobble_scrubber::edit::apply_edit_to_lastfm(&client, &edit, timeout).await
         })
     });
 
     // Apply timeout to the spawn_blocking operation
-    match tokio::time::timeout(std::time::Duration::from_secs(10), handle).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(30), handle).await {
         Ok(Ok(result)) => result,
         Ok(Err(e)) => Err(format!("Task execution error: {e}")),
         Err(_) => Err("Timeout applying edit to Last.fm".to_string()),
