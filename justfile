@@ -30,6 +30,49 @@ checks:
     just clippy
     cargo test --all
 
+# Update cargoHash for the Dioxus app package in flake.nix
+update-cargo-hash:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "🔄 Updating cargoHash for app package..."
+
+    # Set cargoHash to empty string to trigger hash mismatch
+    sed -i 's/cargoHash = ".*";/cargoHash = "";/' flake.nix
+
+    echo "🏗️  Building with empty hash to get the correct one..."
+    # Try to build and capture the error output
+    if OUTPUT=$(nix build .#app 2>&1); then
+        echo "✅ Build succeeded, no hash update needed"
+        exit 0
+    else
+        # Extract the correct hash from the error message
+        NEW_HASH=$(echo "$OUTPUT" | grep "got:" | sed 's/.*got: *//')
+
+        if [ -z "$NEW_HASH" ]; then
+            echo "❌ Could not extract hash from build output"
+            echo "Build output:"
+            echo "$OUTPUT"
+            exit 1
+        fi
+
+        echo "📝 Found new hash: $NEW_HASH"
+
+        # Update flake.nix with the correct hash using | as delimiter to avoid issues with / in hash
+        sed -i "s|cargoHash = \"\";|cargoHash = \"$NEW_HASH\";|" flake.nix
+
+        echo "✅ Updated flake.nix with new cargoHash"
+        echo "🔨 Verifying the build..."
+
+        # Verify the build works with the new hash
+        if nix build .#app; then
+            echo "✅ Build successful with new hash!"
+        else
+            echo "❌ Build still failing with new hash"
+            exit 1
+        fi
+    fi
+
 # Generate all required icon formats from a source image
 generate-icons SOURCE_IMAGE:
     #!/usr/bin/env bash
