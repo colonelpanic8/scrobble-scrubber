@@ -428,6 +428,21 @@ impl MusicBrainzScrubActionProvider {
         }
     }
 
+    /// Create a new provider for search operations (no release filters applied)
+    /// This ensures search operations are never filtered by release preferences
+    pub fn for_search_only(confidence_threshold: f32, max_results: usize) -> Self {
+        Self {
+            confidence_threshold,
+            max_results,
+            cache: RwLock::new(HashMap::new()),
+            release_filters: ReleaseFilterConfig {
+                filters: Vec::new(), // No filters for search operations
+                prefer_original_releases: false,
+                custom_exclusion_terms: Vec::new(),
+            },
+        }
+    }
+
     /// Set the release filter configuration
     pub fn with_release_filters(mut self, filters: ReleaseFilterConfig) -> Self {
         self.release_filters = filters;
@@ -482,11 +497,38 @@ impl MusicBrainzScrubActionProvider {
         Ok(releases)
     }
 
+    /// Verify that a track exists in MusicBrainz with the given metadata using specific release filters
+    /// This is used for MusicBrainz confirmation in rewrite rules
+    /// IMPORTANT: This checks if the track exists on a CANONICAL release according to the provided filters
+    pub async fn verify_track_exists_with_filters(
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+        release_filters: &ReleaseFilterConfig,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        // Create a temporary provider with the specified filters for verification
+        let verification_provider = Self::with_filters(0.8, 20, release_filters.clone());
+        verification_provider
+            ._verify_track_exists_on_canonical_release(artist, title, album)
+            .await
+    }
+
     /// Verify that a track exists in MusicBrainz with the given metadata
     /// This is used for MusicBrainz confirmation in rewrite rules
     /// IMPORTANT: This checks if the track exists on a CANONICAL release,
     /// not just any release (e.g., excludes Japanese bonus track releases)
     pub async fn verify_track_exists_on_canonical_release(
+        &self,
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        self._verify_track_exists_on_canonical_release(artist, title, album)
+            .await
+    }
+
+    /// Internal implementation of track verification
+    async fn _verify_track_exists_on_canonical_release(
         &self,
         artist: &str,
         title: &str,
@@ -592,11 +634,13 @@ impl MusicBrainzScrubActionProvider {
             Ok(false)
         } else {
             // No album specified - just check if track exists
+            // For verification without album, we still apply the canonical release selection
+            // but search more broadly
             let search_results = self
                 .search_musicbrainz_multiple(artist, title, None)
                 .await?;
 
-            // Just verify the track exists with matching artist
+            // Find the best match and check if it passes our canonical release filters
             for result in search_results {
                 if result.artist.eq_ignore_ascii_case(artist)
                     && result.title.eq_ignore_ascii_case(title)
@@ -623,13 +667,15 @@ impl MusicBrainzScrubActionProvider {
     }
 
     /// Search MusicBrainz for multiple tracks and return all matches with confidence scores
+    /// NOTE: This method applies release filters when selecting the "best" release for each match.
+    /// For pure search operations without filtering, use search_musicbrainz_multiple_unfiltered.
     pub async fn search_musicbrainz_multiple(
         &self,
         artist: &str,
         title: &str,
         album: Option<&str>,
     ) -> Result<Vec<MusicBrainzMatch>, Box<dyn std::error::Error + Send + Sync>> {
-        log::debug!("Searching MusicBrainz for: '{title}' by '{artist}'");
+        log::debug!("Searching MusicBrainz for: '{title}' by '{artist}' (with release filters)");
 
         // Build MusicBrainz search query
         let query_string = Self::build_track_query(artist, title, album);

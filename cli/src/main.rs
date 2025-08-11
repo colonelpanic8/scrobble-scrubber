@@ -737,22 +737,20 @@ async fn main() -> Result<()> {
     }
 
     // Add MusicBrainz provider if enabled and configured
+    // NOTE: MusicBrainz provider for search operations does not use release filters
+    // Filtering is now per-rewrite rule and only applies to verification, not search
     if config.providers.enable_musicbrainz {
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
-            if let Some(filters) = &mb_config.release_filters {
-                scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::with_filters(
-                    mb_config.confidence_threshold,
-                    mb_config.max_results,
-                    filters.clone(),
-                )
-            } else {
-                scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new(
-                    mb_config.confidence_threshold,
-                    mb_config.max_results,
-                )
-            }
+            // Use for_search_only to ensure no release filtering is applied to search operations
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
+                mb_config.confidence_threshold,
+                mb_config.max_results,
+            )
         } else {
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::default()
+            // Default provider also uses no release filtering for search operations
+            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
+                0.8, 5,
+            )
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);
