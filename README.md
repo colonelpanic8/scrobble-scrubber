@@ -1,5 +1,10 @@
 # Scrobble Scrubber
 
+[![CI](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml/badge.svg)](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Crates.io](https://img.shields.io/crates/v/scrobble-scrubber.svg)](https://crates.io/crates/scrobble-scrubber)
+[![docs.rs](https://docs.rs/scrobble-scrubber/badge.svg)](https://docs.rs/scrobble-scrubber)
+
 > **📖 For end users:** See the [**User Guide**](USER_GUIDE.md) for installation and usage instructions.
 
 Automated Last.fm track monitoring and scrubbing system that continuously monitors your recent tracks and applies cleaning rules to fix common issues.
