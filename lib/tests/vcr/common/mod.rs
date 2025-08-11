@@ -14,8 +14,8 @@ struct VcrTestSetup {
 }
 
 impl VcrTestSetup {
-    fn new(test_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let cassette_path = format!("tests/vcr/fixtures/{test_name}");
+    fn new(name: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let cassette_path = format!("tests/vcr/fixtures/{name}");
 
         let vcr_record_env = env::var("SCROBBLE_SCRUBBER_VCR_RECORD").unwrap_or_default();
         let vcr_record = !vcr_record_env.is_empty();
@@ -116,7 +116,7 @@ impl VcrTestSetup {
 /// Helper for creating Last.fm VCR test clients that EXCLUDES login from VCR recording
 /// Login happens outside VCR, only feature interactions are recorded
 /// This is the default behavior for most tests
-pub async fn create_lastfm_vcr_test_client(
+pub async fn create_lastfm_vcr_client(
     test_name: &str,
 ) -> Result<Box<dyn LastFmEditClient + Send + Sync>, Box<dyn std::error::Error>> {
     let setup = VcrTestSetup::new(test_name)?;

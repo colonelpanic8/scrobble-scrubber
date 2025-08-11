@@ -5,7 +5,7 @@ use scrobble_scrubber::scrub_action_provider::{
 use std::collections::HashMap;
 
 // Run by default. Opt out with SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=1
-fn live_mb_tests_disabled() -> bool {
+fn live_mb_disabled() -> bool {
     std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
         .map(|v| v == "1" || v.to_lowercase() == "true")
         .unwrap_or(false)
@@ -19,13 +19,13 @@ struct TrackTestCase {
 }
 
 /// Helper function to test MusicBrainz confirmation rules on albums
-async fn test_mb_confirmation_rule(
+async fn check_mb_confirmation_rule(
     rule: RewriteRule,
     artist: &str,
     original_album: &str,
     test_cases: Vec<TrackTestCase>,
 ) {
-    if live_mb_tests_disabled() {
+    if live_mb_disabled() {
         log::warn!(
             "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
         );
@@ -112,7 +112,7 @@ async fn elliott_smith_xo() {
         .with_album_name(SdRule::new(r"^(.*) \(Deluxe Edition\)$", "$1").with_flags("i"))
         .with_musicbrainz_confirmation_required(true);
 
-    test_mb_confirmation_rule(
+    check_mb_confirmation_rule(
         rule,
         "Elliott Smith",
         "XO (Deluxe Edition)",
@@ -141,7 +141,7 @@ async fn sublime() {
         )
         .with_musicbrainz_confirmation_required(true);
 
-    test_mb_confirmation_rule(
+    check_mb_confirmation_rule(
         rule,
         "Sublime",
         "Sublime (10th Anniversary Edition / Deluxe Edition)",
@@ -149,13 +149,13 @@ async fn sublime() {
             // Based on the earlier output, the 1990 demo has these tracks:
             // "Don't Push", "Ball & Chain", "Slow Ride", "Date Rape Stylee"
             TrackTestCase {
-                track_name: "Ball & Chain".to_string(),
+                track_name: "Santeria".to_string(),
                 should_be_renamed: true,
                 expected_album: Some("Sublime".to_string()),
             },
             // "Garden Grove" is NOT on the 1990 demo, only on later releases
             TrackTestCase {
-                track_name: "Garden Grove".to_string(),
+                track_name: "Doin' Time - Remixed By Marshall Arts".to_string(),
                 should_be_renamed: false,
                 expected_album: Some("Sublime".to_string()),
             },
@@ -171,7 +171,7 @@ async fn jeff_buckley_grace() {
         .with_album_name(SdRule::new(r"^(.*) \(Legacy Edition\)$", "$1").with_flags("i"))
         .with_musicbrainz_confirmation_required(true);
 
-    test_mb_confirmation_rule(
+    check_mb_confirmation_rule(
         rule,
         "Jeff Buckley",
         "Grace (Legacy Edition)",
@@ -200,7 +200,7 @@ async fn nirvana_nevermind() {
         )
         .with_musicbrainz_confirmation_required(true);
 
-    test_mb_confirmation_rule(
+    check_mb_confirmation_rule(
         rule,
         "Nirvana",
         "Nevermind (20th Anniversary Edition)",

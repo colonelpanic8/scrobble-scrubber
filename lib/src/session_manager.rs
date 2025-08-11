@@ -55,7 +55,7 @@ impl SessionManager {
 
         match tokio::time::timeout(
             std::time::Duration::from_secs(10),
-            self.test_session_validity(session),
+            self.check_session_validity(session),
         )
         .await
         {
@@ -75,7 +75,7 @@ impl SessionManager {
     }
 
     /// Test session validity by making a request to a protected settings page
-    async fn test_session_validity(&self, session: &LastFmEditSession) -> bool {
+    async fn check_session_validity(&self, session: &LastFmEditSession) -> bool {
         use reqwest::Client;
 
         let client = Client::new();

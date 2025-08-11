@@ -8,12 +8,12 @@ use scrobble_scrubber::scrubber::ScrobbleScrubber;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use super::common::create_lastfm_vcr_test_client;
+use super::common::create_lastfm_vcr_client;
 
 #[test_log::test(tokio::test)]
 async fn should_run_end_to_end_processing_with_default_rules() {
     // Create VCR client
-    let lastfm_client = create_lastfm_vcr_test_client("scrubber_end_to_end_with_default_rules")
+    let lastfm_client = create_lastfm_vcr_client("scrubber_end_to_end_with_default_rules")
         .await
         .expect("Failed to create VCR test client");
 
