@@ -560,7 +560,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             // Get tracks for this specific album
             match self
                 .client
-                .get_album_tracks(&album.artist, &album.name)
+                .get_album_tracks(&album.name, &album.artist)
                 .await
             {
                 Ok(tracks) => {
