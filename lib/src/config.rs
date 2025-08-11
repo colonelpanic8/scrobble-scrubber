@@ -223,8 +223,8 @@ pub struct MusicBrainzProviderConfig {
     pub max_results: usize,
     /// Request delay in milliseconds to be respectful to MusicBrainz API
     pub api_delay_ms: u64,
-    /// Release filter configuration
-    pub release_filters: Option<ReleaseFilterConfig>,
+    // NOTE: Release filters are now configured per-rewrite rule, not globally
+    // Use RewriteRule.musicbrainz_release_filters for per-rule filtering
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,7 +318,6 @@ impl Default for MusicBrainzProviderConfig {
             confidence_threshold: 0.8, // 80% confidence required
             max_results: 5,            // Check top 5 results
             api_delay_ms: 100,         // 100ms delay between requests
-            release_filters: Some(ReleaseFilterConfig::default()), // Use default filters
         }
     }
 }

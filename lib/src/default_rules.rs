@@ -58,6 +58,7 @@ impl From<DefaultRule> for RewriteRule {
             }),
             requires_confirmation: default_rule.requires_confirmation,
             requires_musicbrainz_confirmation: default_rule.requires_musicbrainz_confirmation,
+            musicbrainz_release_filters: None, // Default rules use default MusicBrainz filters
         }
     }
 }

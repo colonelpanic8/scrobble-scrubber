@@ -188,6 +188,7 @@ pub async fn add_rewrite_rule(
         },
         requires_confirmation: require_confirmation,
         requires_musicbrainz_confirmation: require_musicbrainz_confirmation,
+        musicbrainz_release_filters: None, // Use default filters, can be configured later if needed
     };
 
     // Load existing rules

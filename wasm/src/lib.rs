@@ -116,6 +116,7 @@ impl From<JSRewriteRule> for RewriteRule {
             album_artist_name: js_rule.album_artist_name.map(SdRule::from),
             requires_confirmation: js_rule.requires_confirmation,
             requires_musicbrainz_confirmation: js_rule.requires_musicbrainz_confirmation,
+            musicbrainz_release_filters: None, // WASM interface doesn't support custom filters yet
         }
     }
 }
@@ -236,6 +237,7 @@ pub fn create_simple_rule(
         album_artist_name: None,
         requires_confirmation: false,
         requires_musicbrainz_confirmation: false,
+        musicbrainz_release_filters: None, // WASM interface doesn't support custom filters yet
     };
 
     match field {

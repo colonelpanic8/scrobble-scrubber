@@ -150,9 +150,6 @@ impl RewriteRulesScrubActionProvider {
         let mut any_changes = false;
         let mut requires_confirmation_applied = false;
 
-        // Use a higher limit to ensure we find all recordings
-        let mb_provider = crate::musicbrainz_provider::MusicBrainzScrubActionProvider::new(0.8, 20);
-
         for rule in &self.rules {
             if !rule.matches_scrobble_edit(&edit)? {
                 continue;
@@ -165,8 +162,12 @@ impl RewriteRulesScrubActionProvider {
             }
 
             if rule.requires_musicbrainz_confirmation {
-                let confirmed =
-                    Self::verify_with_musicbrainz(&mb_provider, &candidate, track).await?;
+                let confirmed = Self::verify_with_musicbrainz_using_rule_filters(
+                    &candidate,
+                    track,
+                    rule.musicbrainz_release_filters.as_ref(),
+                )
+                .await?;
                 if !confirmed {
                     log::info!(
                         "Rewrite rule '{}' rejected by MusicBrainz confirmation for track '{} - {}' (album: {})",
@@ -192,11 +193,11 @@ impl RewriteRulesScrubActionProvider {
         }
     }
 
-    // Verify that the candidate edit corresponds to a real MB match
-    async fn verify_with_musicbrainz(
-        mb_provider: &crate::musicbrainz_provider::MusicBrainzScrubActionProvider,
+    // Verify that the candidate edit corresponds to a real MB match using rule-specific filters
+    async fn verify_with_musicbrainz_using_rule_filters(
         candidate: &ScrobbleEdit,
         track: &Track,
+        release_filters: Option<&crate::config::ReleaseFilterConfig>,
     ) -> Result<bool, ActionProviderError> {
         let artist = candidate.artist_name.clone();
         let title = candidate
@@ -205,12 +206,26 @@ impl RewriteRulesScrubActionProvider {
             .unwrap_or_else(|| track.name.clone());
         let album = candidate.album_name.clone();
 
-        // Use the MusicBrainz provider's built-in verification
-        // This will apply all the provider's internal logic including Japanese release preference
-        mb_provider
-            .verify_track_exists(&artist, &title, album.as_deref())
+        // Use rule-specific filters if provided, otherwise use default MusicBrainz provider behavior
+        if let Some(filters) = release_filters {
+            // Use static method with custom filters for this specific verification
+            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::verify_track_exists_with_filters(
+                &artist,
+                &title,
+                album.as_deref(),
+                filters,
+            )
             .await
             .map_err(|e| ActionProviderError(format!("MusicBrainz verification failed: {e}")))
+        } else {
+            // Use default provider behavior (no special filters)
+            let default_provider =
+                crate::musicbrainz_provider::MusicBrainzScrubActionProvider::new(0.8, 20);
+            default_provider
+                .verify_track_exists(&artist, &title, album.as_deref())
+                .await
+                .map_err(|e| ActionProviderError(format!("MusicBrainz verification failed: {e}")))
+        }
     }
 }
 

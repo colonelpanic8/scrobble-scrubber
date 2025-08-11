@@ -1,3 +1,4 @@
+use crate::config::ReleaseFilterConfig;
 use lastfm_edit::{ScrobbleEdit, Track};
 use serde::{Deserialize, Serialize};
 
@@ -293,6 +294,10 @@ pub struct RewriteRule {
     /// If true, the rewritten values must be validated against MusicBrainz before the edit is suggested/applied
     #[serde(default)]
     pub requires_musicbrainz_confirmation: bool,
+    /// Release filter configuration for MusicBrainz verification (only applies when requires_musicbrainz_confirmation is true)
+    /// If None, uses default MusicBrainz provider filters. These filters are NEVER applied to search operations.
+    #[serde(default)]
+    pub musicbrainz_release_filters: Option<ReleaseFilterConfig>,
 }
 
 impl RewriteRule {
@@ -307,6 +312,7 @@ impl RewriteRule {
             album_artist_name: None,
             requires_confirmation: false,
             requires_musicbrainz_confirmation: false,
+            musicbrainz_release_filters: None,
         }
     }
 
@@ -359,6 +365,14 @@ impl RewriteRule {
         requires_musicbrainz_confirmation: bool,
     ) -> Self {
         self.requires_musicbrainz_confirmation = requires_musicbrainz_confirmation;
+        self
+    }
+
+    /// Set MusicBrainz release filters for verification (only applies when requires_musicbrainz_confirmation is true)
+    /// These filters are NEVER applied to search operations, only to confirmation/verification.
+    #[must_use]
+    pub fn with_musicbrainz_release_filters(mut self, filters: ReleaseFilterConfig) -> Self {
+        self.musicbrainz_release_filters = Some(filters);
         self
     }
 
