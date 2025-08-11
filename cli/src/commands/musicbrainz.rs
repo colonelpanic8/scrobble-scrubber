@@ -131,7 +131,6 @@ impl MusicBrainzCommands {
 
         // Create a provider instance to use its preference settings
         let provider = MusicBrainzScrubActionProvider::new(0.8, 20);
-        let prefer_non_japanese = provider.prefer_non_japanese_releases();
 
         for (album_title, group) in album_groups.iter() {
             println!("📀 Album: {album_title}");
@@ -140,10 +139,7 @@ impl MusicBrainzCommands {
             let group_owned: Vec<_> = group.iter().map(|r| (*r).clone()).collect();
 
             // Use provider's method to select canonical
-            let canonical = MusicBrainzScrubActionProvider::select_canonical_release(
-                &group_owned,
-                prefer_non_japanese,
-            );
+            let canonical = provider.select_canonical_release(&group_owned);
 
             for release in group {
                 let is_canonical = canonical
@@ -211,11 +207,7 @@ impl MusicBrainzCommands {
 
             if !releases.is_empty() {
                 // Use provider's method to select canonical release
-                let canonical = MusicBrainzScrubActionProvider::select_canonical_release(
-                    &releases,
-                    provider.prefer_non_japanese_releases(),
-                )
-                .unwrap();
+                let canonical = provider.select_canonical_release(&releases).unwrap();
 
                 println!("🎯 CANONICAL RELEASE SELECTED BY PROVIDER:");
                 println!("   Title: {}", canonical.title);

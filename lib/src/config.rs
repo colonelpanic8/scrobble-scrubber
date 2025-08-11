@@ -177,6 +177,45 @@ pub struct HttpProviderConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReleaseFilterType {
+    /// Exclude demo releases
+    ExcludeDemo,
+    /// Exclude special editions (deluxe, legacy, expanded, etc.)
+    ExcludeSpecialEdition,
+    /// Prefer non-Japanese releases when multiple are available
+    PreferNonJapanese,
+    /// Exclude releases with specific disambiguation terms
+    ExcludeByDisambiguation { terms: Vec<String> },
+    /// Exclude releases from specific countries
+    ExcludeByCountry { countries: Vec<String> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReleaseFilterConfig {
+    /// List of active filters to apply
+    pub filters: Vec<ReleaseFilterType>,
+    /// General preference for original releases over reissues
+    pub prefer_original_releases: bool,
+    /// Additional custom terms to exclude from disambiguation
+    pub custom_exclusion_terms: Vec<String>,
+}
+
+impl Default for ReleaseFilterConfig {
+    fn default() -> Self {
+        Self {
+            filters: vec![
+                ReleaseFilterType::ExcludeDemo,
+                ReleaseFilterType::PreferNonJapanese,
+                ReleaseFilterType::ExcludeSpecialEdition,
+            ],
+            prefer_original_releases: true,
+            custom_exclusion_terms: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MusicBrainzProviderConfig {
     /// Confidence threshold for accepting MusicBrainz matches (0.0-1.0)
     pub confidence_threshold: f32,
@@ -184,6 +223,8 @@ pub struct MusicBrainzProviderConfig {
     pub max_results: usize,
     /// Request delay in milliseconds to be respectful to MusicBrainz API
     pub api_delay_ms: u64,
+    /// Release filter configuration
+    pub release_filters: Option<ReleaseFilterConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -277,6 +318,7 @@ impl Default for MusicBrainzProviderConfig {
             confidence_threshold: 0.8, // 80% confidence required
             max_results: 5,            // Check top 5 results
             api_delay_ms: 100,         // 100ms delay between requests
+            release_filters: Some(ReleaseFilterConfig::default()), // Use default filters
         }
     }
 }

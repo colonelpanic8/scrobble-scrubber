@@ -1,3 +1,4 @@
+use crate::config::{ReleaseFilterConfig, ReleaseFilterType};
 use crate::persistence::{PendingEdit, PendingRewriteRule};
 use crate::scrub_action_provider::{ScrubActionProvider, SuggestionWithContext};
 use async_trait::async_trait;
@@ -14,7 +15,7 @@ pub struct MusicBrainzScrubActionProvider {
     confidence_threshold: f32,
     max_results: usize,
     cache: RwLock<HashMap<String, Option<MusicBrainzMatch>>>,
-    prefer_non_japanese_releases: bool,
+    release_filters: ReleaseFilterConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +46,90 @@ impl MusicBrainzScrubActionProvider {
             .unwrap_or(false)
     }
 
+    /// Check if a release is a demo in its disambiguation
+    pub fn is_demo(release: &musicbrainz_rs::entity::release::Release) -> bool {
+        release
+            .disambiguation
+            .as_ref()
+            .map(|d| {
+                let d_lower = d.to_lowercase();
+                d_lower.contains("demo")
+            })
+            .unwrap_or(false)
+    }
+
+    /// Check if a release should be excluded based on configured filters
+    pub fn should_exclude_release(
+        &self,
+        release: &musicbrainz_rs::entity::release::Release,
+    ) -> bool {
+        for filter in &self.release_filters.filters {
+            match filter {
+                ReleaseFilterType::ExcludeDemo => {
+                    if Self::is_demo(release) {
+                        return true;
+                    }
+                }
+                ReleaseFilterType::ExcludeSpecialEdition => {
+                    if Self::is_special_edition(release) {
+                        return true;
+                    }
+                }
+                ReleaseFilterType::ExcludeByDisambiguation { terms } => {
+                    if let Some(disambiguation) = &release.disambiguation {
+                        let d_lower = disambiguation.to_lowercase();
+                        if terms
+                            .iter()
+                            .any(|term| d_lower.contains(&term.to_lowercase()))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                ReleaseFilterType::ExcludeByCountry { countries } => {
+                    if let Some(country) = &release.country {
+                        if countries.iter().any(|c| c.eq_ignore_ascii_case(country)) {
+                            return true;
+                        }
+                    }
+                }
+                // PreferNonJapanese is handled differently (deprioritization, not exclusion)
+                ReleaseFilterType::PreferNonJapanese => {}
+            }
+        }
+
+        // Check custom exclusion terms
+        if !self.release_filters.custom_exclusion_terms.is_empty() {
+            if let Some(disambiguation) = &release.disambiguation {
+                let d_lower = disambiguation.to_lowercase();
+                if self
+                    .release_filters
+                    .custom_exclusion_terms
+                    .iter()
+                    .any(|term| d_lower.contains(&term.to_lowercase()))
+                {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if a release should be deprioritized based on configured filters
+    pub fn should_deprioritize_release(
+        &self,
+        release: &musicbrainz_rs::entity::release::Release,
+    ) -> bool {
+        // Currently only Japanese releases are deprioritized rather than excluded
+        if self.prefer_non_japanese_releases() {
+            if let Some(country) = &release.country {
+                return country == "JP";
+            }
+        }
+        false
+    }
+
     /// Compare releases by date for sorting (earliest first)
     fn compare_release_dates(
         a: &musicbrainz_rs::entity::release::Release,
@@ -73,16 +158,29 @@ impl MusicBrainzScrubActionProvider {
     }
 
     /// Select the canonical release from a list of releases
-    pub fn select_canonical_release(
-        releases: &[musicbrainz_rs::entity::release::Release],
-        prefer_non_japanese: bool,
-    ) -> Option<&musicbrainz_rs::entity::release::Release> {
+    pub fn select_canonical_release<'a>(
+        &self,
+        releases: &'a [musicbrainz_rs::entity::release::Release],
+    ) -> Option<&'a musicbrainz_rs::entity::release::Release> {
         if releases.is_empty() {
             return None;
         }
 
+        // Filter out excluded releases based on configured filters
+        let filtered_releases: Vec<_> = releases
+            .iter()
+            .filter(|r| !self.should_exclude_release(r))
+            .collect();
+
+        // If all releases are excluded, fall back to all releases
+        let working_releases = if filtered_releases.is_empty() {
+            releases.iter().collect()
+        } else {
+            filtered_releases
+        };
+
         // Sort releases by date
-        let mut sorted_releases: Vec<_> = releases.iter().collect();
+        let mut sorted_releases: Vec<_> = working_releases;
         sorted_releases.sort_by(|a, b| Self::compare_release_dates(a, b));
 
         // Get earliest year
@@ -108,24 +206,42 @@ impl MusicBrainzScrubActionProvider {
             .copied()
             .collect();
 
-        if prefer_non_japanese {
-            // Check if there are any non-Japanese releases available
-            let has_non_jp = contemporary
+        // Apply deprioritization filters (e.g., Japanese releases)
+        if self.prefer_non_japanese_releases() {
+            // Check if there are any non-deprioritized releases available
+            let has_non_deprioritized = contemporary
                 .iter()
-                .any(|r| r.country.as_ref().map(|c| c != "JP").unwrap_or(true));
+                .any(|r| !self.should_deprioritize_release(r));
 
-            if has_non_jp {
-                // First pass: non-special, non-Japanese releases
+            if has_non_deprioritized {
+                // First pass: non-special, non-deprioritized releases
+                // Prefer US releases when multiple are available
                 if let Some(release) = contemporary.iter().find(|r| {
-                    let is_japanese = r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
-                    !Self::is_special_edition(r) && !is_japanese
+                    !Self::is_special_edition(r)
+                        && !self.should_deprioritize_release(r)
+                        && r.country.as_ref().map(|c| c == "US").unwrap_or(false)
                 }) {
+                    return Some(release);
+                }
+
+                // If no US release, take any non-special, non-deprioritized release
+                if let Some(release) = contemporary
+                    .iter()
+                    .find(|r| !Self::is_special_edition(r) && !self.should_deprioritize_release(r))
+                {
                     return Some(release);
                 }
             }
         }
 
-        // Second pass: any non-special edition
+        // Second pass: any non-special edition (including deprioritized ones)
+        // Still prefer US releases
+        if let Some(release) = contemporary.iter().find(|r| {
+            !Self::is_special_edition(r) && r.country.as_ref().map(|c| c == "US").unwrap_or(false)
+        }) {
+            return Some(release);
+        }
+
         if let Some(release) = contemporary.iter().find(|r| !Self::is_special_edition(r)) {
             return Some(release);
         }
@@ -223,7 +339,7 @@ impl MusicBrainzScrubActionProvider {
             if let Some(result) = Self::select_matching_album_release(
                 releases,
                 album,
-                self.prefer_non_japanese_releases,
+                self.prefer_non_japanese_releases(),
             ) {
                 return Some(result);
             }
@@ -231,7 +347,7 @@ impl MusicBrainzScrubActionProvider {
 
         // No desired album or no matches found - pick the earliest release overall
         // Apply the same Japanese release preference here
-        if self.prefer_non_japanese_releases {
+        if self.prefer_non_japanese_releases() {
             // Check if there are non-Japanese releases
             let has_non_jp = releases
                 .iter()
@@ -294,19 +410,41 @@ impl MusicBrainzScrubActionProvider {
             confidence_threshold,
             max_results,
             cache: RwLock::new(HashMap::new()),
-            prefer_non_japanese_releases: true, // Default to preferring non-Japanese releases
+            release_filters: ReleaseFilterConfig::default(),
         }
     }
 
-    /// Set whether to prefer non-Japanese releases when multiple are available
-    pub fn with_japanese_preference(mut self, prefer_non_japanese: bool) -> Self {
-        self.prefer_non_japanese_releases = prefer_non_japanese;
+    /// Create a new provider with custom filter configuration
+    pub fn with_filters(
+        confidence_threshold: f32,
+        max_results: usize,
+        release_filters: ReleaseFilterConfig,
+    ) -> Self {
+        Self {
+            confidence_threshold,
+            max_results,
+            cache: RwLock::new(HashMap::new()),
+            release_filters,
+        }
+    }
+
+    /// Set the release filter configuration
+    pub fn with_release_filters(mut self, filters: ReleaseFilterConfig) -> Self {
+        self.release_filters = filters;
         self
     }
 
-    /// Get the current Japanese release preference setting
+    /// Get the current release filter configuration
+    pub fn release_filters(&self) -> &ReleaseFilterConfig {
+        &self.release_filters
+    }
+
+    /// Check if Japanese releases should be deprioritized
     pub fn prefer_non_japanese_releases(&self) -> bool {
-        self.prefer_non_japanese_releases
+        self.release_filters
+            .filters
+            .iter()
+            .any(|f| matches!(f, ReleaseFilterType::PreferNonJapanese))
     }
 
     /// Search for album releases by artist and optional album filter
@@ -386,7 +524,7 @@ impl MusicBrainzScrubActionProvider {
             }
 
             // Filter to only releases that match the album title exactly
-            let mut releases: Vec<_> = album_search
+            let releases: Vec<_> = album_search
                 .entities
                 .into_iter()
                 .filter(|r| r.title.eq_ignore_ascii_case(desired_album))
@@ -399,56 +537,13 @@ impl MusicBrainzScrubActionProvider {
                 return Ok(false);
             }
 
-            // Sort releases by date to find the canonical one
-            releases.sort_by(|a, b| {
-                let a_date = a.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
-                let b_date = b.date.as_ref().map(|d| d.0.as_str()).unwrap_or("9999");
-                a_date.cmp(b_date)
-            });
-
-            // Select the canonical release
-            let canonical_release = if self.prefer_non_japanese_releases {
-                // Get earliest release year
-                let earliest_year = releases
-                    .first()
-                    .and_then(|r| r.date.as_ref())
-                    .and_then(|d| d.0.get(..4))
-                    .and_then(|y| y.parse::<i32>().ok())
-                    .unwrap_or(9999);
-
-                // Find contemporary releases (within 1 year of earliest)
-                let contemporary: Vec<_> = releases
-                    .iter()
-                    .filter(|r| {
-                        let year = r
-                            .date
-                            .as_ref()
-                            .and_then(|d| d.0.get(..4))
-                            .and_then(|y| y.parse::<i32>().ok())
-                            .unwrap_or(9999);
-                        (year - earliest_year).abs() <= 1
-                    })
-                    .collect();
-
-                // Prefer non-Japanese, non-special edition from contemporary releases
-                contemporary
-                    .iter()
-                    .find(|r| {
-                        let is_jp = r.country.as_ref().map(|c| c == "JP").unwrap_or(false);
-                        !is_jp && !Self::is_special_edition(r)
-                    })
-                    .copied()
-                    .or_else(|| {
-                        // Fallback to any non-special edition
-                        contemporary
-                            .iter()
-                            .find(|r| !Self::is_special_edition(r))
-                            .copied()
-                    })
-                    .or_else(|| contemporary.first().copied())
-                    .unwrap_or(&releases[0])
-            } else {
-                &releases[0] // Just take the earliest
+            // Select the canonical release using the configured filters
+            let canonical_release = match self.select_canonical_release(&releases) {
+                Some(r) => r,
+                None => {
+                    log::debug!("No canonical release could be selected");
+                    return Ok(false);
+                }
             };
 
             log::debug!(

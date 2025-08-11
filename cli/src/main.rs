@@ -739,10 +739,18 @@ async fn main() -> Result<()> {
     // Add MusicBrainz provider if enabled and configured
     if config.providers.enable_musicbrainz {
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new(
-                mb_config.confidence_threshold,
-                mb_config.max_results,
-            )
+            if let Some(filters) = &mb_config.release_filters {
+                scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::with_filters(
+                    mb_config.confidence_threshold,
+                    mb_config.max_results,
+                    filters.clone(),
+                )
+            } else {
+                scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::new(
+                    mb_config.confidence_threshold,
+                    mb_config.max_results,
+                )
+            }
         } else {
             scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::default()
         };
