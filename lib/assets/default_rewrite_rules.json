@@ -70,13 +70,14 @@
     },
     {
       "name": "Remove Plain Remastered",
-      "description": "Removes patterns like 'Song - Remastered'",
+      "description": "Removes patterns like 'Song - Remastered' or 'Song - remastered'",
       "examples": [
         "Such Great Heights - Remastered → Such Great Heights",
-        "Virtual Insanity - Remastered → Virtual Insanity"
+        "Virtual Insanity - Remastered → Virtual Insanity",
+        "Transport Is Arranged - remastered → Transport Is Arranged"
       ],
       "track_name": {
-        "find": "^(.+?) - Remastered$",
+        "find": "^(.+?) - [Rr]emastered$",
         "replace": "$1"
       },
       "requires_confirmation": false
@@ -475,6 +476,39 @@
       ],
       "album_name": {
         "find": "^(.+?)\\s*\\(Deluxe\\)\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": false
+    },
+    {
+      "name": "Remove Deluxe Version",
+      "description": "Removes patterns like 'Album (Deluxe Version)'",
+      "examples": [
+        "F.A.M.E. (Deluxe Version) → F.A.M.E.",
+        "Transistor Radio (Deluxe Version) → Transistor Radio",
+        "Bangerz (Deluxe Version) → Bangerz",
+        "Night Visions (Deluxe Version) → Night Visions"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(Deluxe Version\\)\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false,
+      "requires_musicbrainz_confirmation": false
+    },
+    {
+      "name": "Remove [Deluxe Version]",
+      "description": "Removes patterns like 'Album [Deluxe Version]' with square brackets",
+      "examples": [
+        "Skelethon [Deluxe Version] → Skelethon",
+        "Will Rap for Food [Deluxe Edition] → Will Rap for Food",
+        "Southernunderground [Deluxe Edition] → Southernunderground"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\[Deluxe (?:Version|Edition)\\]\\s*$",
         "replace": "$1",
         "flags": "i"
       },
