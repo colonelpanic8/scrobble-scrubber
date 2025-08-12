@@ -940,7 +940,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         )));
 
         // Get tracks for the specific album
-        let tracks_to_process = self.client.get_album_tracks(album, artist).await?;
+        let mut album_tracks_iter = self.client.album_tracks(album, artist);
+        let mut tracks_to_process = Vec::new();
+        while let Some(track) = album_tracks_iter.next().await? {
+            tracks_to_process.push(track);
+        }
 
         log::info!(
             "Found {} tracks for album '{album}' by '{artist}'",
@@ -1075,45 +1079,46 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             );
 
             // Load tracks for this specific album
-            match self
-                .client
-                .get_album_tracks(&album.name, &album.artist)
-                .await
-            {
-                Ok(tracks) => {
-                    log::debug!(
-                        "Found {} tracks in album '{}' by '{}'",
-                        tracks.len(),
-                        album.name,
-                        album.artist
-                    );
-
-                    if !tracks.is_empty() {
-                        // Process tracks from this album immediately
-                        self.process_tracks_individually_no_timestamp_update_with_context(
-                            &tracks,
-                            ProcessingType::Search,
-                        )
-                        .await?;
-
-                        total_tracks_processed += tracks.len();
-
-                        log::info!(
-                            "Processed {} tracks from album '{}' by '{}' (total processed: {})",
-                            tracks.len(),
-                            album.name,
-                            album.artist,
-                            total_tracks_processed
-                        );
-                    }
-                }
+            let mut album_tracks_iter = self.client.album_tracks(&album.name, &album.artist);
+            let mut tracks = Vec::new();
+            while let Some(track) = match album_tracks_iter.next().await {
+                Ok(track) => track,
                 Err(e) => {
-                    log::warn!(
-                        "Failed to load tracks for album '{}' by '{}': {e}",
+                    log::error!(
+                        "Error loading tracks for album '{}' by '{}': {e}",
                         album.name,
                         album.artist
                     );
+                    None
                 }
+            } {
+                tracks.push(track);
+            }
+
+            if !tracks.is_empty() {
+                log::debug!(
+                    "Found {} tracks in album '{}' by '{}'",
+                    tracks.len(),
+                    album.name,
+                    album.artist
+                );
+
+                // Process tracks from this album immediately
+                self.process_tracks_individually_no_timestamp_update_with_context(
+                    &tracks,
+                    ProcessingType::Search,
+                )
+                .await?;
+
+                total_tracks_processed += tracks.len();
+
+                log::info!(
+                    "Processed {} tracks from album '{}' by '{}' (total processed: {})",
+                    tracks.len(),
+                    album.name,
+                    album.artist,
+                    total_tracks_processed
+                );
             }
 
             // Yield control periodically to allow other tasks to run
