@@ -1,20 +1,22 @@
-mod commands;
+pub mod auth;
+pub mod commands;
 
+#[cfg(feature = "openai")]
+use crate::config::OpenAIProviderConfig;
+use crate::config::{ScrobbleScrubberConfig, StorageConfig};
+use crate::event_logger::EventLogger;
+#[cfg(feature = "openai")]
+use crate::openai_provider::OpenAIScrubActionProvider;
+use crate::persistence::{FileStorage, StateStorage};
+use crate::scrub_action_provider::{OrScrubActionProvider, RewriteRulesScrubActionProvider};
+use crate::scrubber::ScrobbleScrubber;
+use crate::session_manager::SessionManager;
 use clap::{Parser, Subcommand, ValueEnum};
 use commands::cache::load_artist_tracks_cli;
 use commands::rules::enable_default_rules;
 use commands::*;
 use config::ConfigError;
-use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
-use scrobble_scrubber::config::{OpenAIProviderConfig, ScrobbleScrubberConfig, StorageConfig};
-use scrobble_scrubber::event_logger::EventLogger;
-use scrobble_scrubber::openai_provider::OpenAIScrubActionProvider;
-use scrobble_scrubber::persistence::{FileStorage, StateStorage};
-use scrobble_scrubber::scrub_action_provider::{
-    OrScrubActionProvider, RewriteRulesScrubActionProvider,
-};
-use scrobble_scrubber::scrubber::ScrobbleScrubber;
-use scrobble_scrubber::session_manager::SessionManager;
+use lastfm_edit::{LastFmError, Result};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -530,6 +532,7 @@ fn merge_args_into_config(
         config.storage.state_file =
             StorageConfig::get_default_state_file_path_for_user(Some(&config.lastfm.username));
     }
+    #[cfg(feature = "openai")]
     if let Some(api_key) = &args.openai_api_key {
         if config.providers.openai.is_none() {
             config.providers.openai = Some(OpenAIProviderConfig {
@@ -565,56 +568,7 @@ fn merge_args_into_config(
     config
 }
 
-/// Create an authenticated Last.fm client, using saved session if available
-async fn create_authenticated_client(
-    config: &ScrobbleScrubberConfig,
-) -> Result<LastFmEditClientImpl> {
-    let session_manager = SessionManager::new(&config.lastfm.username);
-
-    // Try to restore an existing session first
-    if let Some(persisted_session) = session_manager.try_restore_session().await {
-        log::info!(
-            "Using existing session for user: {}",
-            persisted_session.username
-        );
-        let http_client = http_client::native::NativeClient::new();
-        return Ok(LastFmEditClientImpl::from_session(
-            Box::new(http_client),
-            persisted_session,
-        ));
-    }
-
-    // No valid session found, need to login with credentials
-    log::info!("No valid session found, logging in to Last.fm...");
-
-    if config.lastfm.username.is_empty() || config.lastfm.password.is_empty() {
-        return Err(LastFmError::Io(std::io::Error::other(
-            "Username and password are required for login. Please check your configuration.",
-        )));
-    }
-
-    // Create new session and save it
-    match session_manager
-        .create_and_save_session(&config.lastfm.username, &config.lastfm.password)
-        .await
-    {
-        Ok(persisted_session) => {
-            log::info!("Successfully logged in and saved session for future use");
-            let http_client = http_client::native::NativeClient::new();
-            Ok(LastFmEditClientImpl::from_session(
-                Box::new(http_client),
-                persisted_session,
-            ))
-        }
-        Err(e) => {
-            log::error!("Login failed: {e}");
-            Err(e)
-        }
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
+pub async fn run() -> Result<()> {
     // Initialize env_logger from environment variables (RUST_LOG), fallback to Info level
     env_logger::init();
     let args = Args::parse();
@@ -632,7 +586,7 @@ async fn main() -> Result<()> {
     );
 
     // Create and login to LastFM client (using session if available)
-    let client = create_authenticated_client(&config).await?;
+    let client = auth::create_authenticated_client(&config).await?;
 
     // Create storage wrapped in Arc<Mutex<>>
     log::info!("Using state file: {}", config.storage.state_file);
@@ -679,6 +633,7 @@ async fn main() -> Result<()> {
     }
 
     // Add OpenAI provider if enabled and configured
+    #[cfg(feature = "openai")]
     if config.providers.enable_openai {
         // Try to get OpenAI config, or create default from environment variables
         let openai_config_opt = if let Some(openai_config) = &config.providers.openai {
@@ -735,6 +690,10 @@ async fn main() -> Result<()> {
             }
         }
     }
+    #[cfg(not(feature = "openai"))]
+    if config.providers.enable_openai {
+        log::warn!("OpenAI provider requested but not compiled with openai feature");
+    }
 
     // Add MusicBrainz provider if enabled and configured
     // NOTE: MusicBrainz provider for search operations does not use release filters
@@ -742,15 +701,13 @@ async fn main() -> Result<()> {
     if config.providers.enable_musicbrainz {
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
             // Use for_search_only to ensure no release filtering is applied to search operations
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
+            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
                 mb_config.confidence_threshold,
                 mb_config.max_results,
             )
         } else {
             // Default provider also uses no release filtering for search operations
-            scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
-                0.8, 5,
-            )
+            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(0.8, 5)
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);

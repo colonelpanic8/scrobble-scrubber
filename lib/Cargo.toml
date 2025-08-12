@@ -12,6 +12,11 @@ categories = ["multimedia::audio"]
 name = "scrobble_scrubber"
 path = "src/lib.rs"
 
+[[bin]]
+name = "scrobble-scrubber"
+path = "src/cli/main.rs"
+required-features = ["cli"]
+
 [dependencies]
 # Core dependencies always included
 serde = { version = "1.0", features = ["derive"] }
@@ -35,6 +40,14 @@ pickledb = { version = "0.5", optional = true }
 config = { version = "0.14", optional = true }
 dirs = { version = "6.0.0", optional = true }
 
+# CLI-specific dependencies
+clap = { version = "4.0", features = ["derive"], optional = true }
+env_logger = { version = "0.11", optional = true }
+
+# TUI dependencies
+ratatui = { version = "0.28", optional = true }
+crossterm = { version = "0.27", optional = true }
+
 
 # HTTP client - used by MusicBrainz (always) and OpenAI (optional)
 reqwest = { version = "0.11", features = ["json"] }
@@ -46,9 +59,9 @@ openai-api-rs = { version = "6.0.7", optional = true }
 musicbrainz_rs = { version = "0.12.0" }
 
 [features]
-default = ["tokio", "http-client/curl_client", "cli"]
+default = ["tokio", "http-client/curl_client", "cli", "pickledb"]
 full = ["tokio", "openai", "cli", "pickledb", "http-client/curl_client"]
-cli = ["config", "dirs"]
+cli = ["config", "dirs", "clap", "env_logger", "ratatui", "crossterm", "pickledb"]
 pickledb = ["dep:pickledb"]
 wasm = ["http-client/wasm_client", "lastfm-edit/wasm", "chrono/wasm-bindgen"]  # WASM-compatible feature set
 openai = ["openai-api-rs"]

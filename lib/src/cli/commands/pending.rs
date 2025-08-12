@@ -1,6 +1,6 @@
+use crate::config::ScrobbleScrubberConfig;
+use crate::persistence::{FileStorage, PendingEdit, PendingEditsState, StateStorage};
 use clap::{Args, Subcommand};
-use scrobble_scrubber::config::ScrobbleScrubberConfig;
-use scrobble_scrubber::persistence::{FileStorage, PendingEdit, PendingEditsState, StateStorage};
 use std::path::PathBuf;
 
 #[derive(Args, Debug, Clone)]
@@ -91,7 +91,7 @@ async fn apply_pending_edit(
 
     // Apply the edit directly with the authenticated client
     let config = ScrobbleScrubberConfig::load()?;
-    let client = crate::create_authenticated_client(&config).await?;
+    let client = crate::cli::auth::create_authenticated_client(&config).await?;
 
     match client.edit_scrobble(&scrobble_edit).await {
         Ok(_) => {

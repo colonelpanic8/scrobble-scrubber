@@ -1,6 +1,6 @@
+use crate::persistence::StateStorage;
+use crate::rewrite::{load_comprehensive_default_rules, RewriteRule, SdRule};
 use lastfm_edit::{LastFmError, Result};
-use scrobble_scrubber::persistence::StateStorage;
-use scrobble_scrubber::rewrite::{load_comprehensive_default_rules, RewriteRule, SdRule};
 use std::collections::HashSet;
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 /// Show current active rewrite rules
 pub async fn show_active_rules(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
 ) -> Result<()> {
     println!("📝 Active Rewrite Rules");
     println!("=====================");
@@ -82,7 +82,7 @@ pub async fn show_active_rules(
 #[allow(clippy::too_many_arguments)]
 /// Add a new rewrite rule
 pub async fn add_rewrite_rule(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
     name: Option<&str>,
     track_find: Option<&str>,
     track_replace: Option<&str>,
@@ -254,7 +254,7 @@ pub async fn add_rewrite_rule(
 
 /// Remove a rewrite rule
 pub async fn remove_rewrite_rule(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
     index: Option<usize>,
     name: Option<&str>,
     all: bool,
@@ -367,7 +367,7 @@ fn rule_signature(rule: &RewriteRule) -> String {
 
 /// Enable all default rewrite rules, avoiding duplicates
 pub async fn enable_default_rules(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
 ) -> Result<()> {
     println!("📝 Enabling Default Rewrite Rules");
     println!("=================================");

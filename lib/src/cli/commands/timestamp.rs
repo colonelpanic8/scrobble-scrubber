@@ -1,12 +1,12 @@
+use crate::persistence::{StateStorage, TimestampState};
+use crate::track_cache::TrackCache;
 use lastfm_edit::{LastFmError, Result};
-use scrobble_scrubber::persistence::{StateStorage, TimestampState};
-use scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Set timestamp anchor back N tracks from current position
 pub async fn set_timestamp_anchor(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
     tracks_back: u32,
 ) -> Result<()> {
     use chrono::DateTime;
@@ -69,7 +69,7 @@ pub async fn set_timestamp_anchor(
 
 /// Set timestamp anchor to a specific timestamp
 pub async fn set_timestamp_anchor_to_timestamp(
-    storage: &Arc<Mutex<scrobble_scrubber::persistence::FileStorage>>,
+    storage: &Arc<Mutex<crate::persistence::FileStorage>>,
     timestamp_str: &str,
 ) -> Result<()> {
     use chrono::DateTime;

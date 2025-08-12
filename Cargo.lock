@@ -6122,8 +6122,11 @@ version = "1.0.15"
 dependencies = [
  "async-trait",
  "chrono",
+ "clap",
  "config 0.14.1",
+ "crossterm 0.27.0",
  "dirs 6.0.0",
+ "env_logger",
  "http-client-2",
  "http-client-vcr",
  "lastfm-edit",
@@ -6132,6 +6135,7 @@ dependencies = [
  "musicbrainz_rs",
  "openai-api-rs",
  "pickledb",
+ "ratatui",
  "regex",
  "reqwest 0.11.27",
  "serde",
@@ -6167,28 +6171,6 @@ dependencies = [
  "tray-icon 0.17.0",
  "urlencoding",
  "uuid",
-]
-
-[[package]]
-name = "scrobble-scrubber-cli"
-version = "1.0.15"
-dependencies = [
- "chrono",
- "clap",
- "config 0.14.1",
- "crossterm 0.27.0",
- "dirs 6.0.0",
- "env_logger",
- "http-client-2",
- "http-types-2",
- "lastfm-edit",
- "log",
- "musicbrainz_rs",
- "ratatui",
- "regex",
- "scrobble-scrubber",
- "serde_json",
- "tokio",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
+use crate::musicbrainz_provider::MusicBrainzScrubActionProvider;
+use crate::scrub_action_provider::ScrubActionProvider;
 use clap::Subcommand;
 use lastfm_edit::Track;
-use scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
-use scrobble_scrubber::scrub_action_provider::ScrubActionProvider;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum MusicBrainzCommands {

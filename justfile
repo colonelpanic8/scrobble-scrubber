@@ -139,3 +139,121 @@ generate-icons SOURCE_IMAGE:
     echo '  "assets/icons/icon.icns",'
     echo '  "assets/icons/icon.ico"'
     echo ']'
+
+release bump_type="patch":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "🚀 Releasing new {{bump_type}} version for workspace packages..."
+
+    # Check if cargo-edit is installed
+    if ! command -v cargo-set-version &> /dev/null; then
+        echo "❌ cargo-edit is not installed. Installing..."
+        cargo install cargo-edit
+    fi
+
+    # Get current version from workspace
+    current_version=$(grep "^version" Cargo.toml | head -1 | cut -d'"' -f2)
+    echo "📦 Current workspace version: $current_version"
+
+    # Bump version in workspace root
+    echo "⬆️  Bumping {{bump_type}} version in workspace..."
+    cargo set-version --workspace --bump {{bump_type}}
+
+    # Get new version
+    new_version=$(grep "^version" Cargo.toml | head -1 | cut -d'"' -f2)
+    echo "📦 New version: $new_version"
+
+    # Run checks to ensure everything still works
+    echo "🔍 Running checks..."
+    just checks
+
+    # Build release versions for lib and cli
+    echo "🔨 Building release versions..."
+    echo "  📚 Building library..."
+    cargo build --release -p scrobble-scrubber
+    echo "  🖥️  Building CLI..."
+    cargo build --release -p scrobble-scrubber-cli
+
+    # Add all changes
+    git add .
+
+    # Create commit with auto-generated message
+    echo "💾 Committing changes..."
+    git commit -m "Bump version to $new_version
+
+    🤖 Generated with [Claude Code](https://claude.ai/code)
+
+    Co-Authored-By: Claude <noreply@anthropic.com>"
+
+    # Create git tag
+    echo "🏷️  Creating tag v$new_version..."
+    git tag "v$new_version"
+
+    echo "✅ Release v$new_version ready!"
+    echo "📤 To publish, run:"
+    echo "   git push origin master"
+    echo "   git push origin v$new_version"
+    echo "   just publish-crates"
+
+# Full release with automatic push and publish
+# Usage: just publish [patch|minor|major]
+publish bump_type="patch":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Run the release process
+    just release {{bump_type}}
+
+    # Get the new version for confirmation
+    new_version=$(grep "^version" Cargo.toml | head -1 | cut -d'"' -f2)
+
+    echo "🌐 Publishing release v$new_version..."
+
+    # Push commits and tags
+    echo "📤 Pushing to remote..."
+    git push origin master
+    git push origin "v$new_version"
+
+    # Publish packages to crates.io
+    just publish-crates
+
+    echo "🎉 Release v$new_version published successfully!"
+
+# Publish workspace packages to crates.io in the correct order
+publish-crates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "📦 Publishing packages to crates.io..."
+
+    # First publish the library package (scrobble-scrubber)
+    echo "📚 Publishing library package..."
+    cd lib && cargo publish --allow-dirty
+    
+    # Wait a bit for crates.io to process the library
+    echo "⏳ Waiting for crates.io to process library package..."
+    sleep 30
+    
+    # Then publish the CLI package (scrobble-scrubber-cli)
+    echo "🖥️  Publishing CLI package..."
+    cd ../cli && cargo publish --allow-dirty
+    
+    echo "✅ All packages published successfully!"
+
+# Dry run of publishing to see what would be published
+publish-dry-run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "🔍 Dry run of publishing packages..."
+
+    echo "📚 Library package (scrobble-scrubber):"
+    cd lib && cargo publish --dry-run --allow-dirty
+    
+    echo ""
+    echo "🖥️  CLI package (scrobble-scrubber-cli):"
+    cd ../cli && cargo publish --dry-run --allow-dirty
+    
+    echo ""
+    echo "✅ Dry run complete. Review the output above before publishing."

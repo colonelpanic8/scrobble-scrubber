@@ -1,6 +1,6 @@
 [workspace]
-members = ["lib", "cli", "wasm", "napi", "app"]
-default-members = ["cli"]
+members = ["lib", "wasm", "napi", "app"]
+default-members = ["lib"]
 resolver = "2"
 
 [workspace.package]

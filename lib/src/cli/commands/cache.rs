@@ -1,5 +1,5 @@
+use crate::track_cache::TrackCache;
 use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl, LastFmError, Result};
-use scrobble_scrubber::track_cache::TrackCache;
 
 /// Show recent tracks cache state (track names, artists, timestamps)
 pub fn show_cache_state(limit: usize, all_pages: bool) -> Result<()> {

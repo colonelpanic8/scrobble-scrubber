@@ -9,6 +9,8 @@ pub mod scrub_action_provider;
 pub mod track_cache;
 pub mod track_provider;
 
+#[cfg(feature = "cli")]
+pub mod cli;
 pub mod config;
 pub mod musicbrainz_provider;
 #[cfg(feature = "openai")]
