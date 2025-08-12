@@ -135,7 +135,7 @@
           in
             gitignoreSource;
 
-          cargoHash = "sha256-WZQ4aI+Late6t+WEfuRQDggLoiFf/z3397T0UklYDTE=";
+          cargoHash = "sha256-49c94gytQ9Ko1SzP8DMVCgHe+kZF1QgIfPg8AoJUmtU=";
 
           nativeBuildInputs = with pkgs; [
             pkg-config

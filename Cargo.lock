@@ -6118,7 +6118,7 @@ dependencies = [
 
 [[package]]
 name = "scrobble-scrubber"
-version = "1.0.15"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6149,7 +6149,7 @@ dependencies = [
 
 [[package]]
 name = "scrobble-scrubber-app"
-version = "1.0.15"
+version = "2.0.0"
 dependencies = [
  "chrono",
  "config 0.14.1",
@@ -6175,7 +6175,7 @@ dependencies = [
 
 [[package]]
 name = "scrobble-scrubber-js"
-version = "1.0.15"
+version = "2.0.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -6197,7 +6197,7 @@ dependencies = [
 
 [[package]]
 name = "scrobble-scrubber-node"
-version = "1.0.15"
+version = "2.0.0"
 dependencies = [
  "http-client-2",
  "lastfm-edit",
