@@ -168,12 +168,12 @@ release bump_type="patch":
     echo "🔍 Running checks..."
     just checks
 
-    # Build release versions for lib and cli
+    # Build release versions
     echo "🔨 Building release versions..."
     echo "  📚 Building library..."
     cargo build --release -p scrobble-scrubber
-    echo "  🖥️  Building CLI..."
-    cargo build --release -p scrobble-scrubber-cli
+    echo "  🖥️  Building CLI binary..."
+    cargo build --release --bin scrobble-scrubber
 
     # Add all changes
     git add .
@@ -220,40 +220,28 @@ publish bump_type="patch":
 
     echo "🎉 Release v$new_version published successfully!"
 
-# Publish workspace packages to crates.io in the correct order
+# Publish the library package to crates.io
 publish-crates:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "📦 Publishing packages to crates.io..."
+    echo "📦 Publishing package to crates.io..."
 
-    # First publish the library package (scrobble-scrubber)
-    echo "📚 Publishing library package..."
+    # Publish the library package (includes CLI as a binary)
+    echo "📚 Publishing scrobble-scrubber package..."
     cd lib && cargo publish --allow-dirty
-    
-    # Wait a bit for crates.io to process the library
-    echo "⏳ Waiting for crates.io to process library package..."
-    sleep 30
-    
-    # Then publish the CLI package (scrobble-scrubber-cli)
-    echo "🖥️  Publishing CLI package..."
-    cd ../cli && cargo publish --allow-dirty
-    
-    echo "✅ All packages published successfully!"
+
+    echo "✅ Package published successfully!"
 
 # Dry run of publishing to see what would be published
 publish-dry-run:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "🔍 Dry run of publishing packages..."
+    echo "🔍 Dry run of publishing package..."
 
-    echo "📚 Library package (scrobble-scrubber):"
+    echo "📦 Package (scrobble-scrubber with CLI binary):"
     cd lib && cargo publish --dry-run --allow-dirty
-    
-    echo ""
-    echo "🖥️  CLI package (scrobble-scrubber-cli):"
-    cd ../cli && cargo publish --dry-run --allow-dirty
-    
+
     echo ""
     echo "✅ Dry run complete. Review the output above before publishing."
