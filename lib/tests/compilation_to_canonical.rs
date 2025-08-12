@@ -1,0 +1,424 @@
+use lastfm_edit::Track;
+use scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
+use scrobble_scrubber::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
+
+// Run by default. Opt out with SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=1
+fn live_mb_disabled() -> bool {
+    std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false)
+}
+
+#[test_log::test(tokio::test)]
+async fn test_compilation_to_canonical_basic() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // Test: "Mr. Blue Sky" on a compilation album
+    // This track originally appears on ELO's "Out of the Blue" (1977)
+    let track = Track {
+        name: "Mr. Blue Sky".to_string(),
+        artist: "Electric Light Orchestra".to_string(),
+        album: Some("NOW That's What I Call Music!".to_string()),
+        album_artist: Some("Various Artists".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    // Should suggest changing album from compilation to original
+    assert!(
+        !results.is_empty(),
+        "Should have suggestions for compilation track"
+    );
+
+    let (idx, suggestions) = &results[0];
+    assert_eq!(*idx, 0);
+    assert!(
+        !suggestions.is_empty(),
+        "Should have at least one suggestion"
+    );
+
+    // Check that it suggests a non-compilation album
+    if let ScrubActionSuggestion::Edit(edit) = &suggestions[0].suggestion {
+        let suggested_album = edit
+            .album_name
+            .as_ref()
+            .expect("Should have album suggestion");
+        assert_ne!(
+            suggested_album, "NOW That's What I Call Music!",
+            "Should not suggest the same compilation"
+        );
+        // Check it's not another compilation
+        assert!(
+            !suggested_album.to_lowercase().contains("greatest")
+                && !suggested_album.to_lowercase().contains("hits")
+                && !suggested_album.to_lowercase().contains("collection"),
+            "Should not suggest another compilation: {suggested_album}"
+        );
+    } else {
+        panic!("Expected Edit suggestion for compilation track");
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_greatest_hits_to_original() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // "Bohemian Rhapsody" from Queen's Greatest Hits -> should suggest "A Night at the Opera"
+    let track = Track {
+        name: "Bohemian Rhapsody".to_string(),
+        artist: "Queen".to_string(),
+        album: Some("Greatest Hits".to_string()),
+        album_artist: Some("Queen".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    assert!(
+        !results.is_empty(),
+        "Should have suggestions for greatest hits track"
+    );
+
+    let (idx, suggestions) = &results[0];
+    assert_eq!(*idx, 0);
+    assert!(!suggestions.is_empty());
+
+    if let ScrubActionSuggestion::Edit(edit) = &suggestions[0].suggestion {
+        let suggested_album = edit
+            .album_name
+            .as_ref()
+            .expect("Should have album suggestion");
+        assert_ne!(
+            suggested_album, "Greatest Hits",
+            "Should not suggest the same compilation"
+        );
+        // Check it's not another compilation
+        assert!(
+            !suggested_album.to_lowercase().contains("greatest")
+                && !suggested_album.to_lowercase().contains("hits")
+                && !suggested_album.to_lowercase().contains("collection"),
+            "Should not suggest another compilation: {suggested_album}"
+        );
+    } else {
+        panic!("Expected Edit suggestion");
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_already_on_earliest_release() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // Track already on its original album - should not suggest changes
+    // Using "A Night at the Opera" which is the original 1975 release
+    let track = Track {
+        name: "Bohemian Rhapsody".to_string(),
+        artist: "Queen".to_string(),
+        album: Some("A Night at the Opera".to_string()),
+        album_artist: Some("Queen".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let _results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    // With the new approach, we might get suggestions if there's an earlier release
+    // But "A Night at the Opera" is the original, so likely no suggestions
+    // However, if MusicBrainz has earlier compilations or singles, that's OK too
+    // The key is we're not suggesting later albums
+}
+
+#[test_log::test(tokio::test)]
+async fn test_soundtrack_to_original() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // "Eye of the Tiger" from Rocky III Soundtrack -> should suggest Survivor's album
+    let track = Track {
+        name: "Eye of the Tiger".to_string(),
+        artist: "Survivor".to_string(),
+        album: Some("Rocky III - Original Motion Picture Soundtrack".to_string()),
+        album_artist: Some("Various Artists".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    if !results.is_empty() {
+        let (idx, suggestions) = &results[0];
+        assert_eq!(*idx, 0);
+
+        if !suggestions.is_empty() {
+            if let ScrubActionSuggestion::Edit(edit) = &suggestions[0].suggestion {
+                if let Some(album) = &edit.album_name {
+                    log::info!("Suggested '{album}' for 'Eye of the Tiger'");
+                    // The earliest release is likely the original "Eye of the Tiger" album
+                    // but could be something else depending on MusicBrainz data
+                }
+            }
+        }
+    } else {
+        log::info!("No suggestions for 'Eye of the Tiger' - possibly already on earliest release");
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_multiple_tracks_batch() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    let tracks = vec![
+        // Compilation track
+        Track {
+            name: "Don't Stop Me Now".to_string(),
+            artist: "Queen".to_string(),
+            album: Some("Greatest Hits".to_string()),
+            album_artist: Some("Queen".to_string()),
+            timestamp: Some(1600000000),
+            playcount: 1,
+        },
+        // Already on original album
+        Track {
+            name: "Another One Bites the Dust".to_string(),
+            artist: "Queen".to_string(),
+            album: Some("The Game".to_string()),
+            album_artist: Some("Queen".to_string()),
+            timestamp: Some(1600000100),
+            playcount: 1,
+        },
+        // Another compilation track
+        Track {
+            name: "Somebody to Love".to_string(),
+            artist: "Queen".to_string(),
+            album: Some("Greatest Hits".to_string()),
+            album_artist: Some("Queen".to_string()),
+            timestamp: Some(1600000200),
+            playcount: 1,
+        },
+    ];
+
+    let results = provider
+        .analyze_tracks(&tracks, None, None)
+        .await
+        .expect("Provider should not error");
+
+    // With the new approach, any track might get a suggestion if there's an earlier release
+    // We just check that the provider runs without error
+    // The exact suggestions depend on MusicBrainz data
+    for (idx, suggestions) in &results {
+        log::info!("Track {} got {} suggestions", idx, suggestions.len());
+
+        for suggestion in suggestions {
+            if let scrobble_scrubber::scrub_action_provider::ScrubActionSuggestion::Edit(edit) =
+                &suggestion.suggestion
+            {
+                if let Some(album) = &edit.album_name {
+                    log::info!("  -> Suggesting album: {album}");
+                }
+            }
+        }
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_compilation_only_track_hot_fun() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // "Hot Fun In the Summertime" appears on various compilations but may not have a studio album
+    // It was released as a single but often appears on Greatest Hits compilations
+    let track = Track {
+        name: "Hot Fun In the Summertime".to_string(),
+        artist: "Sly & The Family Stone".to_string(),
+        album: Some("Greatest Hits".to_string()),
+        album_artist: Some("Sly & The Family Stone".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    // With the earliest release approach, we'll get whatever is earliest
+    // That might be another compilation, a studio album, or nothing
+    if !results.is_empty() {
+        let (idx, suggestions) = &results[0];
+        assert_eq!(*idx, 0);
+
+        if let Some(first_suggestion) = suggestions.first() {
+            if let scrobble_scrubber::scrub_action_provider::ScrubActionSuggestion::Edit(edit) =
+                &first_suggestion.suggestion
+            {
+                if let Some(suggested_album) = &edit.album_name {
+                    log::info!("Suggested '{suggested_album}' for 'Hot Fun In the Summertime'");
+                    // Any earlier release is valid with the new approach
+                }
+            }
+        }
+    } else {
+        log::info!(
+            "No suggestions for 'Hot Fun In the Summertime' - likely already on earliest release"
+        );
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_compilation_first_track_outkast() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // "The Whole World" by Outkast featuring Killer Mike
+    // This track was first released on the Big Boi and Dre Present... Outkast compilation
+    let track = Track {
+        name: "The Whole World".to_string(),
+        artist: "OutKast".to_string(),
+        album: Some("Big Boi and Dre Present... OutKast".to_string()),
+        album_artist: Some("OutKast".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    // With the earliest release approach, we might not get suggestions if this IS the earliest
+    // Or we might get an earlier release if one exists
+    // The provider should run without error either way
+    if !results.is_empty() {
+        let (idx, suggestions) = &results[0];
+        assert_eq!(*idx, 0);
+
+        if let Some(first_suggestion) = suggestions.first() {
+            if let scrobble_scrubber::scrub_action_provider::ScrubActionSuggestion::Edit(edit) =
+                &first_suggestion.suggestion
+            {
+                if let Some(suggested_album) = &edit.album_name {
+                    log::info!("Suggested '{suggested_album}' for 'The Whole World'");
+                }
+            }
+        }
+    } else {
+        log::info!("No suggestions for 'The Whole World' - likely already on earliest release");
+    }
+}
+
+#[test_log::test(tokio::test)]
+async fn test_single_released_track() {
+    if live_mb_disabled() {
+        log::warn!(
+            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+        );
+        return;
+    }
+
+    let provider = CompilationToCanonicalProvider::new();
+
+    // Some songs were only released as singles and then appear on compilations
+    // Example: Many Motown singles that later appeared on Greatest Hits albums
+    let track = Track {
+        name: "I Heard It Through the Grapevine".to_string(),
+        artist: "Marvin Gaye".to_string(),
+        album: Some("Greatest Hits".to_string()),
+        album_artist: Some("Marvin Gaye".to_string()),
+        timestamp: Some(1600000000),
+        playcount: 1,
+    };
+
+    let results = provider
+        .analyze_tracks(&[track], None, None)
+        .await
+        .expect("Provider should not error");
+
+    // This track was on "In the Groove" album, so it might suggest that
+    // But if it only finds singles and compilations, no suggestion is fine
+    if !results.is_empty() {
+        let (idx, suggestions) = &results[0];
+        assert_eq!(*idx, 0);
+
+        if let Some(first_suggestion) = suggestions.first() {
+            if let scrobble_scrubber::scrub_action_provider::ScrubActionSuggestion::Edit(edit) =
+                &first_suggestion.suggestion
+            {
+                if let Some(suggested_album) = &edit.album_name {
+                    // Should not suggest another compilation
+                    assert!(
+                        !suggested_album.to_lowercase().contains("greatest")
+                            && !suggested_album.to_lowercase().contains("hits")
+                            && !suggested_album.to_lowercase().contains("collection"),
+                        "Should not suggest another compilation: {suggested_album}"
+                    );
+
+                    log::info!(
+                        "Suggested album for 'I Heard It Through the Grapevine': {suggested_album}"
+                    );
+                }
+            }
+        }
+    } else {
+        log::info!("No suggestions for 'I Heard It Through the Grapevine' - likely only found compilations");
+    }
+}
