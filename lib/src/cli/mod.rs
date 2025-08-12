@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod commands;
 
+use crate::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 #[cfg(feature = "openai")]
 use crate::config::OpenAIProviderConfig;
 use crate::config::{ScrobbleScrubberConfig, StorageConfig};
@@ -26,6 +27,8 @@ enum ProviderType {
     Musicbrainz,
     /// OpenAI-powered suggestion provider
     Openai,
+    /// Compilation to Canonical provider (suggests earliest releases)
+    CompilationToCanonical,
 }
 
 #[derive(Parser, Debug)]
@@ -80,6 +83,10 @@ enum ScrubberCommands {
         #[arg(long)]
         require_confirmation: bool,
 
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
+
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
@@ -97,6 +104,10 @@ enum ScrubberCommands {
         /// Require confirmation for all edits
         #[arg(long)]
         require_confirmation: bool,
+
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
 
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
@@ -124,6 +135,10 @@ enum ScrubberCommands {
         #[arg(long)]
         require_confirmation: bool,
 
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
+
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
@@ -131,7 +146,6 @@ enum ScrubberCommands {
     /// Process tracks for a specific artist or album
     Artist {
         /// Artist name to process
-        #[arg(short, long)]
         name: String,
 
         /// Album name to process (optional - if specified, only process tracks from this album)
@@ -145,6 +159,10 @@ enum ScrubberCommands {
         /// Require confirmation for all edits
         #[arg(long)]
         require_confirmation: bool,
+
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
 
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
@@ -176,6 +194,10 @@ enum ScrubberCommands {
         #[arg(long)]
         require_confirmation: bool,
 
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
+
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
         require_proposed_rule_confirmation: bool,
@@ -205,6 +227,10 @@ enum ScrubberCommands {
         /// Require confirmation for all edits
         #[arg(long)]
         require_confirmation: bool,
+
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
 
         /// Require confirmation for proposed rewrite rules
         #[arg(long)]
@@ -387,6 +413,7 @@ fn merge_args_into_config(
                 interval,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if let Some(interval) = interval {
@@ -395,27 +422,38 @@ fn merge_args_into_config(
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
             ScrubberCommands::Once {
                 set_anchor_timestamp: _,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
             ScrubberCommands::LastN {
@@ -424,16 +462,22 @@ fn merge_args_into_config(
                 no_existing_rules: _,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
             ScrubberCommands::Artist {
@@ -441,16 +485,22 @@ fn merge_args_into_config(
                 album: _,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
             ScrubberCommands::Search {
@@ -460,16 +510,22 @@ fn merge_args_into_config(
                 no_existing_rules: _,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
             ScrubberCommands::SearchAlbums {
@@ -479,16 +535,22 @@ fn merge_args_into_config(
                 no_existing_rules: _,
                 dry_run,
                 require_confirmation,
+                no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
                 }
-                if *require_confirmation {
-                    config.scrubber.require_confirmation = true;
-                }
-                if *require_proposed_rule_confirmation {
-                    config.scrubber.require_proposed_rule_confirmation = true;
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
                 }
             }
         },
@@ -551,6 +613,7 @@ fn merge_args_into_config(
         config.providers.enable_rewrite_rules = false;
         config.providers.enable_openai = false;
         config.providers.enable_musicbrainz = false;
+        config.providers.enable_compilation_to_canonical = false;
         config.providers.enable_http = false;
 
         for provider in &args.providers {
@@ -561,6 +624,9 @@ fn merge_args_into_config(
                 ProviderType::Openai => {
                     config.providers.enable_openai = true;
                 }
+                ProviderType::CompilationToCanonical => {
+                    config.providers.enable_compilation_to_canonical = true;
+                }
             }
         }
     }
@@ -569,7 +635,12 @@ fn merge_args_into_config(
 }
 
 pub async fn run() -> Result<()> {
-    // Initialize env_logger from environment variables (RUST_LOG), fallback to Info level
+    // Set default RUST_LOG if not already set
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "scrobble_scrubber=info");
+    }
+
+    // Initialize env_logger from environment variables (RUST_LOG)
     env_logger::init();
     let args = Args::parse();
 
@@ -714,6 +785,22 @@ pub async fn run() -> Result<()> {
         log::info!("Enabled MusicBrainz provider for metadata corrections");
     }
 
+    // Add Compilation to Canonical provider
+    if config.providers.enable_compilation_to_canonical {
+        let compilation_provider =
+            if let Some(comp_config) = &config.providers.compilation_to_canonical {
+                CompilationToCanonicalProvider::with_confidence_threshold(
+                    comp_config.confidence_threshold,
+                )
+                .with_enabled(comp_config.enabled)
+            } else {
+                CompilationToCanonicalProvider::new()
+            };
+
+        action_provider = action_provider.add_provider(compilation_provider);
+        log::info!("Enabled Compilation to Canonical provider for suggesting earliest releases");
+    }
+
     // Log active providers summary
     let mut active_providers = Vec::new();
     if config.providers.enable_rewrite_rules && !skip_existing_rules {
@@ -724,6 +811,9 @@ pub async fn run() -> Result<()> {
     }
     if config.providers.enable_musicbrainz {
         active_providers.push("MusicBrainz");
+    }
+    if config.providers.enable_compilation_to_canonical {
+        active_providers.push("CompilationToCanonical");
     }
     if config.providers.enable_http {
         active_providers.push("HTTP");
