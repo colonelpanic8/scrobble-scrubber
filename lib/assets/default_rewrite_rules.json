@@ -574,6 +574,21 @@
       "requires_musicbrainz_confirmation": true
     },
     {
+      "name": "Remove (Expanded Edition) - Specific",
+      "description": "Removes patterns like 'Album (Expanded Edition)' specifically for the expanded edition suffix",
+      "examples": [
+        "Pet Sounds (Expanded Edition) → Pet Sounds",
+        "OK Computer (Expanded Edition) → OK Computer",
+        "The Velvet Underground & Nico (Expanded Edition) → The Velvet Underground & Nico"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*\\(Expanded Edition\\)\\s*$",
+        "replace": "$1"
+      },
+      "requires_confirmation": true,
+      "requires_musicbrainz_confirmation": true
+    },
+    {
       "name": "Remove Legacy Edition",
       "description": "Removes patterns like 'Album (Legacy Edition)'",
       "examples": [
