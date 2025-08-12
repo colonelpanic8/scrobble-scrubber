@@ -1,8 +1,9 @@
 use crate::types::AppState;
 use dioxus::prelude::*;
 use scrobble_scrubber::config::{
-    JsonLoggingConfig, LastFmConfig, MusicBrainzProviderConfig, OpenAIProviderConfig,
-    ProvidersConfig, ScrobbleScrubberConfig, ScrubberConfig, StorageConfig, TrackProviderType,
+    CompilationToCanonicalConfig, JsonLoggingConfig, LastFmConfig, MusicBrainzProviderConfig,
+    OpenAIProviderConfig, ProvidersConfig, ScrobbleScrubberConfig, ScrubberConfig, StorageConfig,
+    TrackProviderType,
 };
 
 #[component]
@@ -193,6 +194,20 @@ fn ProvidersConfigSection(config: Signal<ProvidersConfig>) -> Element {
                 MusicBrainzConfigSection {
                     config: config.read().musicbrainz.clone().unwrap_or_else(MusicBrainzProviderConfig::default),
                     onchange: move |new_config| config.with_mut(|c| c.musicbrainz = Some(new_config))
+                }
+            }
+
+            CheckboxInput {
+                label: "Enable Compilation to Canonical Provider",
+                checked: config.read().enable_compilation_to_canonical,
+                onchange: move |checked| config.with_mut(|c| c.enable_compilation_to_canonical = checked),
+                help: "Suggest moving tracks from compilations to their earliest known releases"
+            }
+
+            if config.read().enable_compilation_to_canonical {
+                CompilationToCanonicalConfigSection {
+                    config: config.read().compilation_to_canonical.clone().unwrap_or_else(CompilationToCanonicalConfig::default),
+                    onchange: move |new_config| config.with_mut(|c| c.compilation_to_canonical = Some(new_config))
                 }
             }
         }
@@ -392,6 +407,53 @@ fn MusicBrainzConfigSection(props: MusicBrainzConfigSectionProps) -> Element {
                 value: local_config.read().api_delay_ms,
                 onchange: move |value| local_config.with_mut(|c| c.api_delay_ms = value),
                 help: "Delay between API requests to be respectful to MusicBrainz"
+            }
+        }
+    }
+}
+
+#[derive(Props, Clone)]
+struct CompilationToCanonicalConfigSectionProps {
+    config: CompilationToCanonicalConfig,
+    onchange: EventHandler<CompilationToCanonicalConfig>,
+}
+
+impl PartialEq for CompilationToCanonicalConfigSectionProps {
+    fn eq(&self, other: &Self) -> bool {
+        self.config.confidence_threshold == other.config.confidence_threshold
+            && self.config.enabled == other.config.enabled
+    }
+}
+
+#[component]
+fn CompilationToCanonicalConfigSection(props: CompilationToCanonicalConfigSectionProps) -> Element {
+    let CompilationToCanonicalConfigSectionProps { config, onchange } = props;
+    let mut local_config = use_signal(|| config.clone());
+
+    use_effect(move || {
+        onchange.call(local_config.read().clone());
+    });
+
+    rsx! {
+        div {
+            style: "margin-top: 1rem; padding: 1rem; background-color: #f9fafb; border-radius: 0.5rem;",
+            h4 {
+                style: "font-weight: 600; margin-bottom: 1rem; color: #374151;",
+                "Compilation to Canonical Configuration"
+            }
+
+            NumberInput {
+                label: "Confidence Threshold",
+                value: (local_config.read().confidence_threshold * 100.0) as u64,
+                onchange: move |value| local_config.with_mut(|c| c.confidence_threshold = (value as f32) / 100.0),
+                help: "Minimum confidence percentage for accepting earliest release suggestions (0-100)"
+            }
+
+            CheckboxInput {
+                label: "Enabled",
+                checked: local_config.read().enabled,
+                onchange: move |checked| local_config.with_mut(|c| c.enabled = checked),
+                help: "Enable or disable the provider"
             }
         }
     }
