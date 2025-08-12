@@ -150,12 +150,16 @@ pub struct ProvidersConfig {
     pub enable_http: bool,
     /// Enable MusicBrainz provider
     pub enable_musicbrainz: bool,
+    /// Enable Compilation to Canonical provider
+    pub enable_compilation_to_canonical: bool,
     /// `OpenAI` configuration
     pub openai: Option<OpenAIProviderConfig>,
     /// HTTP provider configuration
     pub http: Option<HttpProviderConfig>,
     /// MusicBrainz provider configuration
     pub musicbrainz: Option<MusicBrainzProviderConfig>,
+    /// Compilation to Canonical provider configuration
+    pub compilation_to_canonical: Option<CompilationToCanonicalConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -225,6 +229,23 @@ pub struct MusicBrainzProviderConfig {
     pub api_delay_ms: u64,
     // NOTE: Release filters are now configured per-rewrite rule, not globally
     // Use RewriteRule.musicbrainz_release_filters for per-rule filtering
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompilationToCanonicalConfig {
+    /// Confidence threshold for accepting earliest release suggestions (0.0-1.0)
+    pub confidence_threshold: f32,
+    /// Enable the provider
+    pub enabled: bool,
+}
+
+impl Default for CompilationToCanonicalConfig {
+    fn default() -> Self {
+        Self {
+            confidence_threshold: 0.8,
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -305,9 +326,11 @@ impl Default for ProvidersConfig {
             enable_openai: false,
             enable_http: false,
             enable_musicbrainz: false,
+            enable_compilation_to_canonical: false,
             openai: None,
             http: None,
             musicbrainz: None,
+            compilation_to_canonical: None,
         }
     }
 }
