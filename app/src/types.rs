@@ -3,7 +3,7 @@ use ::scrobble_scrubber::config::ScrobbleScrubberConfig;
 use ::scrobble_scrubber::events::ScrubberEvent;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
-use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
+use ::scrobble_scrubber::scrub_action_provider::OrScrubActionProvider;
 use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
 use ::scrobble_scrubber::track_cache::TrackCache;
 use std::sync::Arc;
@@ -341,7 +341,7 @@ impl PartialEq for ScrubberState {
     }
 }
 
-pub type GlobalScrubber = ScrobbleScrubber<FileStorage, RewriteRulesScrubActionProvider>;
+pub type GlobalScrubber = ScrobbleScrubber<FileStorage, OrScrubActionProvider>;
 
 #[derive(Clone)]
 pub struct AppState {

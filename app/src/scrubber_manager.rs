@@ -1,8 +1,12 @@
 use crate::types::{AppState, GlobalScrubber};
+use ::scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 use ::scrobble_scrubber::config::{ScrobbleScrubberConfig, TrackProviderType};
+use ::scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
-use ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider;
+use ::scrobble_scrubber::scrub_action_provider::{
+    OrScrubActionProvider, RewriteRulesScrubActionProvider,
+};
 use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
 use dioxus::prelude::*;
 use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
@@ -23,8 +27,44 @@ pub async fn create_scrubber_instance(
     let http_client = http_client::native::NativeClient::new();
     let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
 
-    // Create action provider with current rules
-    let action_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
+    // Create action provider chain with enabled providers
+    let mut action_provider = OrScrubActionProvider::new();
+
+    // Add rewrite rules provider if enabled
+    if config.providers.enable_rewrite_rules && !saved_rules.is_empty() {
+        let rewrite_provider = RewriteRulesScrubActionProvider::from_rules(saved_rules);
+        action_provider = action_provider.add_provider(rewrite_provider);
+        log::info!("Enabled rewrite rules provider");
+    }
+
+    // Add MusicBrainz provider if enabled
+    if config.providers.enable_musicbrainz {
+        let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
+            MusicBrainzScrubActionProvider::for_search_only(
+                mb_config.confidence_threshold,
+                mb_config.max_results,
+            )
+        } else {
+            MusicBrainzScrubActionProvider::for_search_only(0.8, 5)
+        };
+        action_provider = action_provider.add_provider(musicbrainz_provider);
+        log::info!("Enabled MusicBrainz provider");
+    }
+
+    // Add Compilation to Canonical provider if enabled
+    if config.providers.enable_compilation_to_canonical {
+        let compilation_provider =
+            if let Some(comp_config) = &config.providers.compilation_to_canonical {
+                CompilationToCanonicalProvider::with_confidence_threshold(
+                    comp_config.confidence_threshold,
+                )
+                .with_enabled(comp_config.enabled)
+            } else {
+                CompilationToCanonicalProvider::new()
+            };
+        action_provider = action_provider.add_provider(compilation_provider);
+        log::info!("Enabled Compilation to Canonical provider");
+    }
 
     // Create scrubber instance with configured track provider
     let scrubber = match config.scrubber.track_provider {

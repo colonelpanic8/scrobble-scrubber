@@ -369,7 +369,7 @@ async fn run_scrubber_with_instance(
     mut state: Signal<AppState>,
     mut scrubber: ::scrobble_scrubber::scrubber::ScrobbleScrubber<
         ::scrobble_scrubber::persistence::FileStorage,
-        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+        ::scrobble_scrubber::scrub_action_provider::OrScrubActionProvider,
     >,
     sender: Arc<broadcast::Sender<ScrubberEvent>>,
 ) {
@@ -467,7 +467,7 @@ async fn process_with_shared_scrubber(
 async fn process_with_scrubber(
     scrubber: &mut ::scrobble_scrubber::scrubber::ScrobbleScrubber<
         ::scrobble_scrubber::persistence::FileStorage,
-        ::scrobble_scrubber::scrub_action_provider::RewriteRulesScrubActionProvider,
+        ::scrobble_scrubber::scrub_action_provider::OrScrubActionProvider,
     >,
     sender: &Arc<broadcast::Sender<ScrubberEvent>>,
     state: &mut Signal<AppState>,
