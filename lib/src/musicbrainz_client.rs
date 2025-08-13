@@ -216,6 +216,9 @@ impl MusicBrainzClient {
         title: &str,
         current_album: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        // Import the ReleaseStatus enum for filtering
+        use musicbrainz_rs::entity::release::ReleaseStatus;
+
         // Search for the recording
         let recordings = self.search_recording(artist, title).await?;
 
@@ -235,14 +238,22 @@ impl MusicBrainzClient {
 
             // Get all releases for this recording
             if let Some(releases) = &recording.releases {
-                // Get all releases except the current one, filtering out singles and live albums
+                // Get all releases except the current one, filtering out singles, live albums, and bootlegs
                 let other_releases: Vec<&Release> = releases
                     .iter()
                     .filter(|r| {
+                        // Exclude the current album
                         !r.title.eq_ignore_ascii_case(current_album)
+                            // Exclude live albums
                             && !Self::is_live_album(&r.title)
                             // Avoid suggesting singles - they often have just the track name
                             && !r.title.eq_ignore_ascii_case(title)
+                            // IMPORTANT: Only include official releases (exclude bootlegs, promos, etc.)
+                            && match &r.status {
+                                Some(ReleaseStatus::Official) => true,
+                                None => true, // If status is not provided, we'll include it
+                                _ => false, // Exclude Bootleg, Promotion, PseudoRelease, etc.
+                            }
                     })
                     .collect();
 
@@ -257,12 +268,13 @@ impl MusicBrainzClient {
                 // Return the earliest release
                 if let Some(earliest) = sorted_releases.first() {
                     log::debug!(
-                        "Found earliest release for '{}' by '{}': '{}' from {} (was '{}')",
+                        "Found earliest release for '{}' by '{}': '{}' from {} (was '{}', status: {:?})",
                         title,
                         artist,
                         earliest.title,
                         Self::get_release_date_str(earliest),
-                        current_album
+                        current_album,
+                        earliest.status
                     );
                     return Ok(Some(earliest.title.clone()));
                 }
@@ -279,6 +291,9 @@ impl MusicBrainzClient {
         title: &str,
         current_album: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        // Import the ReleaseStatus enum for filtering
+        use musicbrainz_rs::entity::release::ReleaseStatus;
+
         // Search for the recording
         let recordings = self.search_recording(artist, title).await?;
 
@@ -298,7 +313,7 @@ impl MusicBrainzClient {
 
             // Get all releases for this recording
             if let Some(releases) = &recording.releases {
-                // Filter out compilations, live albums, and the current album
+                // Filter out compilations, live albums, bootlegs, and the current album
                 let non_compilation_releases: Vec<&Release> = releases
                     .iter()
                     .filter(|r| {
@@ -306,6 +321,12 @@ impl MusicBrainzClient {
                             && !Self::is_compilation_album(&r.title)
                             && !Self::is_various_artists_release(r)
                             && !Self::is_live_album(&r.title)
+                            // IMPORTANT: Only include official releases (exclude bootlegs, promos, etc.)
+                            && match &r.status {
+                                Some(ReleaseStatus::Official) => true,
+                                None => true, // If status is not provided, we'll include it
+                                _ => false, // Exclude Bootleg, Promotion, PseudoRelease, etc.
+                            }
                     })
                     .collect();
 
