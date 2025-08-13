@@ -6,8 +6,8 @@ use crate::scrub_action_provider::{
 use async_trait::async_trait;
 use lastfm_edit::{ScrobbleEdit, Track};
 
-/// Provider that suggests moving tracks to their earliest known release
-/// using MusicBrainz data to find the original/canonical album
+/// Provider that suggests moving tracks from compilations to their canonical (original studio) release
+/// using MusicBrainz data to find the non-compilation album where the track originally appeared
 pub struct CompilationToCanonicalProvider {
     client: MusicBrainzClient,
     enabled: bool,
@@ -77,24 +77,24 @@ impl ScrubActionProvider for CompilationToCanonicalProvider {
             };
 
             log::debug!(
-                "Looking for earliest release of '{}' by '{}' (currently on '{}')",
+                "Looking for canonical release of '{}' by '{}' (currently on '{}')",
                 track.name,
                 track.artist,
                 current_album
             );
 
-            // Try to find the earliest release for this recording
+            // Try to find the canonical (non-compilation) release for this recording
             match self
                 .client
-                .find_earliest_release_for_recording(&track.artist, &track.name, current_album)
+                .find_canonical_release_for_recording(&track.artist, &track.name, current_album)
                 .await
             {
-                Ok(Some(earliest_album)) if earliest_album != *current_album => {
+                Ok(Some(canonical_album)) if canonical_album != *current_album => {
                     log::info!(
-                        "Found earlier release for '{}' by '{}': '{}' (was '{}')",
+                        "Found canonical release for '{}' by '{}': '{}' (was '{}')",
                         track.name,
                         track.artist,
-                        earliest_album,
+                        canonical_album,
                         current_album
                     );
 
@@ -102,7 +102,7 @@ impl ScrubActionProvider for CompilationToCanonicalProvider {
                     let edit = ScrobbleEdit::with_minimal_info(
                         &track.name,
                         &track.artist,
-                        &earliest_album,
+                        &canonical_album,
                         track.timestamp.unwrap_or(0),
                     );
 
@@ -116,21 +116,21 @@ impl ScrubActionProvider for CompilationToCanonicalProvider {
                 }
                 Ok(Some(_)) => {
                     log::debug!(
-                        "Track '{}' by '{}' - already on earliest known release",
+                        "Track '{}' by '{}' - already on canonical release",
                         track.name,
                         track.artist
                     );
                 }
                 Ok(None) => {
                     log::debug!(
-                        "No alternative releases found for '{}' by '{}'",
+                        "No canonical release found for '{}' by '{}'",
                         track.name,
                         track.artist
                     );
                 }
                 Err(e) => {
                     log::warn!(
-                        "Error finding earliest release for '{}' by '{}': {}",
+                        "Error finding canonical release for '{}' by '{}': {}",
                         track.name,
                         track.artist,
                         e
