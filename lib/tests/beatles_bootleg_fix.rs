@@ -6,9 +6,8 @@ use scrobble_scrubber::scrub_action_provider::{ScrubActionProvider, ScrubActionS
 mod common;
 
 // VCR test to verify we don't suggest bootlegs for Beatles tracks
-#[test_log::test(tokio::test)]
-async fn test_beatles_abbey_road_no_bootlegs() {
-    skip_if_live_mb_disabled!();
+mb_live_test!(
+    async fn test_beatles_abbey_road_no_bootlegs() {
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -128,20 +127,12 @@ async fn test_beatles_abbey_road_no_bootlegs() {
             results.len()
         );
     }
-}
+    }
+);
 
 // Test with a Beatles compilation to verify we still suggest the original album
-#[test_log::test(tokio::test)]
-async fn test_beatles_compilation_to_original() {
-    if std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
-        .map(|v| v == "1" || v.to_lowercase() == "true")
-        .unwrap_or(false)
-    {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+mb_live_test!(
+    async fn test_beatles_compilation_to_original() {
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -213,4 +204,5 @@ async fn test_beatles_compilation_to_original() {
             }
         }
     }
-}
+    }
+);
