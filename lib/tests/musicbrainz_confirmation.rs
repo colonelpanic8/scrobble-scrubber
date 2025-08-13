@@ -4,12 +4,8 @@ use scrobble_scrubber::scrub_action_provider::{
 };
 use std::collections::HashMap;
 
-// Run by default. Opt out with SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=1
-fn live_mb_disabled() -> bool {
-    std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
-        .map(|v| v == "1" || v.to_lowercase() == "true")
-        .unwrap_or(false)
-}
+// Import the common test utilities
+mod common;
 
 /// Test data for a track that should or should not be renamed
 struct TrackTestCase {
@@ -25,12 +21,7 @@ async fn check_mb_confirmation_rule(
     original_album: &str,
     test_cases: Vec<TrackTestCase>,
 ) {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+    skip_if_live_mb_disabled!();
 
     let provider = RewriteRulesScrubActionProvider::from_rules(vec![rule]);
 

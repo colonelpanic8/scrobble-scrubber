@@ -2,21 +2,12 @@ use lastfm_edit::Track;
 use scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 use scrobble_scrubber::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 
-// Run by default. Opt out with SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS=1
-fn live_mb_disabled() -> bool {
-    std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
-        .map(|v| v == "1" || v.to_lowercase() == "true")
-        .unwrap_or(false)
-}
+// Import the common test utilities
+mod common;
 
 #[test_log::test(tokio::test)]
-async fn test_compilation_to_canonical_basic() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn compilation_to_canonical_basic() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -72,13 +63,8 @@ async fn test_compilation_to_canonical_basic() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_greatest_hits_to_original() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn greatest_hits_to_original() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -128,13 +114,8 @@ async fn test_greatest_hits_to_original() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_already_on_earliest_release() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn already_on_earliest_release() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -161,13 +142,8 @@ async fn test_already_on_earliest_release() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_soundtrack_to_original() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn soundtrack_to_original() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -205,13 +181,8 @@ async fn test_soundtrack_to_original() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_multiple_tracks_batch() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn multiple_tracks_batch() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -269,13 +240,8 @@ async fn test_multiple_tracks_batch() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_compilation_only_track_hot_fun() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn compilation_only_track_hot_fun() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -319,13 +285,8 @@ async fn test_compilation_only_track_hot_fun() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_compilation_first_track_outkast() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn compilation_first_track_outkast() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
@@ -367,13 +328,8 @@ async fn test_compilation_first_track_outkast() {
 }
 
 #[test_log::test(tokio::test)]
-async fn test_single_released_track() {
-    if live_mb_disabled() {
-        log::warn!(
-            "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
-        );
-        return;
-    }
+async fn single_released_track() {
+    skip_if_live_mb_disabled!();
 
     let provider = CompilationToCanonicalProvider::new();
 
