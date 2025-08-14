@@ -1,5 +1,4 @@
 /// Common test utilities and macros
-
 /// Macro to skip live MusicBrainz tests when the environment variable is set
 #[macro_export]
 macro_rules! skip_if_live_mb_disabled {
@@ -17,7 +16,7 @@ macro_rules! skip_if_live_mb_disabled {
 }
 
 /// Macro to define a MusicBrainz live test that can be skipped via environment variable
-/// 
+///
 /// Usage:
 /// ```rust
 /// mb_live_test!(
@@ -26,7 +25,7 @@ macro_rules! skip_if_live_mb_disabled {
 ///     }
 /// );
 /// ```
-/// 
+///
 /// This expands to:
 /// ```rust
 /// #[test_log::test(tokio::test)]

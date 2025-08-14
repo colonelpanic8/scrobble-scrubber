@@ -19,6 +19,16 @@ use super::common::create_lastfm_vcr_client;
 /// SCROBBLE_SCRUBBER_VCR_RECORD=1 SCROBBLE_SCRUBBER_LASTFM_USERNAME=your_username SCROBBLE_SCRUBBER_LASTFM_PASSWORD=your_password cargo test test_beatles_full_artist_vcr_dry_run
 #[test_log::test(tokio::test)]
 async fn test_beatles_full_artist_vcr_dry_run() {
+    // Check if we should skip this test (no cassette and not recording)
+    let cassette_path = "lib/tests/vcr/fixtures/beatles_full_artist_processing";
+    let vcr_record = std::env::var("SCROBBLE_SCRUBBER_VCR_RECORD").unwrap_or_default();
+
+    if !std::path::Path::new(cassette_path).exists() && vcr_record.is_empty() {
+        log::warn!("Skipping test: No cassette found at '{cassette_path}' and SCROBBLE_SCRUBBER_VCR_RECORD is not set");
+        log::warn!("To record new interactions, run: SCROBBLE_SCRUBBER_VCR_RECORD=1 SCROBBLE_SCRUBBER_LASTFM_USERNAME=your_username SCROBBLE_SCRUBBER_LASTFM_PASSWORD=your_password cargo test test_beatles_full_artist_vcr_dry_run");
+        return;
+    }
+
     // Create VCR client for recording/replaying Last.fm API calls
     let lastfm_client = create_lastfm_vcr_client("beatles_full_artist_processing")
         .await
@@ -34,7 +44,7 @@ async fn test_beatles_full_artist_vcr_dry_run() {
 
     // Create configuration with dry_run ENABLED (we just want to see suggestions)
     let mut config = ScrobbleScrubberConfig::default();
-    config.scrubber.dry_run = true;  // DRY RUN - no actual edits
+    config.scrubber.dry_run = true; // DRY RUN - no actual edits
     config.scrubber.require_confirmation = false;
 
     log::info!("Starting Beatles artist dry run processing");
@@ -72,14 +82,11 @@ async fn test_beatles_full_artist_vcr_dry_run() {
                             track.album,
                             track_suggestions.len()
                         );
-                        
+
                         for suggestion in track_suggestions {
                             if let scrobble_scrubber::scrub_action_provider::ScrubActionSuggestion::Edit(edit) = suggestion {
                                 if let Some(new_album) = &edit.album_name {
-                                    log::info!(
-                                        "  -> Suggest moving to album: '{}'",
-                                        new_album
-                                    );
+                                    log::info!("  -> Suggest moving to album: '{new_album}'");
                                     suggestions_clone
                                         .lock()
                                         .await
@@ -111,11 +118,11 @@ async fn test_beatles_full_artist_vcr_dry_run() {
     log::info!("Running processing cycle to analyze recent tracks");
 
     let result = scrubber.run_processing_cycle().await;
-    
+
     // Log result but don't fail the test if no tracks are found
     match result {
         Ok(()) => log::info!("Processing cycle completed successfully"),
-        Err(e) => log::warn!("Processing cycle completed with error: {:?}", e),
+        Err(e) => log::warn!("Processing cycle completed with error: {e:?}"),
     }
 
     // Give event handler time to process
@@ -136,30 +143,31 @@ async fn test_beatles_full_artist_vcr_dry_run() {
     for (track, edit) in all_suggestions.iter() {
         let none_string = "<none>".to_string();
         let original_album = track.album.as_ref().unwrap_or(&none_string);
-        let new_album = edit.album_name.as_ref().unwrap_or(&track.album.as_ref().unwrap_or(&none_string));
-        
+        let new_album = edit
+            .album_name
+            .as_ref()
+            .unwrap_or(track.album.as_ref().unwrap_or(&none_string));
+
         // Track the suggestion
         suggestions_by_album
             .entry(original_album.clone())
             .or_default()
             .push((track.name.clone(), new_album.clone()));
-        
+
         // Check for bootlegs (should be none!)
         let new_album_lower = new_album.to_lowercase();
-        if new_album_lower.contains("bootleg") 
+        if new_album_lower.contains("bootleg")
             || new_album_lower.contains("working version")
             || new_album_lower.contains("outtake")
             || new_album_lower.contains("demo")
             || new_album_lower.contains("sessions")
             || new_album_lower.contains("unreleased")
             || new_album_lower.contains("get back .... continued")
-            || new_album_lower.contains("anthology") && new_album_lower.contains("unreleased") {
+            || new_album_lower.contains("anthology") && new_album_lower.contains("unreleased")
+        {
             bootleg_suggestions.push(format!(
                 "'{}' by '{}': {} -> {}",
-                track.name,
-                track.artist,
-                original_album,
-                new_album
+                track.name, track.artist, original_album, new_album
             ));
         }
     }
@@ -170,7 +178,7 @@ async fn test_beatles_full_artist_vcr_dry_run() {
         for (album, tracks) in &suggestions_by_album {
             log::info!("Album '{}': {} suggestions", album, tracks.len());
             for (track_name, new_album) in tracks {
-                log::info!("  - '{}' -> '{}'", track_name, new_album);
+                log::info!("  - '{track_name}' -> '{new_album}'");
             }
         }
     }
@@ -179,28 +187,32 @@ async fn test_beatles_full_artist_vcr_dry_run() {
     let beatles_suggestions: Vec<_> = all_suggestions
         .iter()
         .filter(|(track, _)| {
-            track.artist.eq_ignore_ascii_case("The Beatles") ||
-            track.artist.eq_ignore_ascii_case("Beatles")
+            track.artist.eq_ignore_ascii_case("The Beatles")
+                || track.artist.eq_ignore_ascii_case("Beatles")
         })
         .collect();
 
     if !beatles_suggestions.is_empty() {
         log::info!("\n=== Beatles-specific Suggestions ===");
-        log::info!("Found {} Beatles track suggestions", beatles_suggestions.len());
-        
+        log::info!(
+            "Found {} Beatles track suggestions",
+            beatles_suggestions.len()
+        );
+
         // Verify compilation handling
         for (track, _edit) in &beatles_suggestions {
             let none_string = "<none>".to_string();
             let original_album = track.album.as_ref().unwrap_or(&none_string);
             let original_lower = original_album.to_lowercase();
-            
+
             // Check if it's from a known compilation
-            if original_lower.contains("greatest") 
+            if original_lower.contains("greatest")
                 || original_lower.contains("1967-1970")
                 || original_lower.contains("1962-1966")
                 || original_lower == "1"
                 || original_lower.contains("collection")
-                || original_lower.contains("best of") {
+                || original_lower.contains("best of")
+            {
                 log::info!(
                     "✓ Compilation album '{}' got suggestion for track '{}'",
                     original_album,
@@ -211,7 +223,9 @@ async fn test_beatles_full_artist_vcr_dry_run() {
     } else {
         log::info!("\n=== No Beatles tracks found in this time range ===");
         log::info!("The VCR cassette will record whatever tracks are in your Last.fm history");
-        log::info!("To test Beatles specifically, ensure you have Beatles tracks in the recorded period");
+        log::info!(
+            "To test Beatles specifically, ensure you have Beatles tracks in the recorded period"
+        );
     }
 
     // CRITICAL: Verify no bootleg suggestions
@@ -221,7 +235,7 @@ async fn test_beatles_full_artist_vcr_dry_run() {
         bootleg_suggestions.len(),
         bootleg_suggestions.join("\n")
     );
-    
+
     log::info!("\n✅ SUCCESS: No bootleg suggestions found!");
     log::info!("Test completed successfully");
 }
