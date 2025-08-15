@@ -1,5 +1,5 @@
 use lastfm_edit::Track;
-use scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
+use scrobble_scrubber::musicbrainz::CompilationToCanonicalProvider;
 use scrobble_scrubber::scrub_action_provider::{ScrubActionProvider, ScrubActionSuggestion};
 
 // Import the common test utilities

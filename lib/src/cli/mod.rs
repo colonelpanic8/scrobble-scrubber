@@ -1,11 +1,11 @@
 pub mod auth;
 pub mod commands;
 
-use crate::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 #[cfg(feature = "openai")]
 use crate::config::OpenAIProviderConfig;
 use crate::config::{ScrobbleScrubberConfig, StorageConfig};
 use crate::event_logger::EventLogger;
+use crate::musicbrainz::CompilationToCanonicalProvider;
 #[cfg(feature = "openai")]
 use crate::openai_provider::OpenAIScrubActionProvider;
 use crate::persistence::{FileStorage, StateStorage};
@@ -384,7 +384,7 @@ enum Commands {
     #[command(subcommand)]
     Timestamp(TimestampCommands),
     /// MusicBrainz operations
-    #[command(subcommand)]
+    #[command(subcommand, name = "musicbrainz")]
     MusicBrainz(MusicBrainzCommands),
     /// Clear saved session data (forces fresh login on next run)
     ClearSession,
@@ -772,13 +772,13 @@ pub async fn run() -> Result<()> {
     if config.providers.enable_musicbrainz {
         let musicbrainz_provider = if let Some(mb_config) = &config.providers.musicbrainz {
             // Use for_search_only to ensure no release filtering is applied to search operations
-            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(
+            crate::musicbrainz::MusicBrainzScrubActionProvider::for_search_only(
                 mb_config.confidence_threshold,
                 mb_config.max_results,
             )
         } else {
             // Default provider also uses no release filtering for search operations
-            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::for_search_only(0.8, 5)
+            crate::musicbrainz::MusicBrainzScrubActionProvider::for_search_only(0.8, 5)
         };
 
         action_provider = action_provider.add_provider(musicbrainz_provider);

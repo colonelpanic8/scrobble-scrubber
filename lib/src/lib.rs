@@ -11,10 +11,8 @@ pub mod track_provider;
 
 #[cfg(feature = "cli")]
 pub mod cli;
-pub mod compilation_to_canonical_provider;
 pub mod config;
-pub mod musicbrainz_client;
-pub mod musicbrainz_provider;
+pub mod musicbrainz;
 #[cfg(feature = "openai")]
 pub mod openai_provider;
 pub mod persistence;

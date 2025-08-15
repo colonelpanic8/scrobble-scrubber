@@ -1,7 +1,9 @@
-use crate::musicbrainz_provider::MusicBrainzScrubActionProvider;
+use crate::musicbrainz::MusicBrainzScrubActionProvider;
 use crate::scrub_action_provider::ScrubActionProvider;
 use clap::Subcommand;
 use lastfm_edit::Track;
+
+use crate::musicbrainz::CompilationToCanonicalProvider;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum MusicBrainzCommands {
@@ -80,6 +82,25 @@ pub enum MusicBrainzCommands {
         #[arg(long)]
         show_tracks: bool,
     },
+
+    /// Show ranked releases for a track (for debugging compilation provider)
+    RankReleases {
+        /// Artist name
+        #[arg(short, long)]
+        artist: String,
+
+        /// Track title
+        #[arg(short, long)]
+        title: String,
+
+        /// Current album (optional, helps identify compilations)
+        #[arg(short = 'A', long)]
+        album: Option<String>,
+
+        /// Output format (text or json)
+        #[arg(short = 'f', long, default_value = "text")]
+        format: String,
+    },
 }
 
 impl MusicBrainzCommands {
@@ -109,6 +130,12 @@ impl MusicBrainzCommands {
                 show_all,
                 show_tracks,
             } => Self::show_canonical_album(&artist, &album, show_all, show_tracks).await,
+            Self::RankReleases {
+                artist,
+                title,
+                album,
+                format,
+            } => Self::rank_releases(&artist, &title, album.as_deref(), &format).await,
         }
     }
 
@@ -600,6 +627,151 @@ impl MusicBrainzCommands {
                 }
             }
             println!("{}", "-".repeat(80));
+        }
+
+        Ok(())
+    }
+
+    /// Show ranked releases for a track
+    async fn rank_releases(
+        artist: &str,
+        title: &str,
+        current_album: Option<&str>,
+        format: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Create the compilation provider
+        let provider = CompilationToCanonicalProvider::new();
+
+        println!("🔍 Ranking releases for '{title}' by '{artist}'");
+        if let Some(album) = current_album {
+            println!("   Current album: '{album}'");
+        }
+        println!();
+
+        // Get ranked releases
+        let ranked_releases = provider
+            .rank_releases_for_recording(artist, title, current_album)
+            .await
+            .map_err(|e| format!("Failed to rank releases: {e}"))?;
+
+        if ranked_releases.is_empty() {
+            println!("❌ No releases found");
+            return Ok(());
+        }
+
+        // Output based on format
+        match format {
+            "json" => {
+                // JSON output for programmatic use
+                let json = serde_json::to_string_pretty(&ranked_releases)?;
+                println!("{json}");
+            }
+            _ => {
+                // Text output for human reading
+                println!("📊 RELEASE RANKINGS");
+                println!("{}", "=".repeat(80));
+                println!(
+                    "Found {} releases, ranked from best to worst:\n",
+                    ranked_releases.len()
+                );
+
+                for release in &ranked_releases {
+                    // Rank indicator
+                    let rank_emoji = match release.rank {
+                        1 => "🥇",
+                        2 => "🥈",
+                        3 => "🥉",
+                        _ => "  ",
+                    };
+
+                    println!("{} Rank #{}: {}", rank_emoji, release.rank, release.title);
+                    println!("   Artist: {}", release.artist);
+                    println!("   Reason: {}", release.rank_reason);
+
+                    if let Some(date) = &release.date {
+                        println!("   Date: {date}");
+                    }
+
+                    if let Some(country) = &release.country {
+                        println!("   Country: {country}");
+                    }
+
+                    if let Some(status) = &release.status {
+                        println!("   Status: {status}");
+                    }
+
+                    if let Some(primary) = &release.primary_type {
+                        println!("   Primary Type: {primary}");
+                    }
+
+                    if !release.secondary_types.is_empty() {
+                        println!("   Secondary Types: {}", release.secondary_types.join(", "));
+                    }
+
+                    if release.is_compilation {
+                        println!("   ⚠️  COMPILATION");
+                    }
+
+                    if release.is_various_artists {
+                        println!("   ⚠️  VARIOUS ARTISTS");
+                    }
+
+                    if let Some(disamb) = &release.disambiguation {
+                        println!("   Note: {disamb}");
+                    }
+
+                    println!("   MBID: {}", release.release_id);
+                    println!();
+                }
+
+                // Summary
+                println!("{}", "=".repeat(80));
+                println!("📋 SUMMARY");
+
+                // What would the provider suggest?
+                if let Some(current) = current_album {
+                    let current_is_compilation = ranked_releases
+                        .iter()
+                        .find(|r| r.title.eq_ignore_ascii_case(current))
+                        .map(|r| r.is_compilation)
+                        .unwrap_or(false);
+
+                    if current_is_compilation {
+                        // Find the best non-compilation
+                        let best_non_compilation = ranked_releases.iter().find(|r| {
+                            !r.is_compilation
+                                && !r.is_various_artists
+                                && !r.title.eq_ignore_ascii_case(current)
+                        });
+
+                        if let Some(best) = best_non_compilation {
+                            println!(
+                                "✅ Provider would suggest: '{}' → '{}'",
+                                current, best.title
+                            );
+                            println!(
+                                "   Reason: Moving from compilation to {}",
+                                best.primary_type.as_deref().unwrap_or("studio release")
+                            );
+                        } else {
+                            println!("❌ Provider would NOT suggest a change");
+                            println!("   Reason: No suitable non-compilation release found");
+                        }
+                    } else {
+                        println!("✅ Provider would NOT suggest a change");
+                        println!("   Reason: '{current}' is not a compilation");
+                    }
+                } else {
+                    // Just show the best release
+                    if let Some(best) = ranked_releases.first() {
+                        if !best.is_compilation {
+                            println!("✅ Best release: '{}'", best.title);
+                        } else {
+                            println!("⚠️  Best release is a compilation: '{}'", best.title);
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

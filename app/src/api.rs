@@ -484,7 +484,7 @@ pub async fn search_musicbrainz_for_track(
     title: String,
     album: Option<String>,
 ) -> Result<Vec<MusicBrainzResult>, Box<dyn std::error::Error + Send + Sync>> {
-    use scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
+    use scrobble_scrubber::musicbrainz::MusicBrainzScrubActionProvider;
 
     log::info!("Searching MusicBrainz for: '{title}' by '{artist}'");
 

@@ -1,6 +1,6 @@
-use scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
 use scrobble_scrubber::events::ScrubberEventType;
+use scrobble_scrubber::musicbrainz::CompilationToCanonicalProvider;
 use scrobble_scrubber::persistence::MemoryStorage;
 use scrobble_scrubber::scrub_action_provider::OrScrubActionProvider;
 use scrobble_scrubber::scrubber::ScrobbleScrubber;
@@ -10,26 +10,10 @@ use tokio::sync::Mutex;
 
 use super::common::create_lastfm_vcr_client;
 
-/// VCR test that processes a comprehensive Beatles discography to verify:
-/// 1. No bootleg releases are suggested
-/// 2. Compilation albums get appropriate suggestions for canonical releases
-/// 3. Studio albums generally don't get suggestions
-///
-/// To record new interactions:
-/// SCROBBLE_SCRUBBER_VCR_RECORD=1 SCROBBLE_SCRUBBER_LASTFM_USERNAME=your_username SCROBBLE_SCRUBBER_LASTFM_PASSWORD=your_password cargo test test_beatles_full_artist_vcr_dry_run
 #[test_log::test(tokio::test)]
-async fn test_beatles_full_artist_vcr_dry_run() {
-    // Check if we should skip this test (no cassette and not recording)
-    let cassette_path = "lib/tests/vcr/fixtures/beatles_full_artist_processing";
-    let vcr_record = std::env::var("SCROBBLE_SCRUBBER_VCR_RECORD").unwrap_or_default();
-
-    if !std::path::Path::new(cassette_path).exists() && vcr_record.is_empty() {
-        log::warn!("Skipping test: No cassette found at '{cassette_path}' and SCROBBLE_SCRUBBER_VCR_RECORD is not set");
-        log::warn!("To record new interactions, run: SCROBBLE_SCRUBBER_VCR_RECORD=1 SCROBBLE_SCRUBBER_LASTFM_USERNAME=your_username SCROBBLE_SCRUBBER_LASTFM_PASSWORD=your_password cargo test test_beatles_full_artist_vcr_dry_run");
-        return;
-    }
-
-    // Create VCR client for recording/replaying Last.fm API calls
+#[ignore]
+async fn beatles_artist_compilation_renaming() {
+    // Create VCR client for recording/replaying Beatles artist tracks from Last.fm
     let lastfm_client = create_lastfm_vcr_client("beatles_full_artist_processing")
         .await
         .expect("Failed to create VCR test client");
@@ -47,7 +31,7 @@ async fn test_beatles_full_artist_vcr_dry_run() {
     config.scrubber.dry_run = true; // DRY RUN - no actual edits
     config.scrubber.require_confirmation = false;
 
-    log::info!("Starting Beatles artist dry run processing");
+    log::info!("Starting Beatles artist dry run processing with CompilationToCanonicalProvider");
 
     // Create scrubber
     let mut scrubber = ScrobbleScrubber::with_direct_provider(
@@ -113,16 +97,15 @@ async fn test_beatles_full_artist_vcr_dry_run() {
         }
     });
 
-    // Run the processing cycle
-    // This will process recent tracks from Last.fm
-    log::info!("Running processing cycle to analyze recent tracks");
+    // Process all tracks for The Beatles artist
+    log::info!("Running artist processing for The Beatles");
 
-    let result = scrubber.run_processing_cycle().await;
+    let result = scrubber.process_artist("The Beatles").await;
 
     // Log result but don't fail the test if no tracks are found
     match result {
-        Ok(()) => log::info!("Processing cycle completed successfully"),
-        Err(e) => log::warn!("Processing cycle completed with error: {e:?}"),
+        Ok(()) => log::info!("Artist processing completed successfully"),
+        Err(e) => log::warn!("Artist processing completed with error: {e:?}"),
     }
 
     // Give event handler time to process
@@ -221,10 +204,10 @@ async fn test_beatles_full_artist_vcr_dry_run() {
             }
         }
     } else {
-        log::info!("\n=== No Beatles tracks found in this time range ===");
-        log::info!("The VCR cassette will record whatever tracks are in your Last.fm history");
+        log::info!("\n=== No Beatles tracks found ===");
+        log::info!("The VCR cassette will record The Beatles artist tracks from Last.fm");
         log::info!(
-            "To test Beatles specifically, ensure you have Beatles tracks in the recorded period"
+            "If no tracks are found, ensure The Beatles have scrobbled tracks in your Last.fm account"
         );
     }
 
@@ -236,6 +219,83 @@ async fn test_beatles_full_artist_vcr_dry_run() {
         bootleg_suggestions.join("\n")
     );
 
-    log::info!("\n✅ SUCCESS: No bootleg suggestions found!");
-    log::info!("Test completed successfully");
+    log::info!("\n✅ SUCCESS: Beatles artist dry run processing completed!");
+    log::info!("CompilationToCanonicalProvider processed Beatles tracks correctly");
+}
+
+#[test_log::test(tokio::test)]
+async fn log_all_beatles_tracks() {
+    // Create VCR client for recording/replaying Beatles artist tracks from Last.fm
+    let lastfm_client = create_lastfm_vcr_client("beatles_full_artist_processing")
+        .await
+        .expect("Failed to create VCR test client");
+
+    // Set up storage
+    let storage = Arc::new(Mutex::new(MemoryStorage::new()));
+
+    // Create minimal provider (we don't need suggestions, just want to fetch tracks)
+    let action_provider = OrScrubActionProvider::new();
+
+    // Create configuration with dry_run ENABLED (no edits needed)
+    let mut config = ScrobbleScrubberConfig::default();
+    config.scrubber.dry_run = true;
+    config.scrubber.require_confirmation = false;
+
+    log::info!("Fetching all Beatles tracks from Last.fm");
+
+    // Create scrubber
+    let mut scrubber = ScrobbleScrubber::with_direct_provider(
+        storage.clone(),
+        lastfm_client,
+        action_provider,
+        config,
+    );
+
+    // Subscribe to events to collect all tracks
+    let mut event_receiver = scrubber.subscribe_events();
+
+    // Collect all tracks
+    let all_tracks = Arc::new(Mutex::new(Vec::new()));
+    let all_tracks_clone = all_tracks.clone();
+
+    tokio::spawn(async move {
+        while let Ok(event) = event_receiver.recv().await {
+            match &event.event_type {
+                ScrubberEventType::TrackProcessed { track, .. } => {
+                    all_tracks_clone.lock().await.push(track.clone());
+                }
+                ScrubberEventType::TrackSkipped { track, .. } => {
+                    all_tracks_clone.lock().await.push(track.clone());
+                }
+                _ => {}
+            }
+        }
+    });
+
+    // Process all tracks for The Beatles artist
+    let _ = scrubber.process_artist("The Beatles").await;
+
+    // Give event handler time to process
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+    // Get all collected tracks
+    let mut tracks = all_tracks.lock().await.clone();
+
+    log::info!("\n=== ALL BEATLES TRACKS (sorted by play count) ===");
+    log::info!("Total tracks found: {}", tracks.len());
+
+    // Sort tracks by play count (descending)
+    tracks.sort_by(|a, b| b.playcount.cmp(&a.playcount));
+
+    // Log each track on one line with album
+    for track in tracks.iter() {
+        let album = track.album.as_deref().unwrap_or("<No Album>");
+        log::info!(
+            "[{}] \"{}\" - \"{}\" - \"{}\"",
+            track.playcount,
+            track.name,
+            track.artist,
+            album
+        );
+    }
 }

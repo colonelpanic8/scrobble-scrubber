@@ -1,0 +1,3600 @@
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/+albums?page=1&ajax=true
+    headers:
+      cookie:
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; lpfrmo=1; lfmanon=0; not_first_visit=1; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      connection:
+      - keep-alive
+      sec-ch-ua-platform:
+      - '"Linux"'
+      x-requested-with:
+      - XMLHttpRequest
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/+albums
+      accept-language:
+      - en-US,en;q=0.9
+    version: None
+  response:
+    status: 200
+    headers:
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/+albums?page=1&ajax=true
+      x-request-category:
+      - page
+      x-lfm-cacheable-page:
+      - '0'
+      content-type:
+      - text/html; charset=utf-8
+      accept-ranges:
+      - bytes
+      content-language:
+      - en
+      cache-control:
+      - max-age=0, must-revalidate
+      date:
+      - Thu, 14 Aug 2025 09:42:44 GMT
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:44 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:44 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:44 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-frame-options:
+      - DENY
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/+albums?page=1&ajax=true
+      etag:
+      - W/"ba95d3328fd2d4ad9b7f5744df0cb11b"
+      x-served-by:
+      - cache-chi-klot8100115-CHI, cache-chi-klot8100064-CHI
+      server:
+      - nginx
+      content-encoding:
+      - gzip
+      x-cache:
+      - MISS, MISS
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-timer:
+      - S1755164564.771735,VS0,VE537
+      x-lfm-upstream-type:
+      - PASS
+      strict-transport-security:
+      - max-age=300
+      x-cache-hits:
+      - 0, 0
+    body_file: resp_001.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Abbey%20Road?page=1&ajax=true
+    headers:
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Abbey%20Road
+      dnt:
+      - '1'
+      accept-encoding:
+      - gzip, deflate, br
+      x-requested-with:
+      - XMLHttpRequest
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept:
+      - '*/*'
+      sec-ch-ua-mobile:
+      - ?0
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      accept-language:
+      - en-US,en;q=0.9
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache-hits:
+      - 0, 0
+      content-language:
+      - en
+      strict-transport-security:
+      - max-age=300
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      etag:
+      - W/"087bf10aa05e38cf885e0e7de1b2d83c"
+      x-lfm-cacheable-page:
+      - '0'
+      cache-control:
+      - max-age=0, must-revalidate
+      content-encoding:
+      - gzip
+      x-served-by:
+      - cache-chi-klot8100108-CHI, cache-chi-klot8100064-CHI
+      x-request-category:
+      - page
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Abbey%20Road?page=1&ajax=true
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      accept-ranges:
+      - bytes
+      server:
+      - nginx
+      x-frame-options:
+      - DENY
+      x-timer:
+      - S1755164564.495265,VS0,VE1045
+      x-cache:
+      - MISS, MISS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:45 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:45 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:45 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Abbey%20Road?page=1&ajax=true
+      date:
+      - Thu, 14 Aug 2025 09:42:45 GMT
+      x-lfm-upstream-type:
+      - PASS
+      content-type:
+      - text/html; charset=utf-8
+    body_file: resp_002.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles?page=1&ajax=true
+    headers:
+      x-requested-with:
+      - XMLHttpRequest
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles
+      accept-language:
+      - en-US,en;q=0.9
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      dnt:
+      - '1'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-mobile:
+      - ?0
+      accept-encoding:
+      - gzip, deflate, br
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      connection:
+      - keep-alive
+      accept:
+      - '*/*'
+    version: None
+  response:
+    status: 200
+    headers:
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/The%20Beatles?page=1&ajax=true
+      cache-control:
+      - max-age=0, must-revalidate
+      x-served-by:
+      - cache-chi-klot8100114-CHI, cache-chi-klot8100064-CHI
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles?page=1&ajax=true
+      x-timer:
+      - S1755164566.662289,VS0,VE942
+      x-frame-options:
+      - DENY
+      x-lfm-cacheable-page:
+      - '0'
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      accept-ranges:
+      - bytes
+      etag:
+      - W/"81c997ba1871aaae196ad7b145d8a2cf"
+      date:
+      - Thu, 14 Aug 2025 09:42:46 GMT
+      strict-transport-security:
+      - max-age=300
+      x-cache-hits:
+      - 0, 0
+      x-lfm-upstream-type:
+      - PASS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      content-language:
+      - en
+      content-encoding:
+      - gzip
+      content-type:
+      - text/html; charset=utf-8
+      x-request-category:
+      - page
+      server:
+      - nginx
+      x-cache:
+      - MISS, MISS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:46 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:46 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:46 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+    body_file: resp_003.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Rubber%20Soul?page=1&ajax=true
+    headers:
+      content-type:
+      - application/octet-stream
+      accept-encoding:
+      - gzip, deflate, br
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua-mobile:
+      - ?0
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Rubber%20Soul
+      accept:
+      - '*/*'
+      dnt:
+      - '1'
+      connection:
+      - keep-alive
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-upstream-type:
+      - PASS
+      etag:
+      - W/"c6876db4f7dd9a3452dc88b08ed35b8c"
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-language:
+      - en
+      x-timer:
+      - S1755164567.795228,VS0,VE738
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-cache-hits:
+      - 0, 0
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:47 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:47 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:47 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-cache:
+      - MISS, MISS
+      cache-control:
+      - max-age=0, must-revalidate
+      strict-transport-security:
+      - max-age=300
+      x-lfm-cacheable-page:
+      - '0'
+      accept-ranges:
+      - bytes
+      date:
+      - Thu, 14 Aug 2025 09:42:47 GMT
+      server:
+      - nginx
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Rubber%20Soul?page=1&ajax=true
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Rubber%20Soul?page=1&ajax=true
+      x-served-by:
+      - cache-chi-klot8100058-CHI, cache-chi-klot8100064-CHI
+      content-type:
+      - text/html; charset=utf-8
+      x-request-category:
+      - page
+    body_file: resp_004.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Revolver?page=1&ajax=true
+    headers:
+      sec-ch-ua-mobile:
+      - ?0
+      connection:
+      - keep-alive
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept:
+      - '*/*'
+      x-requested-with:
+      - XMLHttpRequest
+      content-type:
+      - application/octet-stream
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Revolver
+      accept-language:
+      - en-US,en;q=0.9
+      dnt:
+      - '1'
+      sec-ch-ua-platform:
+      - '"Linux"'
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-cacheable-page:
+      - '0'
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Revolver?page=1&ajax=true
+      etag:
+      - W/"434d2d73fc122882bc749ca1a06368e7"
+      content-type:
+      - text/html; charset=utf-8
+      x-lfm-upstream-type:
+      - PASS
+      x-timer:
+      - S1755164568.722083,VS0,VE846
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Revolver?page=1&ajax=true
+      strict-transport-security:
+      - max-age=300
+      accept-ranges:
+      - bytes
+      x-cache:
+      - MISS, MISS
+      x-cache-hits:
+      - 0, 0
+      x-served-by:
+      - cache-chi-klot8100174-CHI, cache-chi-klot8100064-CHI
+      content-language:
+      - en
+      server:
+      - nginx
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      cache-control:
+      - max-age=0, must-revalidate
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:48 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:48 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:48 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-request-category:
+      - page
+      date:
+      - Thu, 14 Aug 2025 09:42:48 GMT
+      content-security-policy:
+      - upgrade-insecure-requests;
+    body_file: resp_005.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be...%20Naked?page=1&ajax=true
+    headers:
+      dnt:
+      - '1'
+      sec-ch-ua-mobile:
+      - ?0
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-encoding:
+      - gzip, deflate, br
+      connection:
+      - keep-alive
+      accept:
+      - '*/*'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be...%20Naked
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      content-type:
+      - application/octet-stream
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      x-requested-with:
+      - XMLHttpRequest
+    version: None
+  response:
+    status: 200
+    headers:
+      date:
+      - Thu, 14 Aug 2025 09:42:49 GMT
+      x-request-category:
+      - page
+      etag:
+      - W/"a476128741ebeb58c90afc0e4ea69b7c"
+      x-timer:
+      - S1755164569.671996,VS0,VE636
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:49 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:49 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:49 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-cache-hits:
+      - 0, 0
+      server:
+      - nginx
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      cache-control:
+      - max-age=0, must-revalidate
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-encoding:
+      - gzip
+      x-cache:
+      - MISS, MISS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream-type:
+      - PASS
+      x-served-by:
+      - cache-chi-klot8100024-CHI, cache-chi-klot8100064-CHI
+      accept-ranges:
+      - bytes
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be...%20Naked?page=1&ajax=true
+      content-type:
+      - text/html; charset=utf-8
+      x-frame-options:
+      - DENY
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be...%20Naked?page=1&ajax=true
+      content-language:
+      - en
+      x-lfm-cacheable-page:
+      - '0'
+      strict-transport-security:
+      - max-age=300
+    body_file: resp_006.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Sgt.%20Pepper%27s%20Lonely%20Hearts%20Club%20Band?page=1&ajax=true
+    headers:
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-encoding:
+      - gzip, deflate, br
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      connection:
+      - keep-alive
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua-platform:
+      - '"Linux"'
+      x-requested-with:
+      - XMLHttpRequest
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Sgt.%20Pepper%27s%20Lonely%20Hearts%20Club%20Band
+      accept-language:
+      - en-US,en;q=0.9
+    version: None
+  response:
+    status: 200
+    headers:
+      strict-transport-security:
+      - max-age=300
+      cache-control:
+      - max-age=0, must-revalidate
+      content-security-policy:
+      - upgrade-insecure-requests;
+      content-type:
+      - text/html; charset=utf-8
+      server:
+      - nginx
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Sgt.%20Pepper%27s%20Lonely%20Hearts%20Club%20Band?page=1&ajax=true
+      x-frame-options:
+      - DENY
+      accept-ranges:
+      - bytes
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:42:50 GMT
+      x-served-by:
+      - cache-chi-klot8100101-CHI, cache-chi-klot8100064-CHI
+      content-language:
+      - en
+      x-request-category:
+      - page
+      etag:
+      - W/"b3547fe1ffcac006cd6301cf9a18e71e"
+      x-lfm-cacheable-page:
+      - '0'
+      x-cache:
+      - MISS, MISS
+      x-cache-hits:
+      - 0, 0
+      x-timer:
+      - S1755164569.489491,VS0,VE742
+      x-lfm-upstream-type:
+      - PASS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:50 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:50 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:50 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Sgt.%20Pepper%27s%20Lonely%20Hearts%20Club%20Band?page=1&ajax=true
+      content-encoding:
+      - gzip
+    body_file: resp_007.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Please%20Please%20Me?page=1&ajax=true
+    headers:
+      sec-ch-ua-platform:
+      - '"Linux"'
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept:
+      - '*/*'
+      content-type:
+      - application/octet-stream
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      x-requested-with:
+      - XMLHttpRequest
+      connection:
+      - keep-alive
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-language:
+      - en-US,en;q=0.9
+      dnt:
+      - '1'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Please%20Please%20Me
+      accept-encoding:
+      - gzip, deflate, br
+    version: None
+  response:
+    status: 200
+    headers:
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Please%20Please%20Me?page=1&ajax=true
+      content-language:
+      - en
+      accept-ranges:
+      - bytes
+      cache-control:
+      - max-age=0, must-revalidate
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Please%20Please%20Me?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+      x-timer:
+      - S1755164570.379795,VS0,VE646
+      x-request-category:
+      - page
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      content-encoding:
+      - gzip
+      server:
+      - nginx
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-cache:
+      - MISS, MISS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:50 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:50 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:50 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-served-by:
+      - cache-chi-klot8100154-CHI, cache-chi-klot8100064-CHI
+      content-type:
+      - text/html; charset=utf-8
+      date:
+      - Thu, 14 Aug 2025 09:42:51 GMT
+      x-lfm-cacheable-page:
+      - '0'
+      etag:
+      - W/"af2e603609ed3721bd673e55e8a962ba"
+      strict-transport-security:
+      - max-age=300
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-frame-options:
+      - DENY
+      x-cache-hits:
+      - 0, 0
+    body_file: resp_008.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Help%21?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-language:
+      - en-US,en;q=0.9
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      x-requested-with:
+      - XMLHttpRequest
+      connection:
+      - keep-alive
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua-platform:
+      - '"Linux"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Help%21
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-upstream-type:
+      - PASS
+      x-served-by:
+      - cache-chi-klot8100128-CHI, cache-chi-klot8100064-CHI
+      date:
+      - Thu, 14 Aug 2025 09:42:51 GMT
+      strict-transport-security:
+      - max-age=300
+      cache-control:
+      - max-age=0, must-revalidate
+      server:
+      - nginx
+      content-encoding:
+      - gzip
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Help%21?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      x-lfm-cacheable-page:
+      - '0'
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Help%21?page=1&ajax=true
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:51 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:51 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:51 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      accept-ranges:
+      - bytes
+      etag:
+      - W/"0d2c027342dd0b81fb3d6c802b5d467a"
+      x-timer:
+      - S1755164571.186917,VS0,VE522
+      content-language:
+      - en
+      x-frame-options:
+      - DENY
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-request-category:
+      - page
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-cache:
+      - MISS, MISS
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-type:
+      - text/html; charset=utf-8
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_009.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Magical%20Mystery%20Tour?page=1&ajax=true
+    headers:
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      connection:
+      - keep-alive
+      dnt:
+      - '1'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Magical%20Mystery%20Tour
+      accept-encoding:
+      - gzip, deflate, br
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-language:
+      - en-US,en;q=0.9
+    version: None
+  response:
+    status: 200
+    headers:
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:52 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:52 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:52 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-encoding:
+      - gzip
+      date:
+      - Thu, 14 Aug 2025 09:42:53 GMT
+      x-served-by:
+      - cache-chi-klot8100065-CHI, cache-chi-klot8100064-CHI
+      etag:
+      - W/"79d144914931d170f00b80f520e079be"
+      x-cache:
+      - MISS, MISS
+      x-frame-options:
+      - DENY
+      content-language:
+      - en
+      accept-ranges:
+      - bytes
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-upstream-type:
+      - PASS
+      server:
+      - nginx
+      x-request-category:
+      - page
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-cacheable-page:
+      - '0'
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Magical%20Mystery%20Tour?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Magical%20Mystery%20Tour?page=1&ajax=true
+      strict-transport-security:
+      - max-age=300
+      content-type:
+      - text/html; charset=utf-8
+      cache-control:
+      - max-age=0, must-revalidate
+      x-timer:
+      - S1755164572.808332,VS0,VE1245
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_010.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/A%20Hard%20Day%27s%20Night?page=1&ajax=true
+    headers:
+      x-requested-with:
+      - XMLHttpRequest
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      content-type:
+      - application/octet-stream
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua-platform:
+      - '"Linux"'
+      dnt:
+      - '1'
+      connection:
+      - keep-alive
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/A%20Hard%20Day%27s%20Night
+    version: None
+  response:
+    status: 200
+    headers:
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-cache:
+      - MISS, MISS
+      x-lfm-upstream-type:
+      - PASS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-served-by:
+      - cache-chi-klot8100031-CHI, cache-chi-klot8100064-CHI
+      etag:
+      - W/"121dadfa13cad4933c80c776d904a0f7"
+      cache-control:
+      - max-age=0, must-revalidate
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:53 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:53 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:53 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      content-language:
+      - en
+      date:
+      - Thu, 14 Aug 2025 09:42:53 GMT
+      accept-ranges:
+      - bytes
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/A%20Hard%20Day%27s%20Night?page=1&ajax=true
+      content-type:
+      - text/html; charset=utf-8
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/A%20Hard%20Day%27s%20Night?page=1&ajax=true
+      x-timer:
+      - S1755164573.135089,VS0,VE745
+      content-encoding:
+      - gzip
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-lfm-cacheable-page:
+      - '0'
+      x-frame-options:
+      - DENY
+      x-request-category:
+      - page
+      server:
+      - nginx
+      strict-transport-security:
+      - max-age=300
+    body_file: resp_011.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/With%20the%20Beatles?page=1&ajax=true
+    headers:
+      sec-ch-ua-mobile:
+      - ?0
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      x-requested-with:
+      - XMLHttpRequest
+      accept-encoding:
+      - gzip, deflate, br
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/With%20the%20Beatles
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      connection:
+      - keep-alive
+      sec-ch-ua-platform:
+      - '"Linux"'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+    version: None
+  response:
+    status: 200
+    headers:
+      strict-transport-security:
+      - max-age=300
+      accept-ranges:
+      - bytes
+      content-encoding:
+      - gzip
+      server:
+      - nginx
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-timer:
+      - S1755164574.063711,VS0,VE1048
+      cache-control:
+      - max-age=0, must-revalidate
+      date:
+      - Thu, 14 Aug 2025 09:42:55 GMT
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-upstream-type:
+      - PASS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      etag:
+      - W/"18050d22d15f157665e54431133aff83"
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:55 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:55 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:55 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      content-type:
+      - text/html; charset=utf-8
+      x-served-by:
+      - cache-chi-klot8100177-CHI, cache-chi-klot8100064-CHI
+      x-cache:
+      - MISS, MISS
+      x-lfm-cacheable-page:
+      - '0'
+      x-frame-options:
+      - DENY
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/With%20the%20Beatles?page=1&ajax=true
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/With%20the%20Beatles?page=1&ajax=true
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-cache-hits:
+      - 0, 0
+      content-language:
+      - en
+      x-request-category:
+      - page
+    body_file: resp_012.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Paperback%20Writer?page=1&ajax=true
+    headers:
+      accept:
+      - '*/*'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Paperback%20Writer
+      sec-ch-ua-mobile:
+      - ?0
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      connection:
+      - keep-alive
+      dnt:
+      - '1'
+      x-requested-with:
+      - XMLHttpRequest
+    version: None
+  response:
+    status: 200
+    headers:
+      x-timer:
+      - S1755164575.303933,VS0,VE950
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-request-category:
+      - page
+      strict-transport-security:
+      - max-age=300
+      date:
+      - Thu, 14 Aug 2025 09:42:56 GMT
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Paperback%20Writer?page=1&ajax=true
+      x-frame-options:
+      - DENY
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:56 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:56 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:56 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      etag:
+      - W/"08fbb1f203b0548bde3eefa5ba449e07"
+      cache-control:
+      - max-age=0, must-revalidate
+      x-cache:
+      - MISS, MISS
+      accept-ranges:
+      - bytes
+      server:
+      - nginx
+      x-cache-hits:
+      - 0, 0
+      x-lfm-cacheable-page:
+      - '0'
+      content-security-policy:
+      - upgrade-insecure-requests;
+      content-encoding:
+      - gzip
+      content-language:
+      - en
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Paperback%20Writer?page=1&ajax=true
+      x-served-by:
+      - cache-chi-klot8100178-CHI, cache-chi-klot8100064-CHI
+      x-lfm-upstream-type:
+      - PASS
+      content-type:
+      - text/html; charset=utf-8
+    body_file: resp_013.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Past%20Masters?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      accept:
+      - '*/*'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      x-requested-with:
+      - XMLHttpRequest
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      dnt:
+      - '1'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Past%20Masters
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-mobile:
+      - ?0
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Past%20Masters?page=1&ajax=true
+      etag:
+      - W/"00257dac4b0469e0c3148f67374ec335"
+      server:
+      - nginx
+      x-frame-options:
+      - DENY
+      cache-control:
+      - max-age=0, must-revalidate
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-cache-hits:
+      - 0, 0
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Past%20Masters?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-cache:
+      - MISS, MISS
+      content-type:
+      - text/html; charset=utf-8
+      content-language:
+      - en
+      accept-ranges:
+      - bytes
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:57 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:57 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:57 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-served-by:
+      - cache-chi-klot8100155-CHI, cache-chi-klot8100064-CHI
+      strict-transport-security:
+      - max-age=300
+      x-timer:
+      - S1755164576.303023,VS0,VE841
+      content-security-policy:
+      - upgrade-insecure-requests;
+      date:
+      - Thu, 14 Aug 2025 09:42:57 GMT
+      content-encoding:
+      - gzip
+      x-request-category:
+      - page
+      x-lfm-cacheable-page:
+      - '0'
+    body_file: resp_014.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/We%20Can%20Work%20It%20Out%2FDay%20Tripper?page=1&ajax=true
+    headers:
+      connection:
+      - keep-alive
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua-mobile:
+      - ?0
+      accept-language:
+      - en-US,en;q=0.9
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      x-requested-with:
+      - XMLHttpRequest
+      accept-encoding:
+      - gzip, deflate, br
+      accept:
+      - '*/*'
+      dnt:
+      - '1'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/We%20Can%20Work%20It%20Out%2FDay%20Tripper
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+    version: None
+  response:
+    status: 200
+    headers:
+      x-timer:
+      - S1755164577.224400,VS0,VE444
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/We%20Can%20Work%20It%20Out%2FDay%20Tripper?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      strict-transport-security:
+      - max-age=300
+      accept-ranges:
+      - bytes
+      content-encoding:
+      - gzip
+      server:
+      - nginx
+      x-request-category:
+      - page
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/We%20Can%20Work%20It%20Out%2FDay%20Tripper?page=1&ajax=true
+      x-served-by:
+      - cache-chi-klot8100073-CHI, cache-chi-klot8100064-CHI
+      date:
+      - Thu, 14 Aug 2025 09:42:57 GMT
+      content-language:
+      - en
+      content-type:
+      - text/html; charset=utf-8
+      x-lfm-cacheable-page:
+      - '0'
+      cache-control:
+      - max-age=0, must-revalidate
+      x-lfm-upstream-type:
+      - PASS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:57 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:57 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:57 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      etag:
+      - W/"0a4fac05396552e615fd9186b4a5775e"
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-frame-options:
+      - DENY
+      x-cache:
+      - MISS, MISS
+    body_file: resp_015.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hey%20Jude?page=1&ajax=true
+    headers:
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      dnt:
+      - '1'
+      x-requested-with:
+      - XMLHttpRequest
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua-platform:
+      - '"Linux"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hey%20Jude
+      connection:
+      - keep-alive
+      sec-ch-ua-mobile:
+      - ?0
+      accept:
+      - '*/*'
+      content-type:
+      - application/octet-stream
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-upstream-type:
+      - PASS
+      content-encoding:
+      - gzip
+      etag:
+      - W/"e4eb0d696892e44015be0ffdb0110577"
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Hey%20Jude?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      x-timer:
+      - S1755164578.711149,VS0,VE460
+      content-type:
+      - text/html; charset=utf-8
+      cache-control:
+      - max-age=0, must-revalidate
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:58 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:58 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:58 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      strict-transport-security:
+      - max-age=300
+      content-security-policy:
+      - upgrade-insecure-requests;
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      accept-ranges:
+      - bytes
+      x-frame-options:
+      - DENY
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-cacheable-page:
+      - '0'
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hey%20Jude?page=1&ajax=true
+      content-language:
+      - en
+      date:
+      - Thu, 14 Aug 2025 09:42:58 GMT
+      x-cache:
+      - MISS, MISS
+      x-request-category:
+      - page
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-served-by:
+      - cache-chi-klot8100134-CHI, cache-chi-klot8100064-CHI
+      server:
+      - nginx
+    body_file: resp_016.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20for%20Sale?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20for%20Sale
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      dnt:
+      - '1'
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-language:
+      - en-US,en;q=0.9
+      content-type:
+      - application/octet-stream
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache-hits:
+      - 0, 0
+      accept-ranges:
+      - bytes
+      x-lfm-cacheable-page:
+      - '0'
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20for%20Sale?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+      x-cache:
+      - MISS, MISS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:43:59 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:42:59 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:42:59 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-frame-options:
+      - DENY
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-served-by:
+      - cache-chi-klot8100056-CHI, cache-chi-klot8100064-CHI
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-encoding:
+      - gzip
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Beatles%20for%20Sale?page=1&ajax=true
+      content-language:
+      - en
+      x-timer:
+      - S1755164578.221158,VS0,VE1245
+      cache-control:
+      - max-age=0, must-revalidate
+      server:
+      - nginx
+      etag:
+      - W/"13f9bc70dc1ff50e6d3aa7bc85872033"
+      content-type:
+      - text/html; charset=utf-8
+      strict-transport-security:
+      - max-age=300
+      content-security-policy:
+      - upgrade-insecure-requests;
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-request-category:
+      - page
+      date:
+      - Thu, 14 Aug 2025 09:42:59 GMT
+    body_file: resp_017.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      dnt:
+      - '1'
+      sec-ch-ua-mobile:
+      - ?0
+      content-type:
+      - application/octet-stream
+      connection:
+      - keep-alive
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine
+      accept:
+      - '*/*'
+      x-requested-with:
+      - XMLHttpRequest
+      accept-language:
+      - en-US,en;q=0.9
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua-platform:
+      - '"Linux"'
+    version: None
+  response:
+    status: 200
+    headers:
+      content-encoding:
+      - gzip
+      strict-transport-security:
+      - max-age=300
+      date:
+      - Thu, 14 Aug 2025 09:43:00 GMT
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine?page=1&ajax=true
+      server:
+      - nginx
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-cacheable-page:
+      - '0'
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine?page=1&ajax=true
+      x-frame-options:
+      - DENY
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-cache:
+      - MISS, MISS
+      accept-ranges:
+      - bytes
+      x-lfm-upstream-type:
+      - PASS
+      x-request-category:
+      - page
+      content-language:
+      - en
+      etag:
+      - W/"0e6fd8f4b83768680a80c0c809ebf7c0"
+      x-timer:
+      - S1755164580.558619,VS0,VE744
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:44:00 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:43:00 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:43:00 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-served-by:
+      - cache-chi-klot8100097-CHI, cache-chi-klot8100064-CHI
+      cache-control:
+      - max-age=0, must-revalidate
+      content-type:
+      - text/html; charset=utf-8
+    body_file: resp_018.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/1?page=1&ajax=true
+    headers:
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua-mobile:
+      - ?0
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/1
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      connection:
+      - keep-alive
+      x-requested-with:
+      - XMLHttpRequest
+    version: None
+  response:
+    status: 200
+    headers:
+      etag:
+      - W/"ab7ab1be7f5cb0556e0870c2ddba8b7a"
+      x-timer:
+      - S1755164580.360659,VS0,VE518
+      content-encoding:
+      - gzip
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      server:
+      - nginx
+      content-language:
+      - en
+      x-served-by:
+      - cache-chi-klot8100084-CHI, cache-chi-klot8100064-CHI
+      x-frame-options:
+      - DENY
+      strict-transport-security:
+      - max-age=300
+      x-cache-hits:
+      - 0, 0
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/1?page=1&ajax=true
+      accept-ranges:
+      - bytes
+      x-cache:
+      - MISS, MISS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      cache-control:
+      - max-age=0, must-revalidate
+      x-lfm-upstream-type:
+      - PASS
+      content-type:
+      - text/html; charset=utf-8
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/1?page=1&ajax=true
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-lfm-cacheable-page:
+      - '0'
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:44:00 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:43:00 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:43:00 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      date:
+      - Thu, 14 Aug 2025 09:43:00 GMT
+      x-request-category:
+      - page
+    body_file: resp_019.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/She%20Loves%20You?page=1&ajax=true
+    headers:
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/She%20Loves%20You
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      dnt:
+      - '1'
+      accept-encoding:
+      - gzip, deflate, br
+      connection:
+      - keep-alive
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua-mobile:
+      - ?0
+      accept:
+      - '*/*'
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+    version: None
+  response:
+    status: 200
+    headers:
+      accept-ranges:
+      - bytes
+      x-cache-hits:
+      - 0, 0
+      x-lfm-upstream-type:
+      - PASS
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/She%20Loves%20You?page=1&ajax=true
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/She%20Loves%20You?page=1&ajax=true
+      x-served-by:
+      - cache-chi-klot8100059-CHI, cache-chi-klot8100064-CHI
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-cacheable-page:
+      - '0'
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      strict-transport-security:
+      - max-age=300
+      x-cache:
+      - MISS, MISS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:44:02 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:43:02 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:43:02 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      server:
+      - nginx
+      cache-control:
+      - max-age=0, must-revalidate
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-request-category:
+      - page
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      etag:
+      - W/"0d50476577763a259d94518ab77788e1"
+      x-timer:
+      - S1755164581.937613,VS0,VE1246
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:43:02 GMT
+      content-language:
+      - en
+    body_file: resp_020.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20%2765?page=1&ajax=true
+    headers:
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua-platform:
+      - '"Linux"'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      content-type:
+      - application/octet-stream
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-encoding:
+      - gzip, deflate, br
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20%2765
+      sec-ch-ua-mobile:
+      - ?0
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      x-requested-with:
+      - XMLHttpRequest
+      connection:
+      - keep-alive
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache:
+      - MISS, MISS
+      date:
+      - Thu, 14 Aug 2025 09:43:02 GMT
+      strict-transport-security:
+      - max-age=300
+      content-language:
+      - en
+      content-encoding:
+      - gzip
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-cacheable-page:
+      - '0'
+      content-type:
+      - text/html; charset=utf-8
+      x-request-category:
+      - page
+      accept-ranges:
+      - bytes
+      x-frame-options:
+      - DENY
+      x-timer:
+      - S1755164582.231336,VS0,VE648
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:44:02 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:43:02 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:43:02 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-cache-hits:
+      - 0, 0
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Beatles%20%2765?page=1&ajax=true
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-served-by:
+      - cache-chi-klot8100065-CHI, cache-chi-klot8100064-CHI
+      etag:
+      - W/"218d326297f4b2dde898322092d86ded"
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Beatles%20%2765?page=1&ajax=true
+      cache-control:
+      - max-age=0, must-revalidate
+      server:
+      - nginx
+      x-lfm-upstream-type:
+      - PASS
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_021.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+    headers:
+      accept-language:
+      - en-US,en;q=0.9
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-encoding:
+      - gzip, deflate, br
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna
+      connection:
+      - keep-alive
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache-hits:
+      - 0, 0
+      x-lfm-cacheable-page:
+      - '0'
+      content-type:
+      - text/html; charset=utf-8
+      x-lfm-upstream-type:
+      - PASS
+      accept-ranges:
+      - bytes
+      cache-control:
+      - max-age=0, must-revalidate
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-language:
+      - en
+      x-timer:
+      - S1755164583.930199,VS0,VE1245
+      server:
+      - nginx
+      strict-transport-security:
+      - max-age=300
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      etag:
+      - W/"c9d20178997ecfcbe37b2db560d42a67"
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-served-by:
+      - cache-chi-klot8100134-CHI, cache-chi-klot8100064-CHI
+      content-security-policy:
+      - upgrade-insecure-requests;
+      date:
+      - Thu, 14 Aug 2025 09:43:04 GMT
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:44:04 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:43:04 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:43:04 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      x-cache:
+      - MISS, MISS
+      x-request-category:
+      - page
+    body_file: resp_022.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna
+      accept-language:
+      - en-US,en;q=0.9
+      dnt:
+      - '1'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-mobile:
+      - ?0
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+    version: None
+  response:
+    status: 200
+    headers:
+      etag:
+      - W/"c352263e6a7ec408273a964e64a23f60"
+      server:
+      - nginx
+      content-type:
+      - text/html; charset=utf-8
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+      content-language:
+      - en
+      x-request-category:
+      - page
+      x-served-by:
+      - cache-chi-klot8100174-CHI, cache-chi-klot8100064-CHI
+      x-lfm-cacheable-page:
+      - '0'
+      cache-control:
+      - max-age=0, must-revalidate
+      date:
+      - Thu, 14 Aug 2025 09:44:05 GMT
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      accept-ranges:
+      - bytes
+      x-cache:
+      - MISS, MISS
+      strict-transport-security:
+      - max-age=300
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:05 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:05 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:05 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-timer:
+      - S1755164644.222425,VS0,VE945
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Lady%20Madonna?page=1&ajax=true
+    body_file: resp_023.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be?page=1&ajax=true
+    headers:
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      content-type:
+      - application/octet-stream
+      dnt:
+      - '1'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      x-requested-with:
+      - XMLHttpRequest
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be
+    version: None
+  response:
+    status: 200
+    headers:
+      cache-control:
+      - max-age=0, must-revalidate
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:44:05 GMT
+      strict-transport-security:
+      - max-age=300
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be?page=1&ajax=true
+      content-encoding:
+      - gzip
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Let%20It%20Be?page=1&ajax=true
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream-type:
+      - PASS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:05 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:05 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:05 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      server:
+      - nginx
+      x-request-category:
+      - page
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-cacheable-page:
+      - '0'
+      x-frame-options:
+      - DENY
+      accept-ranges:
+      - bytes
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-timer:
+      - S1755164645.298011,VS0,VE498
+      content-language:
+      - en
+      content-type:
+      - text/html; charset=utf-8
+      etag:
+      - W/"b4e5edb87ab6c2b8e023eb17703154c7"
+      x-served-by:
+      - cache-chi-klot8100154-CHI, cache-chi-klot8100064-CHI
+      x-cache:
+      - MISS, MISS
+    body_file: resp_024.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Now%20and%20Then?page=1&ajax=true
+    headers:
+      connection:
+      - keep-alive
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-language:
+      - en-US,en;q=0.9
+      accept-encoding:
+      - gzip, deflate, br
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Now%20and%20Then
+      dnt:
+      - '1'
+      x-requested-with:
+      - XMLHttpRequest
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua-platform:
+      - '"Linux"'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      accept:
+      - '*/*'
+    version: None
+  response:
+    status: 200
+    headers:
+      x-request-category:
+      - page
+      strict-transport-security:
+      - max-age=300
+      etag:
+      - W/"a84be4326a06e5ba5b88143185b9a199"
+      date:
+      - Thu, 14 Aug 2025 09:44:06 GMT
+      content-type:
+      - text/html; charset=utf-8
+      x-frame-options:
+      - DENY
+      content-language:
+      - en
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Now%20and%20Then?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      cache-control:
+      - max-age=0, must-revalidate
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:06 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:06 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:06 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-lfm-cacheable-page:
+      - '0'
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Now%20and%20Then?page=1&ajax=true
+      x-served-by:
+      - cache-chi-klot8100178-CHI, cache-chi-klot8100064-CHI
+      x-cache:
+      - MISS, MISS
+      server:
+      - nginx
+      content-security-policy:
+      - upgrade-insecure-requests;
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-timer:
+      - S1755164646.847927,VS0,VE451
+      accept-ranges:
+      - bytes
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-encoding:
+      - gzip
+      x-cache-hits:
+      - 0, 0
+    body_file: resp_025.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/All%20You%20Need%20Is%20Love?page=1&ajax=true
+    headers:
+      content-type:
+      - application/octet-stream
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-encoding:
+      - gzip, deflate, br
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua-platform:
+      - '"Linux"'
+      connection:
+      - keep-alive
+      dnt:
+      - '1'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/All%20You%20Need%20Is%20Love
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache-hits:
+      - 0, 0
+      x-timer:
+      - S1755164646.418425,VS0,VE495
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/All%20You%20Need%20Is%20Love?page=1&ajax=true
+      strict-transport-security:
+      - max-age=300
+      x-cache:
+      - MISS, MISS
+      etag:
+      - W/"0827bbb57bbb61805053c4299983ac2b"
+      x-lfm-upstream-type:
+      - PASS
+      x-request-category:
+      - page
+      content-encoding:
+      - gzip
+      x-frame-options:
+      - DENY
+      content-security-policy:
+      - upgrade-insecure-requests;
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-type:
+      - text/html; charset=utf-8
+      accept-ranges:
+      - bytes
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-served-by:
+      - cache-chi-klot8100170-CHI, cache-chi-klot8100064-CHI
+      date:
+      - Thu, 14 Aug 2025 09:44:06 GMT
+      x-lfm-cacheable-page:
+      - '0'
+      server:
+      - nginx
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/All%20You%20Need%20Is%20Love?page=1&ajax=true
+      content-language:
+      - en
+      cache-control:
+      - max-age=0, must-revalidate
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:06 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:06 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:06 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_026.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%201?page=1&ajax=true
+    headers:
+      connection:
+      - keep-alive
+      accept-encoding:
+      - gzip, deflate, br
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      sec-ch-ua-mobile:
+      - ?0
+      accept:
+      - '*/*'
+      content-type:
+      - application/octet-stream
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua-platform:
+      - '"Linux"'
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%201
+      dnt:
+      - '1'
+    version: None
+  response:
+    status: 200
+    headers:
+      x-request-category:
+      - page
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:07 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:07 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:07 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      strict-transport-security:
+      - max-age=300
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      date:
+      - Thu, 14 Aug 2025 09:44:07 GMT
+      server:
+      - nginx
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-upstream-type:
+      - PASS
+      x-served-by:
+      - cache-chi-klot8100166-CHI, cache-chi-klot8100064-CHI
+      x-frame-options:
+      - DENY
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%201?page=1&ajax=true
+      content-security-policy:
+      - upgrade-insecure-requests;
+      cache-control:
+      - max-age=0, must-revalidate
+      x-cache:
+      - MISS, MISS
+      content-language:
+      - en
+      x-lfm-cacheable-page:
+      - '0'
+      content-encoding:
+      - gzip
+      etag:
+      - W/"fc1cbf1a669083340aa39bccfb0dc0e2"
+      content-type:
+      - text/html; charset=utf-8
+      x-timer:
+      - S1755164647.960201,VS0,VE647
+      accept-ranges:
+      - bytes
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Anthology%201?page=1&ajax=true
+    body_file: resp_027.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%203?page=1&ajax=true
+    headers:
+      content-type:
+      - application/octet-stream
+      accept:
+      - '*/*'
+      dnt:
+      - '1'
+      connection:
+      - keep-alive
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      x-requested-with:
+      - XMLHttpRequest
+      accept-encoding:
+      - gzip, deflate, br
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%203
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua-platform:
+      - '"Linux"'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+    version: None
+  response:
+    status: 200
+    headers:
+      etag:
+      - W/"251551e3575ea3a49b221ea5d74ecbea"
+      x-frame-options:
+      - DENY
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-type:
+      - text/html; charset=utf-8
+      content-language:
+      - en
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:08 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:08 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:08 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      accept-ranges:
+      - bytes
+      x-request-category:
+      - page
+      strict-transport-security:
+      - max-age=300
+      x-served-by:
+      - cache-chi-klot8100057-CHI, cache-chi-klot8100064-CHI
+      x-cache-hits:
+      - 0, 0
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-timer:
+      - S1755164648.657619,VS0,VE736
+      cache-control:
+      - max-age=0, must-revalidate
+      content-encoding:
+      - gzip
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Anthology%203?page=1&ajax=true
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Anthology%203?page=1&ajax=true
+      date:
+      - Thu, 14 Aug 2025 09:44:08 GMT
+      x-lfm-upstream-type:
+      - PASS
+      server:
+      - nginx
+      x-cache:
+      - MISS, MISS
+      x-lfm-cacheable-page:
+      - '0'
+      content-security-policy:
+      - upgrade-insecure-requests;
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_028.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Eight%20Days%20A%20Week?page=1&ajax=true
+    headers:
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Eight%20Days%20A%20Week
+      x-requested-with:
+      - XMLHttpRequest
+      dnt:
+      - '1'
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      connection:
+      - keep-alive
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache:
+      - MISS, MISS
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-request-category:
+      - page
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-cache-hits:
+      - 0, 0
+      strict-transport-security:
+      - max-age=300
+      cache-control:
+      - max-age=0, must-revalidate
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:09 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:09 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:09 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      content-language:
+      - en
+      server:
+      - nginx
+      x-frame-options:
+      - DENY
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Eight%20Days%20A%20Week?page=1&ajax=true
+      x-lfm-cacheable-page:
+      - '0'
+      x-timer:
+      - S1755164648.466269,VS0,VE635
+      content-encoding:
+      - gzip
+      x-served-by:
+      - cache-chi-klot8100143-CHI, cache-chi-klot8100064-CHI
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy:
+      - upgrade-insecure-requests;
+      date:
+      - Thu, 14 Aug 2025 09:44:09 GMT
+      etag:
+      - W/"9ed94196c0476253f3c5aee1858b68e6"
+      accept-ranges:
+      - bytes
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Eight%20Days%20A%20Week?page=1&ajax=true
+      x-lfm-upstream-type:
+      - PASS
+    body_file: resp_029.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hello%20Goodbye?page=1&ajax=true
+    headers:
+      dnt:
+      - '1'
+      sec-ch-ua-mobile:
+      - ?0
+      accept:
+      - '*/*'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hello%20Goodbye
+      connection:
+      - keep-alive
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      x-requested-with:
+      - XMLHttpRequest
+    version: None
+  response:
+    status: 200
+    headers:
+      x-timer:
+      - S1755164649.166926,VS0,VE1254
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Hello%20Goodbye?page=1&ajax=true
+      content-language:
+      - en
+      content-security-policy:
+      - upgrade-insecure-requests;
+      accept-ranges:
+      - bytes
+      x-request-category:
+      - page
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Hello%20Goodbye?page=1&ajax=true
+      content-encoding:
+      - gzip
+      x-cache-hits:
+      - 0, 0
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-upstream-type:
+      - PASS
+      x-served-by:
+      - cache-chi-klot8100097-CHI, cache-chi-klot8100064-CHI
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:10 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:10 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:10 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      cache-control:
+      - max-age=0, must-revalidate
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-frame-options:
+      - DENY
+      x-cache:
+      - MISS, MISS
+      date:
+      - Thu, 14 Aug 2025 09:44:10 GMT
+      server:
+      - nginx
+      etag:
+      - W/"99011998e9e0986d9800c1b2fae85550"
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-cacheable-page:
+      - '0'
+      content-type:
+      - text/html; charset=utf-8
+      strict-transport-security:
+      - max-age=300
+    body_file: resp_030.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%20Feel%20Fine?page=1&ajax=true
+    headers:
+      accept-encoding:
+      - gzip, deflate, br
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%20Feel%20Fine
+      connection:
+      - keep-alive
+      sec-ch-ua-platform:
+      - '"Linux"'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      dnt:
+      - '1'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      accept-language:
+      - en-US,en;q=0.9
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      content-type:
+      - application/octet-stream
+      accept:
+      - '*/*'
+      sec-ch-ua-mobile:
+      - ?0
+    version: None
+  response:
+    status: 200
+    headers:
+      x-cache:
+      - MISS, MISS
+      x-timer:
+      - S1755164650.470101,VS0,VE410
+      date:
+      - Thu, 14 Aug 2025 09:44:10 GMT
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-served-by:
+      - cache-chi-klot8100154-CHI, cache-chi-klot8100064-CHI
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%20Feel%20Fine?page=1&ajax=true
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      server:
+      - nginx
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      etag:
+      - W/"d296e5ae43a900c1a1698532f7133123"
+      x-lfm-cacheable-page:
+      - '0'
+      x-cache-hits:
+      - 0, 0
+      cache-control:
+      - max-age=0, must-revalidate
+      x-lfm-upstream-type:
+      - PASS
+      content-language:
+      - en
+      content-encoding:
+      - gzip
+      x-frame-options:
+      - DENY
+      accept-ranges:
+      - bytes
+      strict-transport-security:
+      - max-age=300
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/I%20Feel%20Fine?page=1&ajax=true
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:10 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:10 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:10 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-request-category:
+      - page
+    body_file: resp_031.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%27ll%20Cry%20Instead?page=1&ajax=true
+    headers:
+      sec-ch-ua-mobile:
+      - ?0
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      accept:
+      - '*/*'
+      dnt:
+      - '1'
+      content-type:
+      - application/octet-stream
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-encoding:
+      - gzip, deflate, br
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%27ll%20Cry%20Instead
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      connection:
+      - keep-alive
+      x-requested-with:
+      - XMLHttpRequest
+    version: None
+  response:
+    status: 200
+    headers:
+      content-type:
+      - text/html; charset=utf-8
+      x-cache:
+      - MISS, MISS
+      content-encoding:
+      - gzip
+      x-timer:
+      - S1755164651.927919,VS0,VE640
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-cacheable-page:
+      - '0'
+      etag:
+      - W/"f23a4b714be2bf0d0dad3c2e565b64f9"
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/I%27ll%20Cry%20Instead?page=1&ajax=true
+      content-language:
+      - en
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-served-by:
+      - cache-chi-klot8100057-CHI, cache-chi-klot8100064-CHI
+      x-cache-hits:
+      - 0, 0
+      server:
+      - nginx
+      x-frame-options:
+      - DENY
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:11 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:11 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:11 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:44:11 GMT
+      x-lfm-upstream-type:
+      - PASS
+      accept-ranges:
+      - bytes
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/I%27ll%20Cry%20Instead?page=1&ajax=true
+      x-request-category:
+      - page
+      cache-control:
+      - max-age=0, must-revalidate
+      strict-transport-security:
+      - max-age=300
+    body_file: resp_032.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love?page=1&ajax=true
+    headers:
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love
+      accept-encoding:
+      - gzip, deflate, br
+      connection:
+      - keep-alive
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      accept-language:
+      - en-US,en;q=0.9
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua-platform:
+      - '"Linux"'
+      content-type:
+      - application/octet-stream
+    version: None
+  response:
+    status: 200
+    headers:
+      cache-control:
+      - max-age=0, must-revalidate
+      x-served-by:
+      - cache-chi-klot8100098-CHI, cache-chi-klot8100064-CHI
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Love?page=1&ajax=true
+      x-timer:
+      - S1755164652.728574,VS0,VE940
+      server:
+      - nginx
+      x-cache:
+      - MISS, MISS
+      content-language:
+      - en
+      date:
+      - Thu, 14 Aug 2025 09:44:12 GMT
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:12 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:12 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:12 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-frame-options:
+      - DENY
+      x-request-category:
+      - page
+      accept-ranges:
+      - bytes
+      content-encoding:
+      - gzip
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-upstream-type:
+      - PASS
+      strict-transport-security:
+      - max-age=300
+      etag:
+      - W/"3bb5a55ac54ad76aaaa332b369fe76eb"
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-cache-hits:
+      - 0, 0
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love?page=1&ajax=true
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-lfm-cacheable-page:
+      - '0'
+    body_file: resp_033.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love%20Me%20Do?page=1&ajax=true
+    headers:
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      connection:
+      - keep-alive
+      sec-ch-ua-mobile:
+      - ?0
+      dnt:
+      - '1'
+      x-requested-with:
+      - XMLHttpRequest
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      content-type:
+      - application/octet-stream
+      accept:
+      - '*/*'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love%20Me%20Do
+    version: None
+  response:
+    status: 200
+    headers:
+      x-lfm-cacheable-page:
+      - '0'
+      content-type:
+      - text/html; charset=utf-8
+      accept-ranges:
+      - bytes
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      strict-transport-security:
+      - max-age=300
+      content-encoding:
+      - gzip
+      cache-control:
+      - max-age=0, must-revalidate
+      etag:
+      - W/"e5826fb37050048255c3184a7437f7ee"
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Love%20Me%20Do?page=1&ajax=true
+      content-language:
+      - en
+      x-request-category:
+      - page
+      x-timer:
+      - S1755164653.714630,VS0,VE519
+      server:
+      - nginx
+      x-served-by:
+      - cache-chi-klot8100034-CHI, cache-chi-klot8100064-CHI
+      x-frame-options:
+      - DENY
+      date:
+      - Thu, 14 Aug 2025 09:44:13 GMT
+      x-cache:
+      - MISS, MISS
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Love%20Me%20Do?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-lfm-upstream-type:
+      - PASS
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:13 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:13 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:13 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+    body_file: resp_034.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Something%20New?page=1&ajax=true
+    headers:
+      connection:
+      - keep-alive
+      accept-encoding:
+      - gzip, deflate, br
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-language:
+      - en-US,en;q=0.9
+      content-type:
+      - application/octet-stream
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      dnt:
+      - '1'
+      accept:
+      - '*/*'
+      sec-ch-ua-mobile:
+      - ?0
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Something%20New
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+    version: None
+  response:
+    status: 200
+    headers:
+      strict-transport-security:
+      - max-age=300
+      content-encoding:
+      - gzip
+      x-timer:
+      - S1755164653.278904,VS0,VE1246
+      date:
+      - Thu, 14 Aug 2025 09:44:14 GMT
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-cache:
+      - MISS, MISS
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-request-category:
+      - page
+      cache-control:
+      - max-age=0, must-revalidate
+      x-cache-hits:
+      - 0, 0
+      accept-ranges:
+      - bytes
+      server:
+      - nginx
+      x-lfm-upstream-type:
+      - PASS
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Something%20New?page=1&ajax=true
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Something%20New?page=1&ajax=true
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy:
+      - upgrade-insecure-requests;
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:14 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:14 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:14 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      etag:
+      - W/"79e8a71dfe8c7f98ef1d3865feab5535"
+      x-lfm-cacheable-page:
+      - '0'
+      content-language:
+      - en
+      x-served-by:
+      - cache-chi-klot8100020-CHI, cache-chi-klot8100064-CHI
+      x-frame-options:
+      - DENY
+    body_file: resp_035.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967%20%E2%80%93%201970%20%282023%20Edition%29?page=1&ajax=true
+    headers:
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967%20%E2%80%93%201970%20%282023%20Edition%29
+      sec-ch-ua-mobile:
+      - ?0
+      connection:
+      - keep-alive
+      accept:
+      - '*/*'
+      accept-language:
+      - en-US,en;q=0.9
+      dnt:
+      - '1'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      content-type:
+      - application/octet-stream
+      accept-encoding:
+      - gzip, deflate, br
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+    version: None
+  response:
+    status: 200
+    headers:
+      content-type:
+      - text/html; charset=utf-8
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:15 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:15 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:15 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-frame-options:
+      - DENY
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967%20%E2%80%93%201970%20%282023%20Edition%29?page=1&ajax=true
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      cache-control:
+      - max-age=0, must-revalidate
+      x-timer:
+      - S1755164655.611500,VS0,VE635
+      date:
+      - Thu, 14 Aug 2025 09:44:15 GMT
+      accept-ranges:
+      - bytes
+      content-encoding:
+      - gzip
+      x-lfm-upstream-type:
+      - PASS
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967%20%E2%80%93%201970%20%282023%20Edition%29?page=1&ajax=true
+      strict-transport-security:
+      - max-age=300
+      x-cache-hits:
+      - 0, 0
+      server:
+      - nginx
+      x-request-category:
+      - page
+      content-language:
+      - en
+      x-served-by:
+      - cache-chi-klot8100025-CHI, cache-chi-klot8100064-CHI
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-cacheable-page:
+      - '0'
+      x-cache:
+      - MISS, MISS
+      etag:
+      - W/"8afa310a829bf16a5d698e47a797c5a4"
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+    body_file: resp_036.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967-1970?page=1&ajax=true
+    headers:
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      connection:
+      - keep-alive
+      accept-language:
+      - en-US,en;q=0.9
+      dnt:
+      - '1'
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967-1970
+      content-type:
+      - application/octet-stream
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      accept-encoding:
+      - gzip, deflate, br
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+    version: None
+  response:
+    status: 200
+    headers:
+      x-served-by:
+      - cache-chi-klot8100065-CHI, cache-chi-klot8100064-CHI
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:16 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:16 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:16 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      etag:
+      - W/"440e1d4286180af50df499afb288bea0"
+      cache-control:
+      - max-age=0, must-revalidate
+      x-cache:
+      - MISS, MISS
+      x-request-category:
+      - page
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967-1970?page=1&ajax=true
+      x-lfm-cacheable-page:
+      - '0'
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      strict-transport-security:
+      - max-age=300
+      content-security-policy:
+      - upgrade-insecure-requests;
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:44:16 GMT
+      x-frame-options:
+      - DENY
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/The%20Beatles%201967-1970?page=1&ajax=true
+      x-cache-hits:
+      - 0, 0
+      x-lfm-upstream-type:
+      - PASS
+      content-encoding:
+      - gzip
+      content-type:
+      - text/html; charset=utf-8
+      x-timer:
+      - S1755164655.398141,VS0,VE1245
+      server:
+      - nginx
+      accept-ranges:
+      - bytes
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-language:
+      - en
+    body_file: resp_037.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Ticket%20To%20Ride?page=1&ajax=true
+    headers:
+      accept-language:
+      - en-US,en;q=0.9
+      x-requested-with:
+      - XMLHttpRequest
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      connection:
+      - keep-alive
+      content-type:
+      - application/octet-stream
+      sec-ch-ua-platform:
+      - '"Linux"'
+      sec-ch-ua-mobile:
+      - ?0
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Ticket%20To%20Ride
+      accept:
+      - '*/*'
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      dnt:
+      - '1'
+      accept-encoding:
+      - gzip, deflate, br
+    version: None
+  response:
+    status: 200
+    headers:
+      etag:
+      - W/"726c6a0e5e3a9f039bcd5c682fe54873"
+      x-request-category:
+      - page
+      x-lfm-upstream-type:
+      - PASS
+      x-frame-options:
+      - DENY
+      x-timer:
+      - S1755164657.861352,VS0,VE942
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      x-lfm-cacheable-page:
+      - '0'
+      strict-transport-security:
+      - max-age=300
+      content-language:
+      - en
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Ticket%20To%20Ride?page=1&ajax=true
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      x-served-by:
+      - cache-chi-klot8100134-CHI, cache-chi-klot8100064-CHI
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Ticket%20To%20Ride?page=1&ajax=true
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:17 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:17 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:17 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      accept-ranges:
+      - bytes
+      server:
+      - nginx
+      date:
+      - Thu, 14 Aug 2025 09:44:17 GMT
+      content-encoding:
+      - gzip
+      cache-control:
+      - max-age=0, must-revalidate
+      content-type:
+      - text/html; charset=utf-8
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-cache:
+      - MISS, MISS
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-cache-hits:
+      - 0, 0
+    body_file: resp_038.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine%2FEleanor%20Rigby?page=1&ajax=true
+    headers:
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+      sec-ch-ua-mobile:
+      - ?0
+      content-type:
+      - application/octet-stream
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-language:
+      - en-US,en;q=0.9
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine%2FEleanor%20Rigby
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      connection:
+      - keep-alive
+      accept-encoding:
+      - gzip, deflate, br
+      accept:
+      - '*/*'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      x-requested-with:
+      - XMLHttpRequest
+      dnt:
+      - '1'
+    version: None
+  response:
+    status: 200
+    headers:
+      date:
+      - Thu, 14 Aug 2025 09:44:18 GMT
+      x-lfm-upstream-type:
+      - PASS
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      content-language:
+      - en
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:18 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:18 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:18 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-served-by:
+      - cache-chi-klot8100093-CHI, cache-chi-klot8100064-CHI
+      accept-ranges:
+      - bytes
+      x-cache:
+      - MISS, MISS
+      strict-transport-security:
+      - max-age=300
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine%2FEleanor%20Rigby?page=1&ajax=true
+      x-timer:
+      - S1755164658.896178,VS0,VE941
+      content-type:
+      - text/html; charset=utf-8
+      content-encoding:
+      - gzip
+      server:
+      - nginx
+      cache-control:
+      - max-age=0, must-revalidate
+      x-lfm-cacheable-page:
+      - '0'
+      x-frame-options:
+      - DENY
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      content-security-policy:
+      - upgrade-insecure-requests;
+      x-request-category:
+      - page
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yellow%20Submarine%2FEleanor%20Rigby?page=1&ajax=true
+      etag:
+      - W/"2ae1f52005ac6876144b058f42bb3612"
+      x-cache-hits:
+      - 0, 0
+    body_file: resp_039.txt
+    version: None
+- request:
+    method: GET
+    url: https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yesterday?page=1&ajax=true
+    headers:
+      sec-ch-ua-mobile:
+      - ?0
+      dnt:
+      - '1'
+      user-agent:
+      - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+      accept-language:
+      - en-US,en;q=0.9
+      connection:
+      - keep-alive
+      x-requested-with:
+      - XMLHttpRequest
+      accept:
+      - '*/*'
+      sec-ch-ua-platform:
+      - '"Linux"'
+      content-type:
+      - application/octet-stream
+      referer:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yesterday
+      sec-ch-ua:
+      - '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"'
+      accept-encoding:
+      - gzip, deflate, br
+      cookie:
+      - lpfrmo=1; lfmanon=0; not_first_visit=1; csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; sessionid=test_session_id; X-UA-Device-Type=desktop; X-UA-Country-Code=US
+    version: None
+  response:
+    status: 200
+    headers:
+      content-security-policy-report-only:
+      - 'default-src https: ''unsafe-inline'' ''unsafe-eval'' wss: ;img-src https: data: blob: ; font-src https: data:; form-action https: http://www.last.fm; report-uri https://cbsi.report-uri.io/r/default/csp/enforce'
+      x-request-category:
+      - page
+      etag:
+      - W/"79a9d41ea8b9e3735fc67b0e2b513fec"
+      strict-transport-security:
+      - max-age=300
+      content-language:
+      - en
+      set-cookie:
+      - lpfrmo=1; Domain=last.fm; expires=Thu, 14 Aug 2025 09:45:19 GMT; Max-Age=60; Path=/; Secure
+      - lfmanon=0; Path=/
+      - not_first_visit=1; Path=/
+      - csrftoken=bpi87Fu3sLGXH5oc9Ti3uc2cqtwzA5ms; expires=Thu, 13 Aug 2026 09:44:19 GMT; Max-Age=31449600; Path=/; SameSite=Lax; Secure
+      - sessionid=test_session_id; Domain=.last.fm; expires=Fri, 14 Aug 2026 09:44:19 GMT; HttpOnly; Max-Age=31536000; Path=/; SameSite=Lax; Secure
+      - X-UA-Device-Type=desktop; max-age=60; secure; same-site=strict; Path=/
+      - X-UA-Country-Code=US; max-age=60; secure; same-site=strict; Path=/
+      x-timer:
+      - S1755164659.915899,VS0,VE517
+      via:
+      - 1.1 google, 1.1 varnish, 1.1 varnish
+      content-type:
+      - text/html; charset=utf-8
+      x-frame-options:
+      - DENY
+      content-encoding:
+      - gzip
+      server:
+      - nginx
+      x-lfm-cacheable-page:
+      - '0'
+      x-cache-hits:
+      - 0, 0
+      x-served-by:
+      - cache-chi-klot8100093-CHI, cache-chi-klot8100064-CHI
+      x-lfm-upstream:
+      - /user/IvanMalison/library/music/The%20Beatles/Yesterday?page=1&ajax=true
+      accept-ranges:
+      - bytes
+      x-lfm-upstream-type:
+      - PASS
+      x-cache:
+      - MISS, MISS
+      x-pjax-url:
+      - https://www.last.fm/user/IvanMalison/library/music/The%20Beatles/Yesterday?page=1&ajax=true
+      vary:
+      - Accept-Encoding,Cookie, Accept-Language
+      date:
+      - Thu, 14 Aug 2025 09:44:19 GMT
+      cache-control:
+      - max-age=0, must-revalidate
+      content-security-policy:
+      - upgrade-insecure-requests;
+    body_file: resp_040.txt
+    version: None

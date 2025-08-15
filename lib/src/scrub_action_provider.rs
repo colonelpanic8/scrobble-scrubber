@@ -209,7 +209,7 @@ impl RewriteRulesScrubActionProvider {
         // Use rule-specific filters if provided, otherwise use default MusicBrainz provider behavior
         if let Some(filters) = release_filters {
             // Use static method with custom filters for this specific verification
-            crate::musicbrainz_provider::MusicBrainzScrubActionProvider::verify_track_exists_with_filters(
+            crate::musicbrainz::MusicBrainzScrubActionProvider::verify_track_exists_with_filters(
                 &artist,
                 &title,
                 album.as_deref(),
@@ -219,8 +219,7 @@ impl RewriteRulesScrubActionProvider {
             .map_err(|e| ActionProviderError(format!("MusicBrainz verification failed: {e}")))
         } else {
             // Use default provider behavior (no special filters)
-            let default_provider =
-                crate::musicbrainz_provider::MusicBrainzScrubActionProvider::new(0.8, 20);
+            let default_provider = crate::musicbrainz::MusicBrainzScrubActionProvider::new(0.8, 20);
             default_provider
                 .verify_track_exists(&artist, &title, album.as_deref())
                 .await

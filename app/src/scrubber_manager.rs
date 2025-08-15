@@ -1,7 +1,7 @@
 use crate::types::{AppState, GlobalScrubber};
-use ::scrobble_scrubber::compilation_to_canonical_provider::CompilationToCanonicalProvider;
 use ::scrobble_scrubber::config::{ScrobbleScrubberConfig, TrackProviderType};
-use ::scrobble_scrubber::musicbrainz_provider::MusicBrainzScrubActionProvider;
+use ::scrobble_scrubber::musicbrainz::CompilationToCanonicalProvider;
+use ::scrobble_scrubber::musicbrainz::MusicBrainzScrubActionProvider;
 use ::scrobble_scrubber::persistence::FileStorage;
 use ::scrobble_scrubber::rewrite::RewriteRule;
 use ::scrobble_scrubber::scrub_action_provider::{
