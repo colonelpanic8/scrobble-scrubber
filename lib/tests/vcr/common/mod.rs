@@ -6,6 +6,9 @@ use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl};
 use std::env;
 use std::fs;
 
+// Default test username for VCR tests (matches recorded cassettes)
+const DEFAULT_TEST_USERNAME: &str = "IvanMalison";
+
 /// Shared setup for VCR test clients
 struct VcrTestSetup {
     cassette_path: String,
@@ -63,8 +66,8 @@ impl VcrTestSetup {
             }
             _ => {
                 // Replay/Filter mode: use real username for URL matching, dummy password
-                let username =
-                    env::var("LASTFM_EDIT_USERNAME").unwrap_or_else(|_| "TestUser".to_string());
+                let username = env::var("LASTFM_EDIT_USERNAME")
+                    .unwrap_or_else(|_| DEFAULT_TEST_USERNAME.to_string());
                 (username, "dummy_password".to_string())
             }
         }
