@@ -789,9 +789,9 @@ impl CompilationToCanonicalProvider {
                         .join(", ")
                 );
                 log::debug!(
-                    "Since current album not found in results, defaulting to assuming it's NOT a compilation (returning None)"
+                    "Current album not found in results - will still check if there's a better album available"
                 );
-                return Ok(None);
+                // Don't return early - continue to check if there's a better album
             }
         }
 
