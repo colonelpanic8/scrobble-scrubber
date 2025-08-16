@@ -29,8 +29,8 @@ pub struct RankedRelease {
     pub country: Option<String>,
     pub disambiguation: Option<String>,
     pub status: Option<String>,
-    pub primary_type: Option<String>,
-    pub secondary_types: Vec<String>,
+    pub primary_type: Option<ReleaseGroupPrimaryType>,
+    pub secondary_types: Vec<ReleaseGroupSecondaryType>,
     pub is_compilation: bool,
     pub is_various_artists: bool,
     pub rank: usize,
@@ -491,16 +491,10 @@ impl CompilationToCanonicalProvider {
                 status: release.status.as_ref().map(|s| format!("{s:?}")),
                 primary_type: release_group
                     .as_ref()
-                    .and_then(|rg| rg.primary_type.as_ref())
-                    .map(|pt| format!("{pt:?}")),
+                    .and_then(|rg| rg.primary_type.clone()),
                 secondary_types: release_group
                     .as_ref()
-                    .map(|rg| {
-                        rg.secondary_types
-                            .iter()
-                            .map(|st| format!("{st:?}"))
-                            .collect()
-                    })
+                    .map(|rg| rg.secondary_types.clone())
                     .unwrap_or_default(),
                 is_compilation,
                 is_various_artists: is_va,

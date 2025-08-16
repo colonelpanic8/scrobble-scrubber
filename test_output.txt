@@ -1,0 +1,744 @@
+tist_full_processing] Suggestions for 'Taxman' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:25Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles Golden Edition'
+[2025-08-14T09:46:26Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Eleanor Rigby' by 'The Beatles': 'Beatz'n Rhymes 4' (was 'Revolver')
+[2025-08-14T09:46:27Z INFO  scrobble_scrubber::scrubber] Processed [70]: The Beatles - Eleanor Rigby [Revolver] - no changes
+[2025-08-14T09:46:27Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Eleanor Rigby' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:27Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatz'n Rhymes 4'
+[2025-08-14T09:46:28Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Want to Tell You' by 'The Beatles': 'The Beatles' (was 'Revolver')
+[2025-08-14T09:46:28Z INFO  scrobble_scrubber::scrubber] Processed [71]: The Beatles - I Want to Tell You [Revolver] - no changes
+[2025-08-14T09:46:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Want to Tell You' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:46:29Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'And Your Bird Can Sing' by 'The Beatles': 'The Beatles' (was 'Revolver')
+[2025-08-14T09:46:30Z INFO  scrobble_scrubber::scrubber] Processed [72]: The Beatles - And Your Bird Can Sing [Revolver] - no changes
+[2025-08-14T09:46:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'And Your Bird Can Sing' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:46:31Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Here, There and Everywhere' by 'The Beatles': 'The Beatles in Mono' (was 'Revolver')
+[2025-08-14T09:46:31Z INFO  scrobble_scrubber::scrubber] Processed [73]: The Beatles - Here, There and Everywhere [Revolver] - no changes
+[2025-08-14T09:46:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Here, There and Everywhere' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles in Mono'
+[2025-08-14T09:46:34Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Good Day Sunshine' by 'The Beatles': 'The Beatles in Mono' (was 'Revolver')
+[2025-08-14T09:46:34Z INFO  scrobble_scrubber::scrubber] Processed [74]: The Beatles - Good Day Sunshine [Revolver] - no changes
+[2025-08-14T09:46:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Good Day Sunshine' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles in Mono'
+[2025-08-14T09:46:35Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Love You To' by 'The Beatles': 'Revolver (super deluxe)' (was 'Revolver')
+[2025-08-14T09:46:36Z INFO  scrobble_scrubber::scrubber] Processed [75]: The Beatles - Love You To [Revolver] - no changes
+[2025-08-14T09:46:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Love You To' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Revolver (super deluxe)'
+[2025-08-14T09:46:38Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Doctor Robert' by 'The Beatles': 'The Beatles' (was 'Revolver')
+[2025-08-14T09:46:38Z INFO  scrobble_scrubber::scrubber] Processed [76]: The Beatles - Doctor Robert [Revolver] - no changes
+[2025-08-14T09:46:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Doctor Robert' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:46:39Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Yellow Submarine' by 'The Beatles': 'Yellow Submarine' (was 'Revolver')
+[2025-08-14T09:46:39Z INFO  scrobble_scrubber::scrubber] Processed [77]: The Beatles - Yellow Submarine [Revolver] - no changes
+[2025-08-14T09:46:39Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Yellow Submarine' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:39Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Yellow Submarine'
+[2025-08-14T09:46:41Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I’m Only Sleeping' by 'The Beatles': 'The Beatles in Mono' (was 'Revolver')
+[2025-08-14T09:46:41Z INFO  scrobble_scrubber::scrubber] Processed [78]: The Beatles - I’m Only Sleeping [Revolver] - no changes
+[2025-08-14T09:46:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I’m Only Sleeping' by 'The Beatles' (album: Some("Revolver")): 1 suggestions
+[2025-08-14T09:46:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles in Mono'
+[2025-08-14T09:46:43Z INFO  scrobble_scrubber::scrubber] Processed [79]: The Beatles - Don't Let Me Down [Let It Be... Naked] - no changes
+[2025-08-14T09:46:45Z INFO  scrobble_scrubber::scrubber] Processed [80]: The Beatles - Get Back [Let It Be... Naked] - no changes
+[2025-08-14T09:46:46Z INFO  scrobble_scrubber::scrubber] Processed [81]: The Beatles - Dig a Pony [Let It Be... Naked] - no changes
+[2025-08-14T09:46:48Z INFO  scrobble_scrubber::scrubber] Processed [82]: The Beatles - Across the Universe [Let It Be... Naked] - no changes
+[2025-08-14T09:46:49Z INFO  scrobble_scrubber::scrubber] Processed [83]: The Beatles - I Me Mine [Let It Be... Naked] - no changes
+[2025-08-14T09:46:51Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Let It Be' by 'The Beatles': 'Fast Lane' (was 'Let It Be... Naked')
+[2025-08-14T09:46:51Z INFO  scrobble_scrubber::scrubber] Processed [84]: The Beatles - Let It Be [Let It Be... Naked] - no changes
+[2025-08-14T09:46:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Let It Be' by 'The Beatles' (album: Some("Let It Be... Naked")): 1 suggestions
+[2025-08-14T09:46:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Fast Lane'
+[2025-08-14T09:46:53Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'For You Blue' by 'The Beatles': 'Beatles Box' (was 'Let It Be... Naked')
+[2025-08-14T09:46:53Z INFO  scrobble_scrubber::scrubber] Processed [85]: The Beatles - For You Blue [Let It Be... Naked] - no changes
+[2025-08-14T09:46:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'For You Blue' by 'The Beatles' (album: Some("Let It Be... Naked")): 1 suggestions
+[2025-08-14T09:46:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:46:55Z INFO  scrobble_scrubber::scrubber] Processed [86]: The Beatles - I've Got a Feeling [Let It Be... Naked] - no changes
+[2025-08-14T09:46:57Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Two of Us' by 'The Beatles': 'Let It Be' (was 'Let It Be... Naked')
+[2025-08-14T09:46:57Z INFO  scrobble_scrubber::scrubber] Processed [87]: The Beatles - Two of Us [Let It Be... Naked] - no changes
+[2025-08-14T09:46:57Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Two of Us' by 'The Beatles' (album: Some("Let It Be... Naked")): 1 suggestions
+[2025-08-14T09:46:57Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Let It Be'
+[2025-08-14T09:46:59Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'The Long and Winding Road' by 'The Beatles': 'The Beatles (3)' (was 'Let It Be... Naked')
+[2025-08-14T09:46:59Z INFO  scrobble_scrubber::scrubber] Processed [88]: The Beatles - The Long and Winding Road [Let It Be... Naked] - no changes
+[2025-08-14T09:46:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'The Long and Winding Road' by 'The Beatles' (album: Some("Let It Be... Naked")): 1 suggestions
+[2025-08-14T09:46:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles (3)'
+[2025-08-14T09:47:00Z INFO  scrobble_scrubber::scrubber] Processed [89]: The Beatles - One After 909 [Let It Be... Naked] - no changes
+[2025-08-14T09:47:02Z INFO  scrobble_scrubber::scrubber] Processed [90]: The Beatles - Dig It [Let It Be... Naked] - no changes
+[2025-08-14T09:47:04Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Maggie Mae' by 'The Beatles': 'Let It Be' (was 'Let It Be... Naked')
+[2025-08-14T09:47:04Z INFO  scrobble_scrubber::scrubber] Processed [91]: The Beatles - Maggie Mae [Let It Be... Naked] - no changes
+[2025-08-14T09:47:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Maggie Mae' by 'The Beatles' (album: Some("Let It Be... Naked")): 1 suggestions
+[2025-08-14T09:47:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Let It Be'
+[2025-08-14T09:47:05Z INFO  scrobble_scrubber::scrubber] Processed [92]: The Beatles - Don't Let Me Down - 1969 Glyn Johns Mix [Let It Be... Naked] - no changes
+[2025-08-14T09:47:05Z INFO  scrobble_scrubber::scrubber] Processed [93]: The Beatles - Medley: I’m Ready (aka Rocker) / Save The Last Dance For Me / Don’t Let Me Down - 1969 Glyn Johns Mix [Let It Be... Naked] - no changes
+[2025-08-14T09:47:05Z INFO  scrobble_scrubber::scrubber] Processed [94]: The Beatles - One After 909 - 1969 Glyn Johns Mix [Let It Be... Naked] - no changes
+[2025-08-14T09:47:06Z INFO  scrobble_scrubber::scrubber] Processed [95]: The Beatles - She Came In Through The Bathroom Window - Rehearsal [Let It Be... Naked] - no changes
+[2025-08-14T09:47:07Z INFO  scrobble_scrubber::scrubber] Processed [96]: The Beatles - Something - Rehearsal / Mono [Let It Be... Naked] - no changes
+[2025-08-14T09:47:09Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'A Day in the Life' by 'The Beatles': '1967–1970' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:09Z INFO  scrobble_scrubber::scrubber] Processed [97]: The Beatles - A Day in the Life [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:09Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'A Day in the Life' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:09Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1967–1970'
+[2025-08-14T09:47:11Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'With a Little Help From My Friends' by 'The Beatles': 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:11Z INFO  scrobble_scrubber::scrubber] Processed [98]: The Beatles - With a Little Help From My Friends [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:11Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'With a Little Help From My Friends' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:11Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)'
+[2025-08-14T09:47:13Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Sgt. Pepper's Lonely Hearts Club Band' by 'The Beatles': 'Interpretan A Los Beatles' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:13Z INFO  scrobble_scrubber::scrubber] Processed [99]: The Beatles - Sgt. Pepper's Lonely Hearts Club Band [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Sgt. Pepper's Lonely Hearts Club Band' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Interpretan A Los Beatles'
+[2025-08-14T09:47:15Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Lucy in the Sky With Diamonds' by 'The Beatles': 'Love' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:15Z INFO  scrobble_scrubber::scrubber] Processed [100]: The Beatles - Lucy in the Sky With Diamonds [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Lucy in the Sky With Diamonds' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:47:17Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Getting Better' by 'The Beatles': 'Sgt. Pepper’s Lonely Hearts Club Band' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:17Z INFO  scrobble_scrubber::scrubber] Processed [101]: The Beatles - Getting Better [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Getting Better' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:47:18Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Fixing a Hole' by 'The Beatles': 'Sgt. Pepper’s Lonely Hearts Club Band' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:19Z INFO  scrobble_scrubber::scrubber] Processed [102]: The Beatles - Fixing a Hole [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:19Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Fixing a Hole' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:19Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:47:21Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'She's Leaving Home' by 'The Beatles': 'Beatles Box' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:21Z INFO  scrobble_scrubber::scrubber] Processed [103]: The Beatles - She's Leaving Home [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'She's Leaving Home' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:47:22Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'When I'm Sixty-Four' by 'The Beatles': 'Words of Love' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:23Z INFO  scrobble_scrubber::scrubber] Processed [104]: The Beatles - When I'm Sixty-Four [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:23Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'When I'm Sixty-Four' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:23Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Words of Love'
+[2025-08-14T09:47:24Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Lovely Rita' by 'The Beatles': 'Sgt. Pepper’s Lonely Hearts Club Band' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:24Z INFO  scrobble_scrubber::scrubber] Processed [105]: The Beatles - Lovely Rita [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:24Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Lovely Rita' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:24Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:47:26Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Good Morning Good Morning' by 'The Beatles': 'Sgt. Pepper’s Lonely Hearts Club Band' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:26Z INFO  scrobble_scrubber::scrubber] Processed [106]: The Beatles - Good Morning Good Morning [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:26Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Good Morning Good Morning' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:26Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:47:28Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Sgt. Pepper's Lonely Hearts Club Band (reprise)' by 'The Beatles': 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:29Z INFO  scrobble_scrubber::scrubber] Processed [107]: The Beatles - Sgt. Pepper's Lonely Hearts Club Band (reprise) [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:29Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Sgt. Pepper's Lonely Hearts Club Band (reprise)' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:29Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)'
+[2025-08-14T09:47:31Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Within You Without You' by 'The Beatles': 'The Beatles 1967–1970 (2023 edition)' (was 'Sgt. Pepper's Lonely Hearts Club Band')
+[2025-08-14T09:47:31Z INFO  scrobble_scrubber::scrubber] Processed [108]: The Beatles - Within You Without You [Sgt. Pepper's Lonely Hearts Club Band] - no changes
+[2025-08-14T09:47:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Within You Without You' by 'The Beatles' (album: Some("Sgt. Pepper's Lonely Hearts Club Band")): 1 suggestions
+[2025-08-14T09:47:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:47:32Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Twist and Shout' by 'The Beatles': 'Rock ’n’ Roll Music, Volume 1' (was 'Please Please Me')
+[2025-08-14T09:47:32Z INFO  scrobble_scrubber::scrubber] Processed [109]: The Beatles - Twist and Shout [Please Please Me] - no changes
+[2025-08-14T09:47:32Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Twist and Shout' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:32Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Rock ’n’ Roll Music, Volume 1'
+[2025-08-14T09:47:34Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Saw Her Standing There' by 'The Beatles': 'Beatles Box' (was 'Please Please Me')
+[2025-08-14T09:47:34Z INFO  scrobble_scrubber::scrubber] Processed [110]: The Beatles - I Saw Her Standing There [Please Please Me] - no changes
+[2025-08-14T09:47:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Saw Her Standing There' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:47:36Z INFO  scrobble_scrubber::scrubber] Processed [111]: The Beatles - Love Me Do [Please Please Me] - no changes
+[2025-08-14T09:47:38Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Please Please Me' by 'The Beatles': 'From Me to You' (was 'Please Please Me')
+[2025-08-14T09:47:38Z INFO  scrobble_scrubber::scrubber] Processed [112]: The Beatles - Please Please Me [Please Please Me] - no changes
+[2025-08-14T09:47:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Please Please Me' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'From Me to You'
+[2025-08-14T09:47:40Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'There's a Place' by 'The Beatles': 'Twist and Shout' (was 'Please Please Me')
+[2025-08-14T09:47:40Z INFO  scrobble_scrubber::scrubber] Processed [113]: The Beatles - There's a Place [Please Please Me] - no changes
+[2025-08-14T09:47:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'There's a Place' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Twist and Shout'
+[2025-08-14T09:47:41Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Chains' by 'The Beatles': 'The Early Beatles' (was 'Please Please Me')
+[2025-08-14T09:47:41Z INFO  scrobble_scrubber::scrubber] Processed [114]: The Beatles - Chains [Please Please Me] - no changes
+[2025-08-14T09:47:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Chains' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Early Beatles'
+[2025-08-14T09:47:43Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Do You Want to Know a Secret' by 'The Beatles': 'Please Please Me / Twist and Shout / Walking the Dog / Leave It to Me' (was 'Please Please Me')
+[2025-08-14T09:47:43Z INFO  scrobble_scrubber::scrubber] Processed [115]: The Beatles - Do You Want to Know a Secret [Please Please Me] - no changes
+[2025-08-14T09:47:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Do You Want to Know a Secret' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Please Please Me / Twist and Shout / Walking the Dog / Leave It to Me'
+[2025-08-14T09:47:45Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Misery' by 'The Beatles': 'Young Years' (was 'Please Please Me')
+[2025-08-14T09:47:45Z INFO  scrobble_scrubber::scrubber] Processed [116]: The Beatles - Misery [Please Please Me] - no changes
+[2025-08-14T09:47:45Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Misery' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:45Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Young Years'
+[2025-08-14T09:47:48Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'P.S. I Love You' by 'The Beatles': 'The Beatles' (was 'Please Please Me')
+[2025-08-14T09:47:48Z INFO  scrobble_scrubber::scrubber] Processed [117]: The Beatles - P.S. I Love You [Please Please Me] - no changes
+[2025-08-14T09:47:48Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'P.S. I Love You' by 'The Beatles' (album: Some("Please Please Me")): 1 suggestions
+[2025-08-14T09:47:48Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:47:49Z INFO  scrobble_scrubber::scrubber] Processed [118]: The Beatles - Do You Want To Know A Secre [Please Please Me] - no changes
+[2025-08-14T09:47:51Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Yesterday' by 'The Beatles': 'The Beatles' (was 'Help!')
+[2025-08-14T09:47:51Z INFO  scrobble_scrubber::scrubber] Processed [119]: The Beatles - Yesterday [Help!] - no changes
+[2025-08-14T09:47:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Yesterday' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:47:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:47:53Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I've Just Seen a Face' by 'The Beatles': 'The Beatles' (was 'Help!')
+[2025-08-14T09:47:53Z INFO  scrobble_scrubber::scrubber] Processed [120]: The Beatles - I've Just Seen a Face [Help!] - no changes
+[2025-08-14T09:47:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I've Just Seen a Face' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:47:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:47:55Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'You've Got to Hide Your Love Away' by 'The Beatles': 'Bad Boy' (was 'Help!')
+[2025-08-14T09:47:56Z INFO  scrobble_scrubber::scrubber] Processed [121]: The Beatles - You've Got to Hide Your Love Away [Help!] - no changes
+[2025-08-14T09:47:56Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'You've Got to Hide Your Love Away' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:47:56Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Bad Boy'
+[2025-08-14T09:47:57Z INFO  scrobble_scrubber::scrubber] Processed [122]: The Beatles - Help! [Help!] - no changes
+[2025-08-14T09:47:58Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Ticket to Ride' by 'The Beatles': '1962-1966' (was 'Help!')
+[2025-08-14T09:47:59Z INFO  scrobble_scrubber::scrubber] Processed [123]: The Beatles - Ticket to Ride [Help!] - no changes
+[2025-08-14T09:47:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Ticket to Ride' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:47:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1962-1966'
+[2025-08-14T09:48:01Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'The Night Before' by 'The Beatles': 'Rock and Roll Music' (was 'Help!')
+[2025-08-14T09:48:01Z INFO  scrobble_scrubber::scrubber] Processed [124]: The Beatles - The Night Before [Help!] - no changes
+[2025-08-14T09:48:01Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'The Night Before' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:01Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Rock and Roll Music'
+[2025-08-14T09:48:02Z INFO  scrobble_scrubber::scrubber] Processed [125]: The Beatles - I'm Down [Help!] - no changes
+[2025-08-14T09:48:04Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Another Girl' by 'The Beatles': 'Beatles Box' (was 'Help!')
+[2025-08-14T09:48:04Z INFO  scrobble_scrubber::scrubber] Processed [126]: The Beatles - Another Girl [Help!] - no changes
+[2025-08-14T09:48:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Another Girl' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:48:06Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Dizzy Miss Lizzy' by 'The Beatles': 'The Beatles Story (1962–1967)' (was 'Help!')
+[2025-08-14T09:48:06Z INFO  scrobble_scrubber::scrubber] Processed [127]: The Beatles - Dizzy Miss Lizzy [Help!] - no changes
+[2025-08-14T09:48:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Dizzy Miss Lizzy' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles Story (1962–1967)'
+[2025-08-14T09:48:08Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'It's Only Love' by 'The Beatles': 'Love Songs' (was 'Help!')
+[2025-08-14T09:48:08Z INFO  scrobble_scrubber::scrubber] Processed [128]: The Beatles - It's Only Love [Help!] - no changes
+[2025-08-14T09:48:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'It's Only Love' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love Songs'
+[2025-08-14T09:48:10Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Tell Me What You See' by 'The Beatles': 'Beatles VI' (was 'Help!')
+[2025-08-14T09:48:10Z INFO  scrobble_scrubber::scrubber] Processed [129]: The Beatles - Tell Me What You See [Help!] - no changes
+[2025-08-14T09:48:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Tell Me What You See' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles VI'
+[2025-08-14T09:48:13Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'You're Going to Lose That Girl' by 'The Beatles': 'The Beatles' (was 'Help!')
+[2025-08-14T09:48:13Z INFO  scrobble_scrubber::scrubber] Processed [130]: The Beatles - You're Going to Lose That Girl [Help!] - no changes
+[2025-08-14T09:48:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'You're Going to Lose That Girl' by 'The Beatles' (album: Some("Help!")): 1 suggestions
+[2025-08-14T09:48:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:48:14Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Strawberry Fields Forever' by 'The Beatles': '1+' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:15Z INFO  scrobble_scrubber::scrubber] Processed [131]: The Beatles - Strawberry Fields Forever [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Strawberry Fields Forever' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1+'
+[2025-08-14T09:48:17Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Am the Walrus' by 'The Beatles': 'Love' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:17Z INFO  scrobble_scrubber::scrubber] Processed [132]: The Beatles - I Am the Walrus [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Am the Walrus' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:48:18Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Penny Lane' by 'The Beatles': 'バッド・ボーイ' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:19Z INFO  scrobble_scrubber::scrubber] Processed [133]: The Beatles - Penny Lane [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:19Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Penny Lane' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:19Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: ' バッド・ボーイ'
+[2025-08-14T09:48:21Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'All You Need Is Love' by 'The Beatles': '23: The Number Ones' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:21Z INFO  scrobble_scrubber::scrubber] Processed [134]: The Beatles - All You Need Is Love [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'All You Need Is Love' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '23: The Number Ones'
+[2025-08-14T09:48:22Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hello, Goodbye' by 'The Beatles': 'Beatles Box' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:22Z INFO  scrobble_scrubber::scrubber] Processed [135]: The Beatles - Hello, Goodbye [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:22Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hello, Goodbye' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:22Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:48:24Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Blue Jay Way' by 'The Beatles': 'Magical Mystery Tour Plus Other Songs' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:24Z INFO  scrobble_scrubber::scrubber] Processed [136]: The Beatles - Blue Jay Way [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:24Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Blue Jay Way' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:24Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Magical Mystery Tour Plus Other Songs'
+[2025-08-14T09:48:26Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'The Fool on the Hill' by 'The Beatles': '1967–1970' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:26Z INFO  scrobble_scrubber::scrubber] Processed [137]: The Beatles - The Fool on the Hill [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:26Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'The Fool on the Hill' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:26Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1967–1970'
+[2025-08-14T09:48:28Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Baby You're a Rich Man' by 'The Beatles': 'All You Need Is Love' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:28Z INFO  scrobble_scrubber::scrubber] Processed [138]: The Beatles - Baby You're a Rich Man [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Baby You're a Rich Man' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'All You Need Is Love'
+[2025-08-14T09:48:30Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Flying' by 'The Beatles': 'The Fool on the Hill' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:30Z INFO  scrobble_scrubber::scrubber] Processed [139]: The Beatles - Flying [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Flying' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Fool on the Hill'
+[2025-08-14T09:48:31Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Magical Mystery Tour' by 'The Beatles': 'The Beatles 1967–1970 (2023 edition)' (was 'Magical Mystery Tour')
+[2025-08-14T09:48:31Z INFO  scrobble_scrubber::scrubber] Processed [140]: The Beatles - Magical Mystery Tour [Magical Mystery Tour] - no changes
+[2025-08-14T09:48:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Magical Mystery Tour' by 'The Beatles' (album: Some("Magical Mystery Tour")): 1 suggestions
+[2025-08-14T09:48:31Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:48:33Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'If I Fell' by 'The Beatles': 'Original Best Selection' (was 'A Hard Day's Night')
+[2025-08-14T09:48:33Z INFO  scrobble_scrubber::scrubber] Processed [141]: The Beatles - If I Fell [A Hard Day's Night] - no changes
+[2025-08-14T09:48:33Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'If I Fell' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:33Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Original Best Selection'
+[2025-08-14T09:48:34Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'A Hard Day's Night' by 'The Beatles': 'The Beatles' (was 'A Hard Day's Night')
+[2025-08-14T09:48:34Z INFO  scrobble_scrubber::scrubber] Processed [142]: The Beatles - A Hard Day's Night [A Hard Day's Night] - no changes
+[2025-08-14T09:48:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'A Hard Day's Night' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:48:37Z INFO  scrobble_scrubber::scrubber] Processed [143]: The Beatles - Can't Buy Me Love [A Hard Day's Night] - no changes
+[2025-08-14T09:48:39Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Things We Said Today' by 'The Beatles': 'Beatles Box' (was 'A Hard Day's Night')
+[2025-08-14T09:48:39Z INFO  scrobble_scrubber::scrubber] Processed [144]: The Beatles - Things We Said Today [A Hard Day's Night] - no changes
+[2025-08-14T09:48:39Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Things We Said Today' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:39Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:48:41Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'And I Love Her' by 'The Beatles': '1962-1966' (was 'A Hard Day's Night')
+[2025-08-14T09:48:41Z INFO  scrobble_scrubber::scrubber] Processed [145]: The Beatles - And I Love Her [A Hard Day's Night] - no changes
+[2025-08-14T09:48:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'And I Love Her' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1962-1966'
+[2025-08-14T09:48:42Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'You Can't Do That' by 'The Beatles': 'Rock 'N' Roll Music Volume 1' (was 'A Hard Day's Night')
+[2025-08-14T09:48:43Z INFO  scrobble_scrubber::scrubber] Processed [146]: The Beatles - You Can't Do That [A Hard Day's Night] - no changes
+[2025-08-14T09:48:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'You Can't Do That' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Rock 'N' Roll Music Volume 1'
+[2025-08-14T09:48:44Z INFO  scrobble_scrubber::scrubber] Processed [147]: The Beatles - When I Get Home [A Hard Day's Night] - no changes
+[2025-08-14T09:48:47Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Should Have Known Better' by 'The Beatles': 'Reel Music' (was 'A Hard Day's Night')
+[2025-08-14T09:48:47Z INFO  scrobble_scrubber::scrubber] Processed [148]: The Beatles - I Should Have Known Better [A Hard Day's Night] - no changes
+[2025-08-14T09:48:47Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Should Have Known Better' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:47Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Reel Music'
+[2025-08-14T09:48:49Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Any Time at All' by 'The Beatles': 'A Hard Day’s Night' (was 'A Hard Day's Night')
+[2025-08-14T09:48:49Z INFO  scrobble_scrubber::scrubber] Processed [149]: The Beatles - Any Time at All [A Hard Day's Night] - no changes
+[2025-08-14T09:48:49Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Any Time at All' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:49Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'A Hard Day’s Night'
+[2025-08-14T09:48:51Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I'll Be Back' by 'The Beatles': 'Love Songs' (was 'A Hard Day's Night')
+[2025-08-14T09:48:51Z INFO  scrobble_scrubber::scrubber] Processed [150]: The Beatles - I'll Be Back [A Hard Day's Night] - no changes
+[2025-08-14T09:48:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I'll Be Back' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:51Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love Songs'
+[2025-08-14T09:48:53Z INFO  scrobble_scrubber::scrubber] Processed [151]: The Beatles - I'll Cry Instead [A Hard Day's Night] - no changes
+[2025-08-14T09:48:55Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I'm Happy Just to Dance with You' by 'The Beatles': 'A Hard Day’s Night: Original Motion Picture Sound Track' (was 'A Hard Day's Night')
+[2025-08-14T09:48:55Z INFO  scrobble_scrubber::scrubber] Processed [152]: The Beatles - I'm Happy Just to Dance with You [A Hard Day's Night] - no changes
+[2025-08-14T09:48:55Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I'm Happy Just to Dance with You' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:55Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:48:58Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Tell Me Why' by 'The Beatles': 'A Hard Day’s Night: Original Motion Picture Sound Track' (was 'A Hard Day's Night')
+[2025-08-14T09:48:58Z INFO  scrobble_scrubber::scrubber] Processed [153]: The Beatles - Tell Me Why [A Hard Day's Night] - no changes
+[2025-08-14T09:48:58Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Tell Me Why' by 'The Beatles' (album: Some("A Hard Day's Night")): 1 suggestions
+[2025-08-14T09:48:58Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:49:00Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'It Won't Be Long' by 'The Beatles': 'The Beatles' Second Album' (was 'With the Beatles')
+[2025-08-14T09:49:00Z INFO  scrobble_scrubber::scrubber] Processed [154]: The Beatles - It Won't Be Long [With the Beatles] - no changes
+[2025-08-14T09:49:00Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'It Won't Be Long' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:00Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles' Second Album'
+[2025-08-14T09:49:02Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Till There Was You' by 'The Beatles': 'Please Please Me / With The Beatles' (was 'With the Beatles')
+[2025-08-14T09:49:02Z INFO  scrobble_scrubber::scrubber] Processed [155]: The Beatles - Till There Was You [With the Beatles] - no changes
+[2025-08-14T09:49:02Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Till There Was You' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:02Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Please Please Me / With The Beatles'
+[2025-08-14T09:49:03Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'All My Loving' by 'The Beatles': '1962–1966' (was 'With the Beatles')
+[2025-08-14T09:49:04Z INFO  scrobble_scrubber::scrubber] Processed [156]: The Beatles - All My Loving [With the Beatles] - no changes
+[2025-08-14T09:49:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'All My Loving' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1962–1966'
+[2025-08-14T09:49:05Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'This Boy' by 'The Beatles': 'Free as a Bird' (was 'With the Beatles')
+[2025-08-14T09:49:05Z INFO  scrobble_scrubber::scrubber] Processed [157]: The Beatles - This Boy [With the Beatles] - no changes
+[2025-08-14T09:49:05Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'This Boy' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:05Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Free as a Bird'
+[2025-08-14T09:49:07Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Roll Over Beethoven' by 'The Beatles': 'The Beatles Story (1962–1967)' (was 'With the Beatles')
+[2025-08-14T09:49:07Z INFO  scrobble_scrubber::scrubber] Processed [158]: The Beatles - Roll Over Beethoven [With the Beatles] - no changes
+[2025-08-14T09:49:07Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Roll Over Beethoven' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:07Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles Story (1962–1967)'
+[2025-08-14T09:49:08Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'You Really Got a Hold on Me' by 'The Beatles': 'The Beatles' (was 'With the Beatles')
+[2025-08-14T09:49:08Z INFO  scrobble_scrubber::scrubber] Processed [159]: The Beatles - You Really Got a Hold on Me [With the Beatles] - no changes
+[2025-08-14T09:49:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'You Really Got a Hold on Me' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:49:10Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Don't Bother Me' by 'The Beatles': 'Meet The Beatles!' (was 'With the Beatles')
+[2025-08-14T09:49:10Z INFO  scrobble_scrubber::scrubber] Processed [160]: The Beatles - Don't Bother Me [With the Beatles] - no changes
+[2025-08-14T09:49:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Don't Bother Me' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Meet The Beatles!'
+[2025-08-14T09:49:12Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Devil in Her Heart' by 'The Beatles': 'Beatlemania' (was 'With the Beatles')
+[2025-08-14T09:49:12Z INFO  scrobble_scrubber::scrubber] Processed [161]: The Beatles - Devil in Her Heart [With the Beatles] - no changes
+[2025-08-14T09:49:12Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Devil in Her Heart' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:12Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatlemania'
+[2025-08-14T09:49:13Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'All I've Got to Do' by 'The Beatles': 'Meet The Beatles!' (was 'With the Beatles')
+[2025-08-14T09:49:13Z INFO  scrobble_scrubber::scrubber] Processed [162]: The Beatles - All I've Got to Do [With the Beatles] - no changes
+[2025-08-14T09:49:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'All I've Got to Do' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Meet The Beatles!'
+[2025-08-14T09:49:15Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Little Child' by 'The Beatles': 'Beatlemania! With The Beatles' (was 'With the Beatles')
+[2025-08-14T09:49:15Z INFO  scrobble_scrubber::scrubber] Processed [163]: The Beatles - Little Child [With the Beatles] - no changes
+[2025-08-14T09:49:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Little Child' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:15Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatlemania! With The Beatles'
+[2025-08-14T09:49:16Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Please Mister Postman' by 'The Beatles': 'Beatles Box' (was 'With the Beatles')
+[2025-08-14T09:49:17Z INFO  scrobble_scrubber::scrubber] Processed [164]: The Beatles - Please Mister Postman [With the Beatles] - no changes
+[2025-08-14T09:49:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Please Mister Postman' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:49:18Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hold Me Tight' by 'The Beatles': 'Meet The Beatles!' (was 'With the Beatles')
+[2025-08-14T09:49:18Z INFO  scrobble_scrubber::scrubber] Processed [165]: The Beatles - Hold Me Tight [With the Beatles] - no changes
+[2025-08-14T09:49:18Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hold Me Tight' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:18Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Meet The Beatles!'
+[2025-08-14T09:49:20Z INFO  scrobble_scrubber::scrubber] Processed [166]: The Beatles - I Wanna Be Your Man [With the Beatles] - no changes
+[2025-08-14T09:49:21Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Money' by 'The Beatles': 'The Beatles Story (1962–1967)' (was 'With the Beatles')
+[2025-08-14T09:49:21Z INFO  scrobble_scrubber::scrubber] Processed [167]: The Beatles - Money [With the Beatles] - no changes
+[2025-08-14T09:49:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Money' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:21Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles Story (1962–1967)'
+[2025-08-14T09:49:23Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Money (That's What I Want)' by 'The Beatles': 'The Beatles’ Second Album' (was 'With the Beatles')
+[2025-08-14T09:49:23Z INFO  scrobble_scrubber::scrubber] Processed [168]: The Beatles - Money (That's What I Want) [With the Beatles] - no changes
+[2025-08-14T09:49:23Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Money (That's What I Want)' by 'The Beatles' (album: Some("With the Beatles")): 1 suggestions
+[2025-08-14T09:49:23Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles’ Second Album'
+[2025-08-14T09:49:25Z INFO  scrobble_scrubber::scrubber] Processed [169]: The Beatles - Thank You Girl [With the Beatles] - no changes
+[2025-08-14T09:49:27Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Rain' by 'The Beatles': 'Hey Jude' (was 'Paperback Writer')
+[2025-08-14T09:49:27Z INFO  scrobble_scrubber::scrubber] Processed [170]: The Beatles - Rain [Paperback Writer] - no changes
+[2025-08-14T09:49:27Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Rain' by 'The Beatles' (album: Some("Paperback Writer")): 1 suggestions
+[2025-08-14T09:49:27Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Hey Jude'
+[2025-08-14T09:49:28Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Paperback Writer' by 'The Beatles': '1' (was 'Paperback Writer')
+[2025-08-14T09:49:28Z INFO  scrobble_scrubber::scrubber] Processed [171]: The Beatles - Paperback Writer [Paperback Writer] - no changes
+[2025-08-14T09:49:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Paperback Writer' by 'The Beatles' (album: Some("Paperback Writer")): 1 suggestions
+[2025-08-14T09:49:28Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1'
+[2025-08-14T09:49:30Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'The Ballad of John and Yoko' by 'The Beatles': '23: The Number Ones' (was 'Past Masters')
+[2025-08-14T09:49:30Z INFO  scrobble_scrubber::scrubber] Processed [172]: The Beatles - The Ballad of John and Yoko [Past Masters] - no changes
+[2025-08-14T09:49:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'The Ballad of John and Yoko' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:30Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '23: The Number Ones'
+[2025-08-14T09:49:32Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Want to Hold Your Hand' by 'The Beatles': 'Love' (was 'Past Masters')
+[2025-08-14T09:49:32Z INFO  scrobble_scrubber::scrubber] Processed [173]: The Beatles - I Want to Hold Your Hand [Past Masters] - no changes
+[2025-08-14T09:49:32Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Want to Hold Your Hand' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:32Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:49:34Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Lady Madonna' by 'The Beatles': 'Love' (was 'Past Masters')
+[2025-08-14T09:49:34Z INFO  scrobble_scrubber::scrubber] Processed [174]: The Beatles - Lady Madonna [Past Masters] - no changes
+[2025-08-14T09:49:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Lady Madonna' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:34Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:49:36Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hey Jude' by 'The Beatles': 'The Beatles' (was 'Past Masters')
+[2025-08-14T09:49:36Z INFO  scrobble_scrubber::scrubber] Processed [175]: The Beatles - Hey Jude [Past Masters] - no changes
+[2025-08-14T09:49:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hey Jude' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:49:36Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Rain' by 'The Beatles': 'Hey Jude' (was 'Past Masters')
+[2025-08-14T09:49:36Z INFO  scrobble_scrubber::scrubber] Processed [176]: The Beatles - Rain [Past Masters] - no changes
+[2025-08-14T09:49:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Rain' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:36Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Hey Jude'
+[2025-08-14T09:49:38Z INFO  scrobble_scrubber::scrubber] Processed [177]: The Beatles - She Loves You [Past Masters] - no changes
+[2025-08-14T09:49:38Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Paperback Writer' by 'The Beatles': '1' (was 'Past Masters')
+[2025-08-14T09:49:38Z INFO  scrobble_scrubber::scrubber] Processed [178]: The Beatles - Paperback Writer [Past Masters] - no changes
+[2025-08-14T09:49:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Paperback Writer' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1'
+[2025-08-14T09:49:38Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'This Boy' by 'The Beatles': 'Free as a Bird' (was 'Past Masters')
+[2025-08-14T09:49:38Z INFO  scrobble_scrubber::scrubber] Processed [179]: The Beatles - This Boy [Past Masters] - no changes
+[2025-08-14T09:49:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'This Boy' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:38Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Free as a Bird'
+[2025-08-14T09:49:40Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Day Tripper' by 'The Beatles': 'Past Masters · Volume Two' (was 'Past Masters')
+[2025-08-14T09:49:40Z INFO  scrobble_scrubber::scrubber] Processed [180]: The Beatles - Day Tripper [Past Masters] - no changes
+[2025-08-14T09:49:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Day Tripper' by 'The Beatles' (album: Some("Past Masters")): 1 suggestions
+[2025-08-14T09:49:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Past Masters · Volume Two'
+[2025-08-14T09:49:40Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Day Tripper' by 'The Beatles': 'Past Masters · Volume Two' (was 'We Can Work It Out/Day Tripper')
+[2025-08-14T09:49:40Z INFO  scrobble_scrubber::scrubber] Processed [181]: The Beatles - Day Tripper [We Can Work It Out/Day Tripper] - no changes
+[2025-08-14T09:49:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Day Tripper' by 'The Beatles' (album: Some("We Can Work It Out/Day Tripper")): 1 suggestions
+[2025-08-14T09:49:40Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Past Masters · Volume Two'
+[2025-08-14T09:49:41Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Revolution' by 'The Beatles': 'Love' (was 'Hey Jude')
+[2025-08-14T09:49:41Z INFO  scrobble_scrubber::scrubber] Processed [182]: The Beatles - Revolution [Hey Jude] - no changes
+[2025-08-14T09:49:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Revolution' by 'The Beatles' (album: Some("Hey Jude")): 1 suggestions
+[2025-08-14T09:49:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:49:41Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hey Jude' by 'The Beatles': 'The Beatles' (was 'Hey Jude')
+[2025-08-14T09:49:41Z INFO  scrobble_scrubber::scrubber] Processed [183]: The Beatles - Hey Jude [Hey Jude] - no changes
+[2025-08-14T09:49:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hey Jude' by 'The Beatles' (album: Some("Hey Jude")): 1 suggestions
+[2025-08-14T09:49:41Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:49:43Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Eight Days a Week' by 'The Beatles': 'Vol. 5: Twist & Shout' (was 'Beatles for Sale')
+[2025-08-14T09:49:43Z INFO  scrobble_scrubber::scrubber] Processed [184]: The Beatles - Eight Days a Week [Beatles for Sale] - no changes
+[2025-08-14T09:49:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Eight Days a Week' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:43Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Vol. 5: Twist & Shout'
+[2025-08-14T09:49:45Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Every Little Thing' by 'The Beatles': 'Beatles VI' (was 'Beatles for Sale')
+[2025-08-14T09:49:45Z INFO  scrobble_scrubber::scrubber] Processed [185]: The Beatles - Every Little Thing [Beatles for Sale] - no changes
+[2025-08-14T09:49:45Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Every Little Thing' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:45Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles VI'
+[2025-08-14T09:49:46Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Everybody's Trying to Be My Baby' by 'The Beatles': 'Honey Don’t' (was 'Beatles for Sale')
+[2025-08-14T09:49:47Z INFO  scrobble_scrubber::scrubber] Processed [186]: The Beatles - Everybody's Trying to Be My Baby [Beatles for Sale] - no changes
+[2025-08-14T09:49:47Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Everybody's Trying to Be My Baby' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:47Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Honey Don’t'
+[2025-08-14T09:49:48Z INFO  scrobble_scrubber::scrubber] Processed [187]: The Beatles - Honey Don't [Beatles for Sale] - no changes
+[2025-08-14T09:49:50Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Don't Want to Spoil the Party' by 'The Beatles': 'Beatles Box' (was 'Beatles for Sale')
+[2025-08-14T09:49:50Z INFO  scrobble_scrubber::scrubber] Processed [188]: The Beatles - I Don't Want to Spoil the Party [Beatles for Sale] - no changes
+[2025-08-14T09:49:50Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Don't Want to Spoil the Party' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:50Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:49:52Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I'll Follow the Sun' by 'The Beatles': 'Baby It’s You' (was 'Beatles for Sale')
+[2025-08-14T09:49:52Z INFO  scrobble_scrubber::scrubber] Processed [189]: The Beatles - I'll Follow the Sun [Beatles for Sale] - no changes
+[2025-08-14T09:49:52Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I'll Follow the Sun' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:52Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Baby It’s You'
+[2025-08-14T09:49:53Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Rock and Roll Music' by 'The Beatles': 'The Beatles in Italy 1965' (was 'Beatles for Sale')
+[2025-08-14T09:49:53Z INFO  scrobble_scrubber::scrubber] Processed [190]: The Beatles - Rock and Roll Music [Beatles for Sale] - no changes
+[2025-08-14T09:49:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Rock and Roll Music' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:53Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles in Italy 1965'
+[2025-08-14T09:49:55Z INFO  scrobble_scrubber::scrubber] Processed [191]: The Beatles - I'm a Loser [Beatles for Sale] - no changes
+[2025-08-14T09:49:57Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'What You're Doing' by 'The Beatles': 'Beatles VI' (was 'Beatles for Sale')
+[2025-08-14T09:49:57Z INFO  scrobble_scrubber::scrubber] Processed [192]: The Beatles - What You're Doing [Beatles for Sale] - no changes
+[2025-08-14T09:49:57Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'What You're Doing' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:57Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles VI'
+[2025-08-14T09:49:59Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Words of Love' by 'The Beatles': 'Beatles VI' (was 'Beatles for Sale')
+[2025-08-14T09:49:59Z INFO  scrobble_scrubber::scrubber] Processed [193]: The Beatles - Words of Love [Beatles for Sale] - no changes
+[2025-08-14T09:49:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Words of Love' by 'The Beatles' (album: Some("Beatles for Sale")): 1 suggestions
+[2025-08-14T09:49:59Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles VI'
+[2025-08-14T09:50:01Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hey Bulldog' by 'The Beatles': '1+' (was 'Yellow Submarine')
+[2025-08-14T09:50:01Z INFO  scrobble_scrubber::scrubber] Processed [194]: The Beatles - Hey Bulldog [Yellow Submarine] - no changes
+[2025-08-14T09:50:01Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hey Bulldog' by 'The Beatles' (album: Some("Yellow Submarine")): 1 suggestions
+[2025-08-14T09:50:01Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1+'
+[2025-08-14T09:50:03Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Only a Northern Song' by 'The Beatles': 'The Beatles' (was 'Yellow Submarine')
+[2025-08-14T09:50:03Z INFO  scrobble_scrubber::scrubber] Processed [195]: The Beatles - Only a Northern Song [Yellow Submarine] - no changes
+[2025-08-14T09:50:03Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Only a Northern Song' by 'The Beatles' (album: Some("Yellow Submarine")): 1 suggestions
+[2025-08-14T09:50:03Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:50:03Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Pepperland Laid Waste' by 'The Beatles': 'The Beatles' (was 'Yellow Submarine')
+[2025-08-14T09:50:03Z INFO  scrobble_scrubber::scrubber] Processed [196]: The Beatles - Pepperland Laid Waste [Yellow Submarine] - no changes
+[2025-08-14T09:50:03Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Pepperland Laid Waste' by 'The Beatles' (album: Some("Yellow Submarine")): 1 suggestions
+[2025-08-14T09:50:03Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:50:04Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Sea of Time' by 'The Beatles': 'The Beatles' (was 'Yellow Submarine')
+[2025-08-14T09:50:04Z INFO  scrobble_scrubber::scrubber] Processed [197]: The Beatles - Sea of Time [Yellow Submarine] - no changes
+[2025-08-14T09:50:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Sea of Time' by 'The Beatles' (album: Some("Yellow Submarine")): 1 suggestions
+[2025-08-14T09:50:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:50:04Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Day Tripper' by 'The Beatles': 'Past Masters · Volume Two' (was '1')
+[2025-08-14T09:50:04Z INFO  scrobble_scrubber::scrubber] Processed [198]: The Beatles - Day Tripper [1] - no changes
+[2025-08-14T09:50:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Day Tripper' by 'The Beatles' (album: Some("1")): 1 suggestions
+[2025-08-14T09:50:04Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Past Masters · Volume Two'
+[2025-08-14T09:50:06Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'We Can Work It Out' by 'The Beatles': '1962–1966' (was '1')
+[2025-08-14T09:50:06Z INFO  scrobble_scrubber::scrubber] Processed [199]: The Beatles - We Can Work It Out [1] - no changes
+[2025-08-14T09:50:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'We Can Work It Out' by 'The Beatles' (album: Some("1")): 1 suggestions
+[2025-08-14T09:50:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1962–1966'
+[2025-08-14T09:50:06Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'The Ballad of John and Yoko' by 'The Beatles': '23: The Number Ones' (was '1')
+[2025-08-14T09:50:06Z INFO  scrobble_scrubber::scrubber] Processed [200]: The Beatles - The Ballad of John and Yoko [1] - no changes
+[2025-08-14T09:50:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'The Ballad of John and Yoko' by 'The Beatles' (album: Some("1")): 1 suggestions
+[2025-08-14T09:50:06Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '23: The Number Ones'
+[2025-08-14T09:50:06Z INFO  scrobble_scrubber::scrubber] Processed [201]: The Beatles - She Loves You [She Loves You] - no changes
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::scrubber] Processed [202]: The Beatles - I'll Get You [She Loves You] - no changes
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::scrubber] Processed [203]: The Beatles - Honey Don't [Beatles '65] - no changes
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I'll Be Back' by 'The Beatles': 'Love Songs' (was 'Beatles '65')
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::scrubber] Processed [204]: The Beatles - I'll Be Back [Beatles '65] - no changes
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I'll Be Back' by 'The Beatles' (album: Some("Beatles '65")): 1 suggestions
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love Songs'
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Rock and Roll Music' by 'The Beatles': 'The Beatles in Italy 1965' (was 'Beatles '65')
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::scrubber] Processed [205]: The Beatles - Rock and Roll Music [Beatles '65] - no changes
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Rock and Roll Music' by 'The Beatles' (album: Some("Beatles '65")): 1 suggestions
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles in Italy 1965'
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Lady Madonna' by 'The Beatles': 'Love' (was 'Lady Madonna')
+[2025-08-14T09:50:08Z INFO  scrobble_scrubber::scrubber] Processed [206]: The Beatles - Lady Madonna [Lady Madonna] - no changes
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Lady Madonna' by 'The Beatles' (album: Some("Lady Madonna")): 1 suggestions
+[2025-08-14T09:50:08Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Love'
+[2025-08-14T09:50:09Z INFO  scrobble_scrubber::scrubber] Processed [207]: The Beatles - Across the Universe [Let It Be] - no changes
+[2025-08-14T09:50:09Z INFO  scrobble_scrubber::scrubber] Processed [208]: The Beatles - Get Back [Let It Be] - no changes
+[2025-08-14T09:50:10Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'You Know My Name (Look Up the Number)' by 'The Beatles': 'Let It Be / You Know My Name (Look Up My Number)' (was 'Let It Be')
+[2025-08-14T09:50:10Z INFO  scrobble_scrubber::scrubber] Processed [209]: The Beatles - You Know My Name (Look Up the Number) [Let It Be] - no changes
+[2025-08-14T09:50:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'You Know My Name (Look Up the Number)' by 'The Beatles' (album: Some("Let It Be")): 1 suggestions
+[2025-08-14T09:50:10Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Let It Be / You Know My Name (Look Up My Number)'
+[2025-08-14T09:50:11Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Now and Then' by 'The Beatles': '1967–1970' (was 'Now and Then')
+[2025-08-14T09:50:11Z INFO  scrobble_scrubber::scrubber] Processed [210]: The Beatles - Now and Then [Now and Then] - no changes
+[2025-08-14T09:50:11Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Now and Then' by 'The Beatles' (album: Some("Now and Then")): 1 suggestions
+[2025-08-14T09:50:11Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1967–1970'
+[2025-08-14T09:50:11Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'All You Need Is Love' by 'The Beatles': '23: The Number Ones' (was 'All You Need Is Love')
+[2025-08-14T09:50:12Z INFO  scrobble_scrubber::scrubber] Processed [211]: The Beatles - All You Need Is Love [All You Need Is Love] - no changes
+[2025-08-14T09:50:12Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'All You Need Is Love' by 'The Beatles' (album: Some("All You Need Is Love")): 1 suggestions
+[2025-08-14T09:50:12Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '23: The Number Ones'
+[2025-08-14T09:50:12Z INFO  scrobble_scrubber::scrubber] Processed [212]: The Beatles - Besame Mucho - Anthology 1 Version [Anthology 1] - no changes
+[2025-08-14T09:50:13Z INFO  scrobble_scrubber::scrubber] Processed [213]: The Beatles - Dig A Pony - Anthology 3 Version [Anthology 3] - no changes
+[2025-08-14T09:50:13Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Don't Want to Spoil the Party' by 'The Beatles': 'Beatles Box' (was 'Eight Days A Week')
+[2025-08-14T09:50:13Z INFO  scrobble_scrubber::scrubber] Processed [214]: The Beatles - I Don't Want to Spoil the Party [Eight Days A Week] - no changes
+[2025-08-14T09:50:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Don't Want to Spoil the Party' by 'The Beatles' (album: Some("Eight Days A Week")): 1 suggestions
+[2025-08-14T09:50:13Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles Box'
+[2025-08-14T09:50:14Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hello Goodbye' by 'The Beatles': '1+' (was 'Hello Goodbye')
+[2025-08-14T09:50:14Z INFO  scrobble_scrubber::scrubber] Processed [215]: The Beatles - Hello Goodbye [Hello Goodbye] - no changes
+[2025-08-14T09:50:14Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hello Goodbye' by 'The Beatles' (album: Some("Hello Goodbye")): 1 suggestions
+[2025-08-14T09:50:14Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: '1+'
+[2025-08-14T09:50:16Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Feel Fine' by 'The Beatles': 'Past Masters · Volume One' (was 'I Feel Fine')
+[2025-08-14T09:50:16Z INFO  scrobble_scrubber::scrubber] Processed [216]: The Beatles - I Feel Fine [I Feel Fine] - no changes
+[2025-08-14T09:50:16Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Feel Fine' by 'The Beatles' (album: Some("I Feel Fine")): 1 suggestions
+[2025-08-14T09:50:16Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Past Masters · Volume One'
+[2025-08-14T09:50:16Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I'm Happy Just to Dance with You' by 'The Beatles': 'A Hard Day’s Night: Original Motion Picture Sound Track' (was 'I'll Cry Instead')
+[2025-08-14T09:50:16Z INFO  scrobble_scrubber::scrubber] Processed [217]: The Beatles - I'm Happy Just to Dance with You [I'll Cry Instead] - no changes
+[2025-08-14T09:50:16Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I'm Happy Just to Dance with You' by 'The Beatles' (album: Some("I'll Cry Instead")): 1 suggestions
+[2025-08-14T09:50:16Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:50:17Z INFO  scrobble_scrubber::scrubber] Processed [218]: The Beatles - Drive My Car / The Word / What You're Doing [Love] - no changes
+[2025-08-14T09:50:17Z INFO  scrobble_scrubber::scrubber] Processed [219]: The Beatles - Love Me Do [single version] [Love Me Do] - no changes
+[2025-08-14T09:50:17Z INFO  scrobble_scrubber::scrubber] Processed [220]: The Beatles - When I Get Home [Something New] - no changes
+[2025-08-14T09:50:17Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Hey Jude' by 'The Beatles': 'The Beatles' (was 'The Beatles 1967 – 1970 (2023 Edition)')
+[2025-08-14T09:50:17Z INFO  scrobble_scrubber::scrubber] Processed [221]: The Beatles - Hey Jude [The Beatles 1967 – 1970 (2023 Edition)] - no changes
+[2025-08-14T09:50:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Hey Jude' by 'The Beatles' (album: Some("The Beatles 1967 – 1970 (2023 Edition)")): 1 suggestions
+[2025-08-14T09:50:17Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'The Beatles'
+[2025-08-14T09:50:18Z INFO  scrobble_scrubber::scrubber] Processed [222]: The Beatles - Don't Let Me Down - Remastered 2009 [The Beatles 1967-1970] - no changes
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Yes It Is' by 'The Beatles': 'Beatles VI' (was 'Ticket To Ride')
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::scrubber] Processed [223]: The Beatles - Yes It Is [Ticket To Ride] - no changes
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Yes It Is' by 'The Beatles' (album: Some("Ticket To Ride")): 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'Eleanor Rigby' by 'The Beatles': 'Beatz'n Rhymes 4' (was 'Yellow Submarine/Eleanor Rigby')
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::scrubber] Processed [224]: The Beatles - Eleanor Rigby [Yellow Submarine/Eleanor Rigby] - no changes
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'Eleanor Rigby' by 'The Beatles' (album: Some("Yellow Submarine/Eleanor Rigby")): 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'Beatz'n Rhymes 4'
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::compilation_to_canonical_provider] Found canonical release for 'I Should Have Known Better' by 'The Beatles': 'A Hard Day's Night' (was 'Yesterday')
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::scrubber] Processed [225]: The Beatles - I Should Have Known Better [Yesterday] - no changes
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Suggestions for 'I Should Have Known Better' by 'The Beatles' (album: Some("Yesterday")): 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   -> Suggest moving to album: 'A Hard Day's Night'
+[2025-08-14T09:50:20Z INFO  scrobble_scrubber::scrubber] Processed 225 tracks for artist 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Artist processing completed successfully
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]
+    === DRY RUN RESULTS ===
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Total suggestions: 177
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Total skipped tracks: 177
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]
+    === Suggestions by Original Album ===
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Hey Jude': 2 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Revolution' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hey Jude' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album '1': 3 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Day Tripper' -> 'Past Masters · Volume Two'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'We Can Work It Out' -> '1962–1966'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Ballad of John and Yoko' -> '23: The Number Ones'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Ticket To Ride': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Yes It Is' -> 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Yellow Submarine/Eleanor Rigby': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Eleanor Rigby' -> 'Beatz'n Rhymes 4'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Yesterday': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Should Have Known Better' -> 'A Hard Day's Night'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Let It Be... Naked': 5 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Let It Be' -> 'Fast Lane'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'For You Blue' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Two of Us' -> 'Let It Be'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Long and Winding Road' -> 'The Beatles (3)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Maggie Mae' -> 'Let It Be'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Beatles for Sale': 8 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Eight Days a Week' -> 'Vol. 5: Twist & Shout'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Every Little Thing' -> 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Everybody's Trying to Be My Baby' -> 'Honey Don’t'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Don't Want to Spoil the Party' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'll Follow the Sun' -> 'Baby It’s You'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Rock and Roll Music' -> 'The Beatles in Italy 1965'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'What You're Doing' -> 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Words of Love' -> 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'We Can Work It Out/Day Tripper': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Day Tripper' -> 'Past Masters · Volume Two'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Eight Days A Week': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Don't Want to Spoil the Party' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'I'll Cry Instead': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'm Happy Just to Dance with You' -> 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Paperback Writer': 2 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Rain' -> 'Hey Jude'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Paperback Writer' -> '1'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'All You Need Is Love': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'All You Need Is Love' -> '23: The Number Ones'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Magical Mystery Tour': 10 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Strawberry Fields Forever' -> '1+'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Am the Walrus' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Penny Lane' -> 'バッド・ボ ーイ'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'All You Need Is Love' -> '23: The Number Ones'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hello, Goodbye' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Blue Jay Way' -> 'Magical Mystery Tour Plus Other Songs'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Fool on the Hill' -> '1967–1970'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Baby You're a Rich Man' -> 'All You Need Is Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Flying' -> 'The Fool on the Hill'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Magical Mystery Tour' -> 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Please Please Me': 8 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Twist and Shout' -> 'Rock ’n’ Roll Music, Volume 1'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Saw Her Standing There' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Please Please Me' -> 'From Me to You'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'There's a Place' -> 'Twist and Shout'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Chains' -> 'The Early Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Do You Want to Know a Secret' -> 'Please Please Me / Twist and Shout / Walking the Dog / Leave It to Me'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Misery' -> 'Young Years'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'P.S. I Love You' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'I Feel Fine': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Feel Fine' -> 'Past Masters · Volume One'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'The Beatles 1967 – 1970 (2023 Edition)': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hey Jude' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Let It Be': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Know My Name (Look Up the Number)' -> 'Let It Be / You Know My Name (Look Up My Number)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Revolver': 14 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'For No One' -> 'Words of Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'm Only Sleeping' -> 'The Beatles Golden Edition'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Tomorrow Never Knows' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Got to Get You Into My Life' -> 'The Beatles 1962–1966 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Taxman' -> 'The Beatles Golden Edition'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Eleanor Rigby' -> 'Beatz'n Rhymes 4'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Want to Tell You' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'And Your Bird Can Sing' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Here, There and Everywhere' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Good Day Sunshine' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Love You To' -> 'Revolver (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Doctor Robert' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Yellow Submarine' -> 'Yellow Submarine'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I’m Only Sleeping' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Past Masters': 8 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Ballad of John and Yoko' -> '23: The Number Ones'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Want to Hold Your Hand' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Lady Madonna' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hey Jude' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Rain' -> 'Hey Jude'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Paperback Writer' -> '1'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'This Boy' -> 'Free as a Bird'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Day Tripper' -> 'Past Masters · Volume Two'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Rubber Soul': 14 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Norwegian Wood (This Bird Has Flown)' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'In My Life' -> 'Original Best Selection'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Girl' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Drive My Car' -> 'Yesterday… and Today'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Run for Your Life' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'If I Needed Someone' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Michelle' -> 'The Beatles (4)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Nowhere Man' -> '1962–1966'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Won't See Me' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Word' -> 'Original Best Selection'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Think for Yourself' -> 'Yellow Submarine Songtrack'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Wait' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'What Goes On' -> 'Bad Boy'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Won’t See Me' -> 'Nowhere Man'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'A Hard Day's Night': 10 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'If I Fell' -> 'Original Best Selection'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'A Hard Day's Night' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Things We Said Today' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'And I Love Her' -> '1962-1966'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Can't Do That' -> 'Rock 'N' Roll Music Volume 1'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Should Have Known Better' -> 'Reel Music'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Any Time at All' -> 'A Hard Day’s Night'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'll Be Back' -> 'Love Songs'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'm Happy Just to Dance with You' -> 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Tell Me Why' -> 'A Hard Day’s Night: Original Motion Picture Sound Track'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'The Beatles': 23 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Happiness Is a Warm Gun' -> 'The Beatles - Volume 1 & Volume 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Will' -> 'Words of Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Dear Prudence' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Rocky Raccoon' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Back in the U.S.S.R.' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Helter Skelter' -> 'The Beatles Vol. II'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Glass Onion' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Ob-La-Di, Ob-La-Da' -> 'Ob-La-Di Ob-La-Da'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Julia' -> 'The Beatles - Volume 1 & Volume 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Birthday' -> 'Rock 'N' Roll Music Vol. 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Why Don't We Do It in the Road' -> 'The Beatles - Volume 1 & Volume 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Why Don't We Do It in the Road?' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Cry Baby Cry' -> 'The Beatles - Volume 1 & Volume 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Don't Pass Me By' -> 'Rarities'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Long, Long, Long' -> 'The Beatles Vol. II'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Mother Nature's Son' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Piggies' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Savoy Truffle' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Good Night' -> 'The Beatles in Mono'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Mother Nature’s Son' -> 'The Beatles (White Album)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Revolution 1' -> 'The Beatles (super deluxe)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Continuing Story of Bungalow Bill' -> 'The Beatles - Volume 1 & Volume 2'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Yer Blues' -> 'The Beatles Vol. II'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Sgt. Pepper's Lonely Hearts Club Band': 12 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'A Day in the Life' -> '1967–1970'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'With a Little Help From My Friends' -> 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Sgt. Pepper's Lonely Hearts Club Band' -> 'Interpretan A Los Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Lucy in the Sky With Diamonds' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Getting Better' -> 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Fixing a Hole' -> 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'She's Leaving Home' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'When I'm Sixty-Four' -> 'Words of Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Lovely Rita' -> 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Good Morning Good Morning' -> 'Sgt. Pepper’s Lonely Hearts Club Band'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Sgt. Pepper's Lonely Hearts Club Band (reprise)' -> 'The Beatles - Sgt. Pepper's Lonely Hearts Club Band (Deluxe Edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Within You Without You' -> 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Lady Madonna': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Lady Madonna' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'With the Beatles': 14 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'It Won't Be Long' -> 'The Beatles' Second Album'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Till There Was You' -> 'Please Please Me / With The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'All My Loving' -> '1962–1966'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'This Boy' -> 'Free as a Bird'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Roll Over Beethoven' -> 'The Beatles Story (1962–1967)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Really Got a Hold on Me' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Don't Bother Me' -> 'Meet The Beatles!'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Devil in Her Heart' -> 'Beatlemania'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'All I've Got to Do' -> 'Meet The Beatles!'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Little Child' -> 'Beatlemania! With The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Please Mister Postman' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hold Me Tight' -> 'Meet The Beatles!'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Money' -> 'The Beatles Story (1962–1967)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Money (That's What I Want)' -> 'The Beatles’ Second Album'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Beatles '65': 2 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I'll Be Back' -> 'Love Songs'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Rock and Roll Music' -> 'The Beatles in Italy 1965'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Hello Goodbye': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hello Goodbye' -> '1+'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Yellow Submarine': 4 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Hey Bulldog' -> '1+'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Only a Northern Song' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Pepperland Laid Waste' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Sea of Time' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Abbey Road': 15 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You Never Give Me Your Money' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Come Together' -> '1'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Something' -> 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Oh! Darling' -> 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Carry That Weight' -> 'Abbey Road (super deluxe edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The End' -> 'The Beatles Golden Edition'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Because' -> 'Love'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I Want You (She's So Heavy)' -> 'Abbey Road (super deluxe edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Maxwell's Silver Hammer' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Here Comes the Sun' -> 'The Beatles Tapes From The David Wigg Interviews'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Sun King' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Mean Mr. Mustard' -> 'Abbey Road (super deluxe edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Octopus's Garden' -> 'The Beatles 1967–1970 (2023 edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Mean Mr Mustard' -> 'Abbey Road (super deluxe edition)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Maxwell’s Silver Hammer' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Help!': 10 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Yesterday' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'I've Just Seen a Face' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You've Got to Hide Your Love Away' -> 'Bad Boy'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Ticket to Ride' -> '1962-1966'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'The Night Before' -> 'Rock and Roll Music'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Another Girl' -> 'Beatles Box'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Dizzy Miss Lizzy' -> 'The Beatles Story (1962–1967)'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'It's Only Love' -> 'Love Songs'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Tell Me What You See' -> 'Beatles VI'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'You're Going to Lose That Girl' -> 'The Beatles'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Album 'Now and Then': 1 suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]   - 'Now and Then' -> '1967–1970'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]
+    === Beatles-specific Suggestions ===
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Found 177 Beatles track suggestions
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] ✓ Compilation album '1' got suggestion for track 'Day Tripper'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] ✓ Compilation album '1' got suggestion for track 'We Can Work It Out'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] ✓ Compilation album '1' got suggestion for track 'The Ballad of John and Yoko'
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing]
+    ✅ SUCCESS: No bootleg suggestions found!
+[2025-08-14T09:50:20Z INFO  vcr_tests::vcr::beatles_artist_full_processing] Test completed successfully
+test vcr::beatles_artist_full_processing::test_beatles_full_artist_vcr_dry_run ... ok
