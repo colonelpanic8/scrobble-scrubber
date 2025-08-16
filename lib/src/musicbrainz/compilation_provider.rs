@@ -138,9 +138,24 @@ pub fn is_compilation_release(release: &Release, release_group: Option<&ReleaseG
     }
 }
 
+/// Check if a release title indicates a special edition (deluxe, remaster, etc.)
+fn is_special_edition(title: &str) -> bool {
+    let lower = title.to_lowercase();
+    lower.contains("deluxe")
+        || lower.contains("remaster")
+        || lower.contains("special")
+        || lower.contains("anniversary")
+        || lower.contains("expanded")
+        || lower.contains("collector")
+        || lower.contains("limited")
+        || lower.contains("super")
+        || lower.contains("bonus")
+}
+
 /// Default release comparison function
 /// Prefers: Official > None > Promotion > Bootleg > PseudoRelease
-/// Then: Non-compilations over compilations, then Studio Albums > EPs > Singles > Broadcast > Unknown
+/// Then: Non-compilations over compilations, then regular editions over special editions,
+/// then Studio Albums > EPs > Singles > Broadcast > Unknown
 /// For same quality and status, prefers earlier releases
 pub fn default_release_comparer(
     a: &Release,
@@ -162,6 +177,16 @@ pub fn default_release_comparer(
                 (true, false) => return Ordering::Greater, // b is better (non-compilation)
                 (false, true) => return Ordering::Less,    // a is better (non-compilation)
                 _ => {} // Both are compilations or both are non-compilations, continue comparing
+            }
+
+            // Check if either is a special edition (prefer regular editions)
+            let a_is_special = is_special_edition(&a.title);
+            let b_is_special = is_special_edition(&b.title);
+
+            match (a_is_special, b_is_special) {
+                (true, false) => return Ordering::Greater, // b is better (regular edition)
+                (false, true) => return Ordering::Less,    // a is better (regular edition)
+                _ => {} // Both are special or both are regular, continue comparing
             }
 
             // Check for significant date gaps between singles and albums
