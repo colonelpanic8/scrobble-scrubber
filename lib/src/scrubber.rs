@@ -638,7 +638,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         );
 
         // Analyze this single track
-        let track_slice = &[track.clone()];
+        let track_slice = std::slice::from_ref(track);
         let track_suggestions = self.analyze_tracks(track_slice).await;
         let run_id = Uuid::new_v4().to_string();
 
