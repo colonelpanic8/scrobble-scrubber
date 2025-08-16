@@ -705,7 +705,11 @@ impl MusicBrainzCommands {
                     }
 
                     if !release.secondary_types.is_empty() {
-                        let secondary_types: Vec<String> = release.secondary_types.iter().map(|st| format!("{st:?}")).collect();
+                        let secondary_types: Vec<String> = release
+                            .secondary_types
+                            .iter()
+                            .map(|st| format!("{st:?}"))
+                            .collect();
                         println!("   Secondary Types: {}", secondary_types.join(", "));
                     }
 
@@ -752,7 +756,10 @@ impl MusicBrainzCommands {
                             );
                             println!(
                                 "   Reason: Moving from compilation to {}",
-                                best.primary_type.as_ref().map(|pt| format!("{pt:?}")).unwrap_or_else(|| "studio release".to_string())
+                                best.primary_type
+                                    .as_ref()
+                                    .map(|pt| format!("{pt:?}"))
+                                    .unwrap_or_else(|| "studio release".to_string())
                             );
                         } else {
                             println!("❌ Provider would NOT suggest a change");
