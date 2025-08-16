@@ -832,7 +832,7 @@ fn should_have_consistent_apply_and_matches_behavior() {
     );
 
     // Test using apply_all_rules which properly filters rules before applying
-    let changed = apply_all_rules(&[rule.clone()], &mut edit).unwrap();
+    let changed = apply_all_rules(std::slice::from_ref(&rule), &mut edit).unwrap();
     println!("After: {edit:?}");
     println!("Changed: {changed}");
 

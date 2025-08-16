@@ -281,29 +281,94 @@ impl CompilationToCanonicalProvider {
             artist
         );
 
+        // Log details about each recording and its releases
+        for (i, recording) in recordings.iter().enumerate() {
+            log::debug!("Recording {}: '{}'", i + 1, recording.title);
+            if let Some(artist_credit) = &recording.artist_credit {
+                if let Some(first_artist) = artist_credit.first() {
+                    log::debug!("  Artist: '{}'", first_artist.artist.name);
+                }
+            }
+            if let Some(releases) = &recording.releases {
+                log::debug!("  Found {} releases for this recording:", releases.len());
+                for (j, release) in releases.iter().enumerate() {
+                    log::debug!(
+                        "    Release {}: '{}' (ID: {}, Status: {:?})",
+                        j + 1,
+                        release.title,
+                        release.id,
+                        release.status
+                    );
+                    // Check if this is a various artists release
+                    if MusicBrainzClient::is_various_artists_release(release) {
+                        log::debug!("      -> Various artists release (will be excluded)");
+                    }
+                    // Check official releases only filter
+                    if self.official_releases_only {
+                        if let Some(status) = &release.status {
+                            if !matches!(status, ReleaseStatus::Official) {
+                                log::debug!("      -> Non-official release (will be excluded due to filter)");
+                            }
+                        }
+                    }
+                }
+            } else {
+                log::debug!("  No releases found for this recording");
+            }
+        }
+
         // Start with owned releases to make lifetime management easier
-        let mut all_releases: Vec<Release> = self
-            .collect_eligible_releases(&recordings, artist)
-            .into_iter()
-            .cloned()
-            .collect();
+        let eligible_releases = self.collect_eligible_releases(&recordings, artist);
+        log::debug!(
+            "Collected {} eligible releases from recordings (after filtering)",
+            eligible_releases.len()
+        );
+
+        let mut all_releases: Vec<Release> = eligible_releases.into_iter().cloned().collect();
+
+        // Log the releases we're starting with
+        for (i, release) in all_releases.iter().enumerate() {
+            log::debug!(
+                "  Eligible release {}: '{}' (ID: {})",
+                i + 1,
+                release.title,
+                release.id
+            );
+        }
 
         // Always do album search in addition to recording search to get comprehensive results
         log::debug!("Performing supplementary album search for comprehensive results");
 
         let album_releases = self.search_releases_by_album_name(artist, title).await?;
 
+        log::debug!(
+            "Album search returned {} releases, filtering and deduplicating...",
+            album_releases.len()
+        );
+
         // Add album search results to our releases (avoid duplicates)
+        let mut added_from_album_search = 0;
         for release in album_releases {
-            if self.should_include_release(&release)
-                && !all_releases.iter().any(|r| r.id == release.id)
-            {
+            let should_include = self.should_include_release(&release);
+            let is_duplicate = all_releases.iter().any(|r| r.id == release.id);
+
+            log::debug!(
+                "Album search release '{}': should_include={}, is_duplicate={}",
+                release.title,
+                should_include,
+                is_duplicate
+            );
+
+            if should_include && !is_duplicate {
+                log::debug!("  -> Adding to results");
                 all_releases.push(release);
+                added_from_album_search += 1;
             }
         }
 
         log::debug!(
-            "After supplementary album search: {} total releases",
+            "Added {} releases from album search. Total: {} releases",
+            added_from_album_search,
             all_releases.len()
         );
 
@@ -320,6 +385,29 @@ impl CompilationToCanonicalProvider {
 
         // Convert to ranked releases with detailed information
         let ranked_releases = self.create_ranked_releases(releases_with_groups);
+
+        // Log the final ranked results
+        log::debug!(
+            "Final ranking for '{}' by '{}': {} releases",
+            title,
+            artist,
+            ranked_releases.len()
+        );
+        for release in &ranked_releases {
+            log::debug!(
+                "  Rank {}: '{}' - {} (compilation: {}, va: {}) - {}",
+                release.rank,
+                release.title,
+                release
+                    .primary_type
+                    .as_ref()
+                    .map(|t| format!("{t:?}"))
+                    .unwrap_or_else(|| "Unknown".to_string()),
+                release.is_compilation,
+                release.is_various_artists,
+                release.rank_reason
+            );
+        }
 
         Ok(ranked_releases)
     }
@@ -659,22 +747,53 @@ impl CompilationToCanonicalProvider {
         }
 
         // Check if current album is in the results and whether we should attempt replacement
-        let current_album_is_compilation = ranked_releases
-            .iter()
-            .find(|r| r.title.eq_ignore_ascii_case(current_album))
-            .map(|r| r.is_compilation)
-            .unwrap_or(false);
-
-        if !current_album_is_compilation {
-            log::debug!(
-                "Track '{title}' by '{artist}' is on album '{current_album}' which appears to be a proper studio album. Not suggesting changes."
-            );
-            return Ok(None);
-        }
-
         log::debug!(
-            "Album '{current_album}' confirmed as compilation/non-album. Looking for studio album replacement for '{title}'."
+            "Checking if current album '{current_album}' is found in ranked releases and if it's a compilation"
         );
+
+        let current_album_in_results = ranked_releases
+            .iter()
+            .find(|r| r.title.eq_ignore_ascii_case(current_album));
+
+        match current_album_in_results {
+            Some(found_release) => {
+                log::debug!(
+                    "Current album '{}' found in results: rank {}, compilation: {}, type: {:?}",
+                    current_album,
+                    found_release.rank,
+                    found_release.is_compilation,
+                    found_release.primary_type
+                );
+
+                if !found_release.is_compilation {
+                    log::debug!(
+                        "Track '{title}' by '{artist}' is on album '{current_album}' which appears to be a proper studio album. Not suggesting changes."
+                    );
+                    return Ok(None);
+                }
+
+                log::debug!(
+                    "Album '{current_album}' confirmed as compilation/non-album. Looking for studio album replacement for '{title}'."
+                );
+            }
+            None => {
+                log::debug!(
+                    "Current album '{current_album}' NOT found in search results - this is why we might miss compilations!"
+                );
+                log::debug!(
+                    "Available albums in results: {}",
+                    ranked_releases
+                        .iter()
+                        .map(|r| r.title.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                log::debug!(
+                    "Since current album not found in results, defaulting to assuming it's NOT a compilation (returning None)"
+                );
+                return Ok(None);
+            }
+        }
 
         // Find the best non-compilation release
         for release in &ranked_releases {
