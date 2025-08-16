@@ -1,72 +1,84 @@
 # Scrobble Scrubber
 
-[![CI](https://github.com/colonelpanic8/scrobble-scrubber/actions/workflows/ci.yml/badge.svg)](https://github.com/imalison/scrobble-scrubber/actions/workflows/ci.yml)
+[![CI](https://github.com/colonelpanic8/scrobble-scrubber/actions/workflows/ci.yml/badge.svg)](https://github.com/colonelpanic8/scrobble-scrubber/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/scrobble-scrubber.svg)](https://crates.io/crates/scrobble-scrubber)
 [![docs.rs](https://docs.rs/scrobble-scrubber/badge.svg)](https://docs.rs/scrobble-scrubber)
 
-> **📖 For end users:** See the [**User Guide**](USER_GUIDE.md) for installation and usage instructions.
-
-Automated Last.fm track monitoring and scrubbing system that continuously monitors your recent tracks and applies cleaning rules to fix common issues.
+Automated Last.fm scrobble monitoring and correction tool that continuously monitors your recent tracks and applies intelligent cleaning rules to fix metadata issues.
 
 ## Features
 
-- **Continuous Monitoring**: Polls your recent tracks at configurable intervals
-- **State Management**: Remembers which tracks have been processed to avoid duplicates
-- **Multiple Cleaning Providers**:
-  - **Rewrite Rules**: Fast pattern-based cleaning (removes remaster suffixes, normalizes featuring formats, trims whitespace)
-  - **OpenAI Provider**: AI-powered metadata cleaning for complex issues requiring musical knowledge
-  - **MusicBrainze Provider**: Uses musicbrainz release library to correct metadata
-- **Self-Improving AI Integration**: The AI provider not only handles complex metadata issues but also identifies patterns for new automated rules, creating a system that gets smarter over time
-- **Dry Run Mode**: Test changes without actually modifying your scrobbles
-- **Flexible Configuration**: Environment variables, config files, and command-line arguments
+- **🔄 Continuous Monitoring**: Automatically polls your recent tracks at configurable intervals
+- **💾 Smart State Management**: Tracks processed scrobbles to avoid duplicate corrections
+- **🧹 Multiple Cleaning Providers**:
+  - **Pattern-Based Rules**: Lightning-fast regex-based cleaning for common issues
+  - **MusicBrainz Integration**: Validates and corrects metadata against the MusicBrainz database
+  - **AI-Powered Cleaning**: OpenAI integration for complex metadata issues requiring musical context
+  - **Compilation Detection**: Intelligently moves tracks from compilations to original albums
+- **🎯 Self-Improving System**: AI provider identifies patterns for new automated rules
+- **🔍 Dry Run Mode**: Preview changes before applying them to your scrobbles
+- **⚙️ Flexible Configuration**: Supports environment variables, config files, and CLI arguments
+- **🖥️ Interactive TUI**: Terminal user interface for managing rules and monitoring corrections
 
-## Usage
+## Quick Start
 
-Set up environment variables:
+### Installation
+
+```bash
+# Install from crates.io
+cargo install scrobble-scrubber
+
+# Or build from source
+git clone https://github.com/colonelpanic8/scrobble-scrubber
+cd scrobble-scrubber
+cargo build --release
+```
+
+### Basic Setup
+
 ```bash
 # Required: Last.fm credentials
 export SCROBBLE_SCRUBBER_LASTFM_USERNAME="your_username"
 export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_password"
 
-# Optional: OpenAI provider for AI-powered metadata cleaning
-export SCROBBLE_SCRUBBER_PROVIDERS_ENABLE_OPENAI=true
-export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_API_KEY="sk-..."
-```
+# Run the scrubber (checks every 5 minutes by default)
+scrobble-scrubber
 
-Run the scrubber:
-```bash
-# Basic usage (checks every 5 minutes)
-cargo run
-
-# Custom interval (check every 10 minutes)
-cargo run -- --interval 600
-
-# Dry run mode (see what would be changed)
-cargo run -- --dry-run
-
-# Limit tracks per cycle
-cargo run -- --max-tracks 50
+# Or with custom settings
+scrobble-scrubber --interval 600 --dry-run
 ```
 
 ## Command Line Options
 
-- `-i, --interval <SECONDS>`: Check interval in seconds (default: 300)
-- `-m, --max-tracks <NUMBER>`: Maximum tracks to process per run (default: 100)
-- `--dry-run`: Show what would be changed without making actual edits
+```
+scrobble-scrubber [OPTIONS]
 
-## Environment Variables
+Options:
+  -i, --interval <SECONDS>     Check interval in seconds [default: 300]
+  -m, --max-tracks <NUMBER>    Maximum tracks to process per run [default: 100]
+  --dry-run                    Preview changes without applying them
+  --config <PATH>              Path to configuration file
+  -h, --help                   Print help information
+  -V, --version                Print version information
+```
 
-All environment variables use the `SCROBBLE_SCRUBBER_` prefix and follow the configuration structure:
+## Configuration
 
-### Required Configuration
+### Environment Variables
+
+All environment variables use the `SCROBBLE_SCRUBBER_` prefix:
+
+#### Required
 ```bash
 # Last.fm credentials
 export SCROBBLE_SCRUBBER_LASTFM_USERNAME="your_lastfm_username"
 export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_lastfm_password"
 ```
 
-### OpenAI Provider (Optional)
+#### Optional Providers
+
+**OpenAI Integration**
 ```bash
 # Enable OpenAI provider for AI-powered metadata cleaning
 export SCROBBLE_SCRUBBER_PROVIDERS_ENABLE_OPENAI=true
@@ -76,7 +88,7 @@ export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_API_KEY="sk-..."
 export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_MODEL="gpt-4o-mini"
 ```
 
-### Scrubber Settings
+#### Scrubber Settings
 ```bash
 # Check interval in seconds (default: 300)
 export SCROBBLE_SCRUBBER_SCRUBBER_INTERVAL=300
@@ -91,7 +103,7 @@ export SCROBBLE_SCRUBBER_SCRUBBER_DRY_RUN=true
 export SCROBBLE_SCRUBBER_SCRUBBER_REQUIRE_CONFIRMATION=false
 ```
 
-### Other Settings
+#### Additional Settings
 ```bash
 # Enable/disable providers
 export SCROBBLE_SCRUBBER_PROVIDERS_ENABLE_REWRITE_RULES=true
@@ -104,7 +116,7 @@ export SCROBBLE_SCRUBBER_STORAGE_STATE_FILE="scrobble_state.db"
 export SCROBBLE_SCRUBBER_LASTFM_BASE_URL="https://www.last.fm"
 ```
 
-### Configuration File Locations
+### Configuration Files
 
 Configuration files are searched for in this order:
 1. `./scrobble-scrubber.toml` (current directory)
@@ -114,67 +126,68 @@ Configuration files are searched for in this order:
 5. `~/.config/scrobble-scrubber/config.toml` (legacy fallback)
 6. `~/.scrobble-scrubber.toml` (legacy fallback)
 
-### Configuration Priority
-Configuration is loaded in this order (highest priority first):
+**Priority Order** (highest to lowest):
 1. Command line arguments
-2. Environment variables (with `SCROBBLE_SCRUBBER_` prefix)
-3. Configuration file (first found from locations above)
-4. Defaults
+2. Environment variables
+3. Configuration file
+4. Built-in defaults
 
-### Example Configuration File
+See [`config.example.toml`](config.example.toml) for a complete configuration example.
 
-See `config.example.toml` for a complete example configuration file with all available options and their defaults.
+## How It Works
 
-## Cleaning System
+### Cleaning Providers
 
-The scrobble scrubber uses a two-tier cleaning approach:
+#### 1. Pattern-Based Rules
+Fast regex-based cleaning for common issues:
+- **Remaster suffixes**: `(2019 Remaster)`, `- Remastered`, etc.
+- **Featuring formats**: Normalizes `ft.`, `featuring`, `feat.` variations
+- **Whitespace**: Trims and normalizes spacing
+- **Custom patterns**: User-defined regex rules with capture groups
 
-### 1. Automated Rewrite Rules (Fast Pattern Matching)
-These rules use regex patterns and literal string replacement to handle common formatting issues:
+#### 2. MusicBrainz Integration
+Validates and corrects metadata against the MusicBrainz database:
+- Album verification and correction
+- Artist name standardization
+- Track title validation
+- Compilation to original album mapping
 
-**Remaster Removal**:
-- `Song Name - 2019 Remaster` → `Song Name`
-- `Song Name (Remaster 2019)` → `Song Name`
-- `Song Name (Remaster)` → `Song Name`
+#### 3. AI-Powered Cleaning (Optional)
+OpenAI integration for complex metadata issues:
+- Context-aware typo correction
+- Artist name disambiguation
+- Complex collaboration formatting
+- Pattern detection for new rules
 
-**Featuring Normalization**:
-- `Artist ft. Other` → `Artist feat. Other`
-- `Artist featuring Other` → `Artist feat. Other`
+## Development
 
-**Whitespace Cleanup**:
-- Removes trailing/leading spaces
-- Normalizes multiple spaces
+### Building from Source
 
-**Custom Pattern Rules**:
-- Supports complex regex patterns with capture groups
-- Can target specific fields (track name, artist name, album name, album artist)
-- Configurable through JSON/TOML rule files
+```bash
+git clone https://github.com/colonelpanic8/scrobble-scrubber
+cd scrobble-scrubber
 
-### 2. AI Provider (Complex Judgment-Based Cleaning)
-When enabled, the OpenAI provider has two key functions:
+# Build with default features
+cargo build --release
 
-**Immediate Corrections** for complex issues requiring musical knowledge:
-- **Typo Correction**: Fixes spelling errors that don't match simple patterns
-- **Album Disambiguation**: Changes compilation albums to original album names
-- **Artist Standardization**: Resolves artist name variations (e.g., "The Beatles" vs "Beatles")
-- **Compilation Metadata**: Corrects album artist fields for various artists compilations
-- **Complex Collaborations**: Restructures complex featuring/collaboration formats
-- **Context-Dependent Decisions**: Uses musical knowledge to make informed corrections
+# Build with all features including OpenAI
+cargo build --release --features full
 
-**Pattern Detection** for system improvement:
-- **Rule Suggestions**: Identifies recurring patterns that could be automated with new rewrite rules
-- **System Learning**: Helps evolve the automated rule system by spotting consistent issues
-- **Efficiency Optimization**: Converts manual fixes into automated patterns when possible
+# Run tests
+cargo test
+```
 
-The AI provider uses function calling to both fix immediate issues AND suggest improvements to the automated rule system, creating a self-improving metadata cleaning pipeline.
+### Architecture
 
-## Architecture
+- **`lastfm-edit`**: Core library for Last.fm API interactions
+- **Provider System**: Modular architecture for adding cleaning providers
+- **State Management**: SQLite-based tracking of processed scrobbles
+- **Action System**: Type-safe representation of metadata modifications
 
-The scrubber uses the `lastfm-edit` library for all Last.fm interactions and implements:
+## Contributing
 
-1. **Track Iterator**: Uses `RecentTracksIterator` with timestamp-based stopping
-2. **State Tracking**: Maintains a set of seen tracks to avoid reprocessing
-3. **Rule Engine**: Modular system for adding new cleaning rules
-4. **Action System**: Structured approach to track/artist modifications
-# Linux app test
-# macOS ARM app test
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details
