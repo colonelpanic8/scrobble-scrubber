@@ -5,6 +5,9 @@ edition.workspace = true
 description = "Automated Last.fm scrobble monitoring and correction tool"
 license.workspace = true
 repository.workspace = true
+readme = "../README.md"
+homepage = "https://github.com/colonelpanic8/scrobble-scrubber"
+documentation = "https://docs.rs/scrobble-scrubber"
 keywords = ["lastfm", "scrobbling", "music", "metadata"]
 categories = ["multimedia::audio"]
 
