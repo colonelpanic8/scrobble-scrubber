@@ -23,6 +23,7 @@ Conventions:
 - [x] Add cooperative cancellation in `lastfm-edit` for internal delays/backoff (released as `lastfm-edit` v5.0.2).
 - [x] Automatically append `ScrobbleObserved` + `EditAttempted` records to the mirror during scrubber runs.
 - [x] Persist a unified two-frontier state (`FrontiersState`) and migrate scrubber + timestamp CLI to use it.
+- [x] Make anchor-page search cooperatively cancelable (stop doesn't look like a hang).
 
 ## Next (High Priority)
 
