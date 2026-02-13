@@ -423,6 +423,7 @@ pub struct AppState {
     pub session: Option<String>,         // Serialized LastFmEditSession
     pub recent_tracks: TrackSourceState, // Recent tracks with enable/disable
     pub artist_tracks: std::collections::HashMap<String, TrackSourceState>, // Artist tracks by artist name
+    pub timestamp_tracks: Vec<lastfm_edit::Track>, // UI list used by the Timestamp page/section
     pub current_rule: RewriteRule,
     pub show_all_tracks: bool, // Toggle to show all tracks or only matching ones
     pub current_page: u32,     // Current page for pagination (for recent tracks)
@@ -443,6 +444,7 @@ impl Default for AppState {
             session: None,
             recent_tracks: TrackSourceState { enabled: true },
             artist_tracks: std::collections::HashMap::new(),
+            timestamp_tracks: Vec::new(),
             current_rule: RewriteRule::new(),
             show_all_tracks: true, // Default to showing all tracks
             current_page: 1,       // Start at page 1

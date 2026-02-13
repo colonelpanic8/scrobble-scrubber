@@ -1,7 +1,7 @@
-use crate::api::load_recent_tracks_from_page;
 use crate::components::scrobble_scrubber::set_timestamp_anchor;
 use crate::types::AppState;
-use ::scrobble_scrubber::track_cache::TrackCache;
+use crate::{error_utils, types::ScrubberStatus};
+use ::scrobble_scrubber::mirror::LibraryMirror;
 use dioxus::prelude::*;
 use dioxus_router::*;
 
@@ -17,10 +17,10 @@ pub fn TimestampManagementSection(mut state: Signal<AppState>) -> Element {
 
             {
                 let state_read = state.read();
-                let all_cached_tracks = state_read.track_cache.recent_tracks.clone();
+                let tracks = state_read.timestamp_tracks.clone();
                 rsx! {
                     TracksList {
-                        tracks: all_cached_tracks,
+                        tracks,
                         state
                     }
                 }
@@ -32,7 +32,7 @@ pub fn TimestampManagementSection(mut state: Signal<AppState>) -> Element {
 #[component]
 fn TimestampManagementHeader(mut state: Signal<AppState>) -> Element {
     let state_read = state.read();
-    let total_tracks: usize = state_read.track_cache.recent_tracks.len();
+    let total_tracks: usize = state_read.timestamp_tracks.len();
     let recent_tracks_loaded = total_tracks > 0;
 
     rsx! {
@@ -60,7 +60,7 @@ struct TracksLoadedIndicatorProps {
 fn TracksLoadedIndicator(props: TracksLoadedIndicatorProps) -> Element {
     rsx! {
         span { style: "font-size: 0.875rem; color: #059669; background: #d1fae5; padding: 0.25rem 0.5rem; border-radius: 0.25rem;",
-            "📂 Using cached recent tracks ({props.total_tracks} tracks)"
+            "📂 Using mirror recent scrobbles ({props.total_tracks} tracks)"
         }
     }
 }
@@ -71,19 +71,66 @@ fn LoadMoreTracksButton(mut state: Signal<AppState>) -> Element {
         button {
             style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
             onclick: move |_| async move {
-                let (session_str, current_page) = {
+                let (session_str, current_page, config, status) = {
                     let s = state.read();
-                    (s.session.clone(), s.current_page)
+                    (
+                        s.session.clone(),
+                        s.current_page,
+                        s.config.clone(),
+                        s.scrubber_state.status.clone(),
+                    )
                 };
-                if let Some(session_str) = session_str {
-                    let next_page = current_page + 1;
-                    if load_recent_tracks_from_page(session_str, next_page).await.is_ok() {
-                        state.with_mut(|s| {
-                            s.current_page = next_page;
-                            s.track_cache = TrackCache::load();
-                        });
+
+                // Avoid surprising writes while the scrubber is actively running.
+                if matches!(status, ScrubberStatus::Running | ScrubberStatus::Starting) {
+                    return;
+                }
+
+                let Some(config) = config else { return; };
+                let username = config.lastfm.username.trim().to_string();
+                if username.is_empty() { return; }
+                let state_file = config.storage.state_file.clone();
+
+                let next_page = current_page + 1;
+                let want = (next_page as usize) * 50;
+
+                let mirror = match LibraryMirror::open(&username, &state_file) {
+                    Ok(m) => m,
+                    Err(_) => return,
+                };
+                let _ = mirror.ingest_repo();
+
+                // Try local mirror first.
+                let mut rows = mirror.recent_scrobbles(want, None).unwrap_or_default();
+
+                // If we don't have enough rows, opportunistically sync from Last.fm using the
+                // existing session.
+                if rows.len() < want {
+                    if let Some(session_str) = session_str {
+                        if let Ok(session) = error_utils::deserialize_session(&session_str) {
+                            let client = error_utils::create_client_from_session(session);
+                            let _ = mirror.sync_tip_pages(&client, next_page).await;
+                            rows = mirror.recent_scrobbles(want, None).unwrap_or_default();
+                        }
                     }
                 }
+
+                let tracks: Vec<lastfm_edit::Track> = rows
+                    .into_iter()
+                    .map(|r| lastfm_edit::Track {
+                        name: r.track,
+                        artist: r.artist,
+                        playcount: 0,
+                        timestamp: Some(r.played_at),
+                        album: r.album,
+                        album_artist: r.album_artist,
+                    })
+                    .collect();
+
+                state.with_mut(|s| {
+                    s.current_page = next_page;
+                    s.timestamp_tracks = tracks;
+                });
             },
             "Load More Tracks"
         }
@@ -96,15 +143,56 @@ fn LoadRecentTracksButton(mut state: Signal<AppState>) -> Element {
         button {
             style: "background: #059669; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem;",
             onclick: move |_| async move {
-                let session_str = state.read().session.clone();
-                if let Some(session_str) = session_str {
-                    if load_recent_tracks_from_page(session_str, 1).await.is_ok() {
-                        state.with_mut(|s| {
-                            s.current_page = 1;
-                            s.track_cache = TrackCache::load();
-                        });
+                let (session_str, config, status) = {
+                    let s = state.read();
+                    (s.session.clone(), s.config.clone(), s.scrubber_state.status.clone())
+                };
+
+                if matches!(status, ScrubberStatus::Running | ScrubberStatus::Starting) {
+                    return;
+                }
+
+                let Some(config) = config else { return; };
+                let username = config.lastfm.username.trim().to_string();
+                if username.is_empty() { return; }
+                let state_file = config.storage.state_file.clone();
+
+                let page = 1u32;
+                let want = 50usize;
+
+                let mirror = match LibraryMirror::open(&username, &state_file) {
+                    Ok(m) => m,
+                    Err(_) => return,
+                };
+                let _ = mirror.ingest_repo();
+
+                let mut rows = mirror.recent_scrobbles(want, None).unwrap_or_default();
+                if rows.len() < want {
+                    if let Some(session_str) = session_str {
+                        if let Ok(session) = error_utils::deserialize_session(&session_str) {
+                            let client = error_utils::create_client_from_session(session);
+                            let _ = mirror.sync_tip_pages(&client, page).await;
+                            rows = mirror.recent_scrobbles(want, None).unwrap_or_default();
+                        }
                     }
                 }
+
+                let tracks: Vec<lastfm_edit::Track> = rows
+                    .into_iter()
+                    .map(|r| lastfm_edit::Track {
+                        name: r.track,
+                        artist: r.artist,
+                        playcount: 0,
+                        timestamp: Some(r.played_at),
+                        album: r.album,
+                        album_artist: r.album_artist,
+                    })
+                    .collect();
+
+                state.with_mut(|s| {
+                    s.current_page = 1;
+                    s.timestamp_tracks = tracks;
+                });
             },
             "Load Recent Tracks"
         }

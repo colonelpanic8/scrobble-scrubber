@@ -228,7 +228,7 @@ async fn set_timestamp_anchor_direct(
     track: Track,
     state: &mut Signal<AppState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use ::scrobble_scrubber::persistence::{StateStorage, TimestampState};
+    use ::scrobble_scrubber::persistence::StateStorage;
     use chrono::{DateTime, Utc};
 
     // Track is already the correct type, no conversion needed
@@ -242,13 +242,11 @@ async fn set_timestamp_anchor_direct(
         // Convert timestamp to DateTime<Utc>
         let timestamp_dt = DateTime::from_timestamp(timestamp as i64, 0).unwrap_or_else(Utc::now);
 
-        // Create new timestamp state
-        let timestamp_state = TimestampState {
-            last_processed_timestamp: Some(timestamp_dt),
-        };
-
-        // Save the updated timestamp state
-        storage_guard.save_timestamp_state(&timestamp_state).await?;
+        // Update the unified frontiers state so the scrubber will honor it even if a prior run
+        // created a `frontiers_state` record.
+        let mut frontiers = storage_guard.load_frontiers_state().await?;
+        frontiers.slow_anchor_timestamp = Some(timestamp_dt);
+        storage_guard.save_frontiers_state(&frontiers).await?;
 
         let info_event = ScrubberEvent {
             timestamp: Utc::now(),
