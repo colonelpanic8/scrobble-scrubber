@@ -193,7 +193,20 @@ impl RewriteRulesScrubActionProvider {
         }
     }
 
-    // Verify that the candidate edit corresponds to a real MB match using rule-specific filters
+    // Verify that the candidate edit corresponds to a real MB match using rule-specific filters.
+    //
+    // In non-tokio builds (e.g. WASM bindings), we can't do network verification here, so we
+    // treat the check as a no-op.
+    #[cfg(not(feature = "tokio"))]
+    async fn verify_with_musicbrainz_using_rule_filters(
+        _candidate: &ScrobbleEdit,
+        _track: &Track,
+        _release_filters: Option<&crate::config::ReleaseFilterConfig>,
+    ) -> Result<bool, ActionProviderError> {
+        Ok(true)
+    }
+
+    #[cfg(feature = "tokio")]
     async fn verify_with_musicbrainz_using_rule_filters(
         candidate: &ScrobbleEdit,
         track: &Track,

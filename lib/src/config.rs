@@ -1,5 +1,8 @@
-use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "cli")]
+use config::{Config, ConfigError, Environment, File};
+#[cfg(feature = "cli")]
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -304,6 +307,11 @@ impl JsonLoggingConfig {
     /// Get the default JSON log file path using XDG Base Directory specification
     /// Falls back to current directory if XDG data directory is not available
     pub fn get_default_log_file_path() -> String {
+        #[cfg(not(feature = "dirs"))]
+        {
+            return "track_edits.jsonl".to_string();
+        }
+        #[cfg(feature = "dirs")]
         if let Some(data_dir) = dirs::data_dir() {
             let scrobble_data_dir = data_dir.join("scrobble-scrubber");
             scrobble_data_dir
@@ -369,6 +377,16 @@ impl StorageConfig {
     /// Get the default state file path for a specific user using XDG Base Directory specification
     /// Falls back to current directory if XDG data directory is not available
     pub fn get_default_state_file_path_for_user(username: Option<&str>) -> String {
+        #[cfg(not(feature = "dirs"))]
+        {
+            // Fallback to current directory if `dirs` isn't available (e.g. WASM/minimal builds).
+            return if let Some(user) = username {
+                format!("{user}_scrobble_state.db")
+            } else {
+                "scrobble_state.db".to_string()
+            };
+        }
+        #[cfg(feature = "dirs")]
         if let Some(data_dir) = dirs::data_dir() {
             let mut scrobble_data_dir = data_dir.join("scrobble-scrubber");
 
@@ -430,6 +448,7 @@ impl ScrobbleScrubberConfig {
     /// Get default configuration file paths in order of preference
     /// Uses XDG Base Directory specification
     #[must_use]
+    #[cfg(feature = "cli")]
     pub fn get_default_config_paths() -> Vec<PathBuf> {
         let mut paths = Vec::new();
 
@@ -464,6 +483,7 @@ impl ScrobbleScrubberConfig {
     /// Get the preferred configuration file path for creating new config files
     /// Returns the XDG config directory path
     #[must_use]
+    #[cfg(feature = "cli")]
     pub fn get_preferred_config_path() -> Option<PathBuf> {
         dirs::config_dir()
             .map(|config_dir| config_dir.join("scrobble-scrubber").join("config.toml"))
@@ -474,11 +494,13 @@ impl ScrobbleScrubberConfig {
     /// 2. Environment variables
     /// 3. Configuration file
     /// 4. Defaults (lowest priority)
+    #[cfg(feature = "cli")]
     pub fn load() -> Result<Self, ConfigError> {
         Self::load_with_file::<&str>(None)
     }
 
     /// Load configuration with a specific config file
+    #[cfg(feature = "cli")]
     pub fn load_with_file<P: AsRef<Path>>(config_file: Option<P>) -> Result<Self, ConfigError> {
         let mut builder = Config::builder();
 

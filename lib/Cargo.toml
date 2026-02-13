@@ -66,7 +66,18 @@ musicbrainz_rs = { version = "0.12.0" }
 [features]
 default = ["tokio", "http-client/curl_client", "cli", "pickledb"]
 full = ["tokio", "openai", "cli", "pickledb", "http-client/curl_client"]
-cli = ["config", "dirs", "clap", "env_logger", "ratatui", "crossterm", "pickledb", "mirror"]
+cli = [
+    "tokio",
+    "http-client",
+    "config",
+    "dirs",
+    "clap",
+    "env_logger",
+    "ratatui",
+    "crossterm",
+    "pickledb",
+    "mirror",
+]
 pickledb = ["dep:pickledb"]
 wasm = ["http-client/wasm_client", "lastfm-edit/wasm", "chrono/wasm-bindgen"]  # WASM-compatible feature set
 openai = ["openai-api-rs"]
