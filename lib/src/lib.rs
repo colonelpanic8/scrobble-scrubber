@@ -21,3 +21,6 @@ pub mod recent_user_manager;
 #[cfg(feature = "tokio")]
 pub mod scrubber;
 pub mod session_manager;
+
+#[cfg(feature = "mirror")]
+pub mod mirror;

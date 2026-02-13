@@ -5,6 +5,8 @@ pub mod commands;
 use crate::config::OpenAIProviderConfig;
 use crate::config::{ScrobbleScrubberConfig, StorageConfig};
 use crate::event_logger::EventLogger;
+#[cfg(feature = "mirror")]
+use crate::mirror::LibraryMirror;
 use crate::musicbrainz::CompilationToCanonicalProvider;
 #[cfg(feature = "openai")]
 use crate::openai_provider::OpenAIScrubActionProvider;
@@ -366,6 +368,35 @@ enum TimestampCommands {
     },
 }
 
+#[derive(Subcommand, Debug, Clone)]
+enum MirrorCommands {
+    /// Sync the newest pages (page 1..N) into the local mirror
+    Tip {
+        /// Number of newest pages to fetch
+        #[arg(short, long, default_value = "1")]
+        pages: u32,
+    },
+    /// Sync older pages relative to the current oldest observed scrobble
+    Older {
+        /// Number of pages to backfill
+        #[arg(short, long, default_value = "1")]
+        pages: u32,
+        /// Overlap window (seconds) to avoid misses when timestamps tie across pages
+        #[arg(long, default_value = "0")]
+        overlap_seconds: u64,
+    },
+    /// Print a summary of mirror coverage
+    Status,
+    /// Print the most recent scrobbles from the mirror index
+    Recent {
+        /// Maximum number of scrobbles to print
+        #[arg(short, long, default_value = "50")]
+        limit: u32,
+    },
+    /// Rebuild the local mirror index from the mirror repo logs
+    Reindex,
+}
+
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Core scrubbing operations
@@ -386,6 +417,9 @@ enum Commands {
     /// MusicBrainz operations
     #[command(subcommand, name = "musicbrainz")]
     MusicBrainz(MusicBrainzCommands),
+    /// Local library mirror (git-backed append-only logs + local index)
+    #[command(subcommand)]
+    Mirror(MirrorCommands),
     /// Clear saved session data (forces fresh login on next run)
     ClearSession,
 }
@@ -557,6 +591,9 @@ fn merge_args_into_config(
         Commands::TrackCache(_) => {
             // No specific configuration needed for track cache commands
         }
+        Commands::Mirror(_) => {
+            // No config overrides for mirror commands (they use storage/lastfm settings as-is).
+        }
         Commands::Rules(_) => {
             // No specific configuration needed for rules commands
         }
@@ -651,13 +688,7 @@ pub async fn run() -> Result<()> {
         )))
     })?;
 
-    log::info!(
-        "Starting scrobble-scrubber with interval {}s",
-        config.scrubber.interval
-    );
-
-    // Create and login to LastFM client (using session if available)
-    let client = auth::create_authenticated_client(&config).await?;
+    log::info!("Starting scrobble-scrubber");
 
     // Create storage wrapped in Arc<Mutex<>>
     log::info!("Using state file: {}", config.storage.state_file);
@@ -668,6 +699,190 @@ pub async fn run() -> Result<()> {
             )))
         })?,
     ));
+
+    // Route non-scrubber commands before we do any expensive initialization (login, providers, etc).
+    match &args.command {
+        Commands::TrackCache(cache_cmd) => {
+            match cache_cmd {
+                TrackCacheCommands::Show { limit, all_pages } => {
+                    show_cache_state(*limit, *all_pages)?;
+                }
+                TrackCacheCommands::Refresh { pages } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    refresh_cache(&client, *pages).await?;
+                }
+                TrackCacheCommands::Extend { pages } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    extend_cache(&client, *pages).await?;
+                }
+                TrackCacheCommands::ShowRecent { limit } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    show_recent_tracks_from_api(&client, *limit).await?;
+                }
+                TrackCacheCommands::LoadArtist { artist } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    load_artist_tracks_cli(&client, artist).await?;
+                }
+            }
+            return Ok(());
+        }
+        Commands::Rules(rules_cmd) => {
+            match rules_cmd {
+                RulesCommands::Show => {
+                    show_active_rules(&storage).await?;
+                }
+                RulesCommands::EnableDefaults => {
+                    enable_default_rules(&storage).await?;
+                }
+                RulesCommands::Add(args) => {
+                    add_rewrite_rule(
+                        &storage,
+                        args.name.as_deref(),
+                        args.track_find.as_deref(),
+                        args.track_replace.as_deref(),
+                        args.artist_find.as_deref(),
+                        args.artist_replace.as_deref(),
+                        args.album_find.as_deref(),
+                        args.album_replace.as_deref(),
+                        args.album_artist_find.as_deref(),
+                        args.album_artist_replace.as_deref(),
+                        args.flags.as_deref(),
+                        args.require_confirmation,
+                        args.require_musicbrainz_confirmation,
+                    )
+                    .await?;
+                }
+                RulesCommands::Remove { index, name, all } => {
+                    remove_rewrite_rule(&storage, *index, name.as_deref(), *all).await?;
+                }
+            }
+            return Ok(());
+        }
+        Commands::Pending(pending_cmd) => {
+            let data_dir = std::path::PathBuf::from(&config.storage.state_file)
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            let pending_args = PendingArgs {
+                command: pending_cmd.clone(),
+            };
+            if let Err(e) = handle_pending_command(pending_args, data_dir).await {
+                return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                    format!("Pending command failed: {e}"),
+                )));
+            }
+            return Ok(());
+        }
+        Commands::Timestamp(timestamp_cmd) => {
+            match timestamp_cmd {
+                TimestampCommands::SetAnchor { tracks } => {
+                    set_timestamp_anchor(&storage, *tracks).await?;
+                }
+                TimestampCommands::SetTimestamp { timestamp } => {
+                    set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
+                }
+            }
+            return Ok(());
+        }
+        Commands::MusicBrainz(mb_cmd) => {
+            mb_cmd.clone().execute().await.map_err(|e| {
+                log::error!("MusicBrainz command failed: {e}");
+                LastFmError::Io(std::io::Error::other(e.to_string()))
+            })?;
+            return Ok(());
+        }
+        Commands::Mirror(mirror_cmd) => {
+            if config.lastfm.username.trim().is_empty() {
+                return Err(LastFmError::Io(std::io::Error::other(
+                    "Last.fm username is required for mirror operations",
+                )));
+            }
+
+            let mirror = LibraryMirror::open(&config.lastfm.username, &config.storage.state_file)
+                .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+
+            // Always ingest first so the index reflects any git-pulled changes.
+            mirror
+                .ingest_repo()
+                .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+
+            match mirror_cmd {
+                MirrorCommands::Tip { pages } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    let observed = mirror
+                        .sync_tip_pages(&client, *pages)
+                        .await
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    println!("Observed {observed} scrobble(s) from tip pages");
+                }
+                MirrorCommands::Older {
+                    pages,
+                    overlap_seconds,
+                } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+                    let observed = mirror
+                        .sync_older_pages(&client, *pages, *overlap_seconds)
+                        .await
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    println!("Observed {observed} scrobble(s) from older pages");
+                }
+                MirrorCommands::Status => {
+                    let newest = mirror
+                        .newest_played_at()
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    let oldest = mirror
+                        .oldest_played_at()
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    println!("Mirror status for user '{}':", config.lastfm.username);
+                    println!("  newest_played_at: {newest:?}");
+                    println!("  oldest_played_at: {oldest:?}");
+                    println!("  repo_root: {}", mirror.repo().root().display());
+                    println!("  index_path: {}", mirror.index().path().display());
+                }
+                MirrorCommands::Recent { limit } => {
+                    let rows = mirror
+                        .recent_scrobbles(*limit as usize, None)
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    for r in rows {
+                        println!(
+                            "{} | {} - {}{}",
+                            r.played_at,
+                            r.artist,
+                            r.track,
+                            r.album
+                                .as_ref()
+                                .map(|a| format!(" ({a})"))
+                                .unwrap_or_default()
+                        );
+                    }
+                }
+                MirrorCommands::Reindex => {
+                    mirror
+                        .index()
+                        .rebuild_from_repo(mirror.repo())
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    println!("Rebuilt mirror index");
+                }
+            }
+            return Ok(());
+        }
+        Commands::ClearSession => {
+            let session_manager = SessionManager::new(&config.lastfm.username);
+            if let Err(e) = session_manager.clear_session() {
+                log::error!("Failed to clear session: {e}");
+                return Err(LastFmError::Io(e));
+            }
+            println!("✅ Session cleared successfully");
+            println!("Next run will require username/password login");
+            return Ok(());
+        }
+        Commands::Scrubber(_) => {
+            // Continue below.
+        }
+    }
+
+    // Create and login to LastFM client (using session if available)
+    let client = auth::create_authenticated_client(&config).await?;
 
     // Check if we should skip existing rewrite rules (for pattern analysis)
     let skip_existing_rules = matches!(
@@ -825,110 +1040,6 @@ pub async fn run() -> Result<()> {
         log::info!("Active providers: {}", active_providers.join(", "));
     }
 
-    // Handle commands that don't need a scrubber instance first
-    match &args.command {
-        Commands::TrackCache(cache_cmd) => match cache_cmd {
-            TrackCacheCommands::Show { limit, all_pages } => {
-                show_cache_state(*limit, *all_pages)?;
-                return Ok(());
-            }
-            TrackCacheCommands::Refresh { pages } => {
-                refresh_cache(&client, *pages).await?;
-                return Ok(());
-            }
-            TrackCacheCommands::Extend { pages } => {
-                extend_cache(&client, *pages).await?;
-                return Ok(());
-            }
-            TrackCacheCommands::ShowRecent { limit } => {
-                show_recent_tracks_from_api(&client, *limit).await?;
-                return Ok(());
-            }
-            TrackCacheCommands::LoadArtist { artist } => {
-                load_artist_tracks_cli(&client, artist).await?;
-                return Ok(());
-            }
-        },
-        Commands::Rules(rules_cmd) => match rules_cmd {
-            RulesCommands::Show => {
-                show_active_rules(&storage).await?;
-                return Ok(());
-            }
-            RulesCommands::EnableDefaults => {
-                enable_default_rules(&storage).await?;
-                return Ok(());
-            }
-            RulesCommands::Add(args) => {
-                add_rewrite_rule(
-                    &storage,
-                    args.name.as_deref(),
-                    args.track_find.as_deref(),
-                    args.track_replace.as_deref(),
-                    args.artist_find.as_deref(),
-                    args.artist_replace.as_deref(),
-                    args.album_find.as_deref(),
-                    args.album_replace.as_deref(),
-                    args.album_artist_find.as_deref(),
-                    args.album_artist_replace.as_deref(),
-                    args.flags.as_deref(),
-                    args.require_confirmation,
-                    args.require_musicbrainz_confirmation,
-                )
-                .await?;
-                return Ok(());
-            }
-            RulesCommands::Remove { index, name, all } => {
-                remove_rewrite_rule(&storage, *index, name.as_deref(), *all).await?;
-                return Ok(());
-            }
-        },
-        Commands::Pending(pending_cmd) => {
-            let data_dir = std::path::PathBuf::from(&config.storage.state_file)
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            let pending_args = PendingArgs {
-                command: pending_cmd.clone(),
-            };
-            if let Err(e) = handle_pending_command(pending_args, data_dir).await {
-                return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
-                    format!("Pending command failed: {e}"),
-                )));
-            }
-            return Ok(());
-        }
-        Commands::Timestamp(timestamp_cmd) => match timestamp_cmd {
-            TimestampCommands::SetAnchor { tracks } => {
-                set_timestamp_anchor(&storage, *tracks).await?;
-                return Ok(());
-            }
-            TimestampCommands::SetTimestamp { timestamp } => {
-                set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
-                return Ok(());
-            }
-        },
-        Commands::MusicBrainz(mb_cmd) => {
-            mb_cmd.clone().execute().await.map_err(|e| {
-                log::error!("MusicBrainz command failed: {e}");
-                LastFmError::Io(std::io::Error::other(e.to_string()))
-            })?;
-            return Ok(());
-        }
-        Commands::ClearSession => {
-            let session_manager = SessionManager::new(&config.lastfm.username);
-            if let Err(e) = session_manager.clear_session() {
-                log::error!("Failed to clear session: {e}");
-                return Err(LastFmError::Io(e));
-            }
-            println!("✅ Session cleared successfully");
-            println!("Next run will require username/password login");
-            return Ok(());
-        }
-        Commands::Scrubber(_) => {
-            // Continue to create scrubber for scrubber commands
-        }
-    }
-
     // Create scrubber wrapped in Arc<Mutex<>>
     let scrubber = Arc::new(Mutex::new(ScrobbleScrubber::new(
         storage.clone(),
@@ -1049,6 +1160,7 @@ pub async fn run() -> Result<()> {
         | Commands::Pending(_)
         | Commands::Timestamp(_)
         | Commands::MusicBrainz(_)
+        | Commands::Mirror(_)
         | Commands::ClearSession => {
             // These cases are handled above
             unreachable!("Non-scrubber commands should have been handled earlier");

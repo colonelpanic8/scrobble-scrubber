@@ -38,6 +38,8 @@ lastfm-edit = { version = "5.0.1", default-features = false, features = ["mock"]
 http-client = { version = "^6.6.3", package = "http-client-2", optional = true, default-features = false }
 tokio = { version = "1.0", features = ["full"], optional = true }
 pickledb = { version = "0.5", optional = true }
+scrobble-scrubber-mirror = { path = "../mirror", optional = true }
+hostname = { version = "0.4", optional = true }
 
 # Config support (used by CLI feature)
 config = { version = "0.14", optional = true }
@@ -64,10 +66,11 @@ musicbrainz_rs = { version = "0.12.0" }
 [features]
 default = ["tokio", "http-client/curl_client", "cli", "pickledb"]
 full = ["tokio", "openai", "cli", "pickledb", "http-client/curl_client"]
-cli = ["config", "dirs", "clap", "env_logger", "ratatui", "crossterm", "pickledb"]
+cli = ["config", "dirs", "clap", "env_logger", "ratatui", "crossterm", "pickledb", "mirror"]
 pickledb = ["dep:pickledb"]
 wasm = ["http-client/wasm_client", "lastfm-edit/wasm", "chrono/wasm-bindgen"]  # WASM-compatible feature set
 openai = ["openai-api-rs"]
+mirror = ["dep:scrobble-scrubber-mirror", "dep:hostname", "dirs"]
 
 [dev-dependencies]
 mockall = "0.13"
