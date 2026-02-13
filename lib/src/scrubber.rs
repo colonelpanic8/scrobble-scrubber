@@ -172,6 +172,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
     }
 
+    #[cfg(feature = "mirror")]
+    fn mirror_observe_tracks(&self, tracks: &[lastfm_edit::Track]) {
+        if let Some(m) = &self.mirror {
+            if let Err(e) = m.append_scrobble_observations(tracks) {
+                log::warn!("Failed to append mirror scrobble observations: {e}");
+            }
+        }
+    }
+
     /// Trigger immediate processing, bypassing the normal wait interval
     pub fn trigger_immediate_processing(&self) {
         self.trigger_immediate.notify_one();
@@ -879,6 +888,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         if tracks.is_empty() {
             return Ok(());
         }
+
+        #[cfg(feature = "mirror")]
+        self.mirror_observe_tracks(tracks);
 
         self.process_tracks_individually_no_timestamp_update_with_context(tracks, processing_type)
             .await?;

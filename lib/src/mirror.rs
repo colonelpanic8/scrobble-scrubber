@@ -128,6 +128,27 @@ impl LibraryMirror {
         Ok(records.len())
     }
 
+    pub fn append_scrobble_observations(&self, tracks: &[Track]) -> Result<usize, MirrorError> {
+        let observed_at = Utc::now().timestamp() as u64;
+        let mut records = Vec::new();
+
+        for t in tracks {
+            let Some(ts) = t.timestamp else {
+                continue;
+            };
+            records.push(self.make_observation_record(
+                observed_at,
+                RecordSource::LastfmScrape,
+                t,
+                None,
+                ts,
+            ));
+        }
+
+        self.append_records(&records)?;
+        Ok(records.len())
+    }
+
     pub fn append_edit_attempt_from_client_event(
         &self,
         event: &ClientEvent,
