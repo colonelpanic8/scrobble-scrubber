@@ -91,10 +91,25 @@ impl StateStorage for FileStorage {
         self.db
             .set("timestamp_state", state)
             .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Keep unified state in sync in case legacy callers still write `timestamp_state`.
+        let mut frontiers = self
+            .db
+            .get::<FrontiersState>("frontiers_state")
+            .unwrap_or_default();
+        frontiers.slow_anchor_timestamp = state.last_processed_timestamp;
+        self.db
+            .set("frontiers_state", &frontiers)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
         Ok(())
     }
 
     async fn load_timestamp_state(&self) -> Result<TimestampState, Self::Error> {
+        if let Some(frontiers) = self.db.get::<FrontiersState>("frontiers_state") {
+            return Ok(TimestampState {
+                last_processed_timestamp: frontiers.slow_anchor_timestamp,
+            });
+        }
         Ok(self.db.get("timestamp_state").unwrap_or_default())
     }
 
@@ -102,10 +117,27 @@ impl StateStorage for FileStorage {
         self.db
             .set("catch_up_state", state)
             .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Keep unified state in sync in case legacy callers still write `catch_up_state`.
+        let mut frontiers = self
+            .db
+            .get::<FrontiersState>("frontiers_state")
+            .unwrap_or_default();
+        frontiers.tip_last_processed_timestamp = state.fast_path_last_processed_timestamp;
+        frontiers.tip_floor_exclusive_timestamp = state.fast_path_floor_exclusive_timestamp;
+        self.db
+            .set("frontiers_state", &frontiers)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
         Ok(())
     }
 
     async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error> {
+        if let Some(frontiers) = self.db.get::<FrontiersState>("frontiers_state") {
+            return Ok(CatchUpState {
+                fast_path_last_processed_timestamp: frontiers.tip_last_processed_timestamp,
+                fast_path_floor_exclusive_timestamp: frontiers.tip_floor_exclusive_timestamp,
+            });
+        }
         Ok(self.db.get("catch_up_state").unwrap_or_default())
     }
 
