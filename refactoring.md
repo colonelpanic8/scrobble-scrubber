@@ -18,6 +18,8 @@ Conventions:
 - [x] Add `mirror/` crate with git-backed append-only logs plus a local sqlite index (`mirror/src/index.rs`).
 - [x] Add `scrobble-scrubber mirror ...` CLI commands (tip/older/status/recent/reindex).
 - [x] Make CLI lazy-login: only authenticate to Last.fm when a command truly needs it (`lib/src/cli/mod.rs`).
+- [x] Surface Last.fm rate limit/backoff delays in terminal output (client events).
+- [x] Add cooperative cancellation in `lastfm-edit` for internal delays/backoff (released as `lastfm-edit` v5.0.2).
 
 ## Next (High Priority)
 
@@ -56,9 +58,8 @@ Conventions:
 - [ ] Expose rate limiting as a caller-controlled policy (instead of burying sleeps internally):
   - A hook/callback for “about to wait N seconds” and “retrying request”.
   - Optional “no internal sleeps” mode where library returns “rate limited, retry after N”.
-- [ ] Implement cancellation support in lastfm-edit:
-  - Cancellation token passed through composite ops and HTTP layer.
-  - Ensure iterator/composite ops can be interrupted promptly.
+- [x] Implement cancellation support in lastfm-edit:
+  - Interrupts internal backoff/operational sleeps (best-effort).
+  - Callers can request cancel via `LastFmEditClient::cancel()`.
 - [ ] Interleaving composite operations:
   - Make it possible for callers to multiplex work fairly without head-of-line blocking.
-
