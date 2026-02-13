@@ -432,6 +432,7 @@ pub struct AppState {
     pub saved_rules: Vec<RewriteRule>, // Rules loaded from storage
     pub scrubber_state: ScrubberState, // Scrobble scrubber state and observability
     pub scrubber_instance: Option<Arc<tokio::sync::Mutex<GlobalScrubber>>>, // Global scrubber instance
+    pub scrubber_handle: Option<::scrobble_scrubber::scrubber::ScrubberHandle>, // Stop/trigger without blocking on the scrubber mutex
     pub track_progress_state: TrackProgressState, // Track processing progress for UI
     #[allow(dead_code)]
     pub track_cache: TrackCache, // Disk cache for track data
@@ -463,8 +464,9 @@ impl Default for AppState {
                 delay_state: None,
             },
             scrubber_instance: None, // No scrubber instance initially
+            scrubber_handle: None,
             track_progress_state: TrackProgressState::default(), // Default progress state
-            track_cache: TrackCache::load(), // Load cache from disk on startup
+            track_cache: TrackCache::load(),                     // Load cache from disk on startup
         }
     }
 }

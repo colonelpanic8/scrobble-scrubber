@@ -57,9 +57,19 @@ pub async fn start_scrubber(mut state: Signal<AppState>) {
                 s.scrubber_state.event_sender = Some(sender_arc.clone());
             });
 
+            let stop_notify = state
+                .read()
+                .scrubber_handle
+                .as_ref()
+                .map(|h| h.stop_notifier())
+                .unwrap_or_else(|| Arc::new(tokio::sync::Notify::new()));
+
             // Start the scrubber background task with the shared instance
             spawn(run_scrubber_with_shared_instance(
-                state, scrubber, sender_arc,
+                state,
+                scrubber,
+                sender_arc,
+                stop_notify,
             ));
         }
         Err(e) => {
@@ -83,18 +93,9 @@ pub async fn start_scrubber(mut state: Signal<AppState>) {
 pub async fn stop_scrubber(mut state: Signal<AppState>) {
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Stopping);
 
-    let stop_event = ScrubberEvent {
-        timestamp: Utc::now(),
-        event_type: ::scrobble_scrubber::events::ScrubberEventType::Stopped(
-            "Scrobble scrubber stopped".to_string(),
-        ),
-    };
-
-    state.with_mut(|s| {
-        s.scrubber_state.status = ScrubberStatus::Stopped;
-        s.scrubber_state.events.push(stop_event);
-        s.scrubber_state.event_sender = None;
-    });
+    if let Some(handle) = state.read().scrubber_handle.clone() {
+        handle.stop();
+    }
 }
 
 pub async fn trigger_manual_processing(mut state: Signal<AppState>) {
@@ -271,6 +272,7 @@ async fn run_scrubber_with_shared_instance(
     mut state: Signal<AppState>,
     scrubber: Arc<tokio::sync::Mutex<crate::types::GlobalScrubber>>,
     sender: Arc<broadcast::Sender<ScrubberEvent>>,
+    stop_notify: Arc<tokio::sync::Notify>,
 ) {
     // Get interval from config
     let interval_seconds = state
@@ -339,10 +341,21 @@ async fn run_scrubber_with_shared_instance(
         state.with_mut(|s| {
             let until_timestamp = Utc::now() + chrono::Duration::seconds(interval_seconds as i64);
             s.scrubber_state.status = ScrubberStatus::Sleeping { until_timestamp };
+            s.scrubber_state.next_cycle_timestamp = Some(until_timestamp);
         });
 
-        // Wait for the next interval
-        interval.tick().await;
+        // Wait for the next interval, but break immediately if stop is requested.
+        tokio::select! {
+            _ = interval.tick() => {
+                state.with_mut(|s| {
+                    s.scrubber_state.status = ScrubberStatus::Running;
+                    s.scrubber_state.next_cycle_timestamp = None;
+                });
+            }
+            _ = stop_notify.notified() => {
+                break;
+            }
+        }
     }
 
     // Mark as stopped when exiting the loop

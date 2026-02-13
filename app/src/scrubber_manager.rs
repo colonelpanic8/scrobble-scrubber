@@ -134,21 +134,31 @@ pub async fn get_or_create_scrubber(
 
         // Create new scrubber instance
         let scrubber = create_scrubber_instance(session_json, storage, saved_rules, config).await?;
+        let handle = scrubber.handle();
         let scrubber_arc = Arc::new(Mutex::new(scrubber));
 
         // Store it in the app state
         state.with_mut(|s| {
             s.scrubber_instance = Some(scrubber_arc.clone());
+            s.scrubber_handle = Some(handle);
         });
 
         Ok(scrubber_arc)
     } else {
-        // Return existing instance
-        state.with(|s| {
+        // Return existing instance. Ensure we also have a non-blocking handle for stop/cancel.
+        let scrubber = state.with(|s| {
             s.scrubber_instance
                 .clone()
                 .ok_or_else(|| "Scrubber instance unexpectedly missing".into())
-        })
+        })?;
+
+        let handle_missing = state.with(|s| s.scrubber_handle.is_none());
+        if handle_missing {
+            let handle = scrubber.lock().await.handle();
+            state.with_mut(|s| s.scrubber_handle = Some(handle));
+        }
+
+        Ok(scrubber)
     }
 }
 

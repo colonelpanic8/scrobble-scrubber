@@ -27,8 +27,43 @@ struct RecentPreprocessResult {
     floor_exclusive: Option<DateTime<Utc>>,
 }
 
+/// A cloneable control surface for a running scrubber.
+///
+/// This exists so UIs/CLIs can request stop/cancel without having to acquire a long-held
+/// `Mutex<ScrobbleScrubber>`, which otherwise makes cancellation look like it "doesn't work".
+#[derive(Clone)]
+pub struct ScrubberHandle {
+    stop_requested: Arc<AtomicBool>,
+    should_stop: Arc<Notify>,
+    trigger_immediate: Arc<Notify>,
+    client: Arc<dyn LastFmEditClient + Send + Sync>,
+}
+
+impl ScrubberHandle {
+    /// Request the scrubber to stop gracefully.
+    ///
+    /// Best-effort: interrupts internal backoff/operational sleeps in the client so "stop"
+    /// doesn't look like a hang during long waits.
+    pub fn stop(&self) {
+        self.stop_requested.store(true, Ordering::SeqCst);
+        self.client.cancel();
+        self.should_stop.notify_one();
+    }
+
+    /// Trigger immediate processing, bypassing the normal wait interval.
+    pub fn trigger_immediate_processing(&self) {
+        self.trigger_immediate.notify_one();
+    }
+
+    /// Expose the internal stop notifier so external loops can `select!` on stop without
+    /// needing access to the scrubber mutex.
+    pub fn stop_notifier(&self) -> Arc<Notify> {
+        self.should_stop.clone()
+    }
+}
+
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
-    client: Box<dyn LastFmEditClient + Send + Sync>,
+    client: Arc<dyn LastFmEditClient + Send + Sync>,
     storage: Arc<Mutex<S>>,
     action_provider: P,
     config: ScrobbleScrubberConfig,
@@ -70,6 +105,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         config: ScrobbleScrubberConfig,
         track_provider: TrackProvider,
     ) -> Self {
+        let client: Arc<dyn LastFmEditClient + Send + Sync> = client.into();
         let (event_sender, _) = broadcast::channel(1000);
         #[cfg(feature = "mirror")]
         let mirror = {
@@ -190,6 +226,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// Subscribe to scrubber events
     pub fn subscribe_events(&self) -> broadcast::Receiver<ScrubberEvent> {
         self.event_sender.subscribe()
+    }
+
+    /// Get a cloneable control surface for stop/cancel/trigger without needing the scrubber lock.
+    pub fn handle(&self) -> ScrubberHandle {
+        ScrubberHandle {
+            stop_requested: self.stop_requested.clone(),
+            should_stop: self.should_stop.clone(),
+            trigger_immediate: self.trigger_immediate.clone(),
+            client: self.client.clone(),
+        }
     }
 
     /// Emit an event to all subscribers

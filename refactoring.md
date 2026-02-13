@@ -25,6 +25,7 @@ Conventions:
 - [x] Persist a unified two-frontier state (`FrontiersState`) and migrate scrubber + timestamp CLI to use it.
 - [x] Make anchor-page search cooperatively cancelable (stop doesn't look like a hang).
 - [x] App: set anchor by updating `FrontiersState` (avoid stale `frontiers_state`) and load timestamp track list from mirror.
+- [x] Introduce `ScrubberHandle` so stop/cancel works even while the scrubber mutex is held (CLI Ctrl-C + app Stop).
 
 ## Next (High Priority)
 
@@ -36,6 +37,7 @@ Conventions:
 - [ ] Add cancellation that actually works end-to-end:
   - Plumb a cancellation token from CLI/UI down to the network loop.
   - Ensure composite ops / iterators check it frequently.
+  - Avoid holding a mutex over long runs so stop/cancel can be issued immediately.
 
 ## Scan/Backfill Strategy (Avoid Full Scan Before Work)
 

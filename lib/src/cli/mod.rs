@@ -1284,13 +1284,16 @@ pub async fn run() -> Result<()> {
         });
     }
 
+    // Cloneable control surface so Ctrl-C doesn't block on a long-held scrubber lock.
+    let scrubber_handle = { scrubber.lock().await.handle() };
+
     // Handle Ctrl-C to stop the scrubber promptly (also interrupts client backoff sleeps).
     {
-        let scrubber = scrubber.clone();
+        let scrubber_handle = scrubber_handle.clone();
         tokio::spawn(async move {
             if tokio::signal::ctrl_c().await.is_ok() {
                 eprintln!("Ctrl-C received; stopping...");
-                scrubber.lock().await.stop();
+                scrubber_handle.stop();
             }
         });
     }
