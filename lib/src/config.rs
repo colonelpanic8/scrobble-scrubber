@@ -291,8 +291,10 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             auto_start: false,
             track_provider: TrackProviderType::Direct,
-            max_pages_per_cycle: None,
-            preprocess_recent_pages: 0,
+            // Avoid long "hangs" after downtime by chunking catch-up work across cycles.
+            max_pages_per_cycle: Some(10),
+            // Do something useful immediately (tip-first) even if we still need slow-path catch-up.
+            preprocess_recent_pages: 1,
             json_logging: JsonLoggingConfig::default(),
         }
     }
