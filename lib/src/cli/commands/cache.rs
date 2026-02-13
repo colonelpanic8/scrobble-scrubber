@@ -295,43 +295,13 @@ pub async fn load_artist_tracks_cli(
     client: &LastFmEditClientImpl,
     artist_name: &str,
 ) -> Result<()> {
-    use chrono::DateTime;
-
     println!("🎨 Loading Artist Tracks from Last.fm API");
     println!("==========================================");
     println!("Artist: '{artist_name}'");
     println!();
-
-    // Check cache first
-    let mut cache = TrackCache::load();
-    if let Some(cached_tracks) = cache.get_artist_tracks(artist_name) {
-        println!(
-            "📂 Found {} cached tracks for '{artist_name}':",
-            cached_tracks.len()
-        );
-        for (i, track) in cached_tracks.iter().enumerate() {
-            let timestamp = track
-                .timestamp
-                .map(|ts| {
-                    DateTime::from_timestamp(ts as i64, 0)
-                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                        .unwrap_or_else(|| "Invalid timestamp".to_string())
-                })
-                .unwrap_or_else(|| "No timestamp".to_string());
-
-            println!(
-                "  {}: '{}' by '{}' from '{}' [{}]",
-                i + 1,
-                track.name,
-                track.artist,
-                track.album.as_deref().unwrap_or("Unknown Album"),
-                timestamp
-            );
-        }
-        println!();
-    }
-
-    println!("🔄 Fetching fresh data from Last.fm API...");
+    println!("🔄 Fetching data from Last.fm API...");
+    println!("Note: this command no longer reads/writes TrackCache; it is for debugging only.");
+    println!();
 
     // Step 1: Fetch albums for the artist
     println!("Step 1: Fetching albums for artist '{artist_name}'");
@@ -425,20 +395,12 @@ pub async fn load_artist_tracks_cli(
         return Ok(());
     }
 
-    // Step 3: Cache the results
-    println!("Step 3: Caching results");
-    cache.cache_artist_tracks(artist_name.to_string(), all_tracks.clone());
-    cache.save().map_err(|e| {
-        lastfm_edit::LastFmError::Io(std::io::Error::other(format!("Failed to save cache: {e}")))
-    })?;
-    println!("💾 Cached {} tracks for '{artist_name}'", all_tracks.len());
-
     // Step 4: Display summary
     println!();
     println!("📊 Summary:");
     println!("  Albums processed: {}", albums.len());
     println!("  Total tracks found: {}", all_tracks.len());
-    println!("  Tracks cached successfully: ✅");
+    println!("  Tracks cached successfully: (disabled)");
 
     Ok(())
 }
