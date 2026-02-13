@@ -22,6 +22,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 
+#[cfg(feature = "mirror")]
+use crate::mirror::LibraryMirror;
+
 #[derive(Debug, Clone, Copy)]
 struct RecentPreprocessResult {
     newest_processed: Option<DateTime<Utc>>,
@@ -39,6 +42,8 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<Notify>,
     track_provider: TrackProvider,
+    #[cfg(feature = "mirror")]
+    mirror: Option<LibraryMirror>,
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
@@ -66,6 +71,28 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         track_provider: TrackProvider,
     ) -> Self {
         let (event_sender, _) = broadcast::channel(1000);
+        #[cfg(feature = "mirror")]
+        let mirror = {
+            let username = config.lastfm.username.trim();
+            if username.is_empty() {
+                None
+            } else {
+                match LibraryMirror::open(username, &config.storage.state_file) {
+                    Ok(m) => {
+                        if let Err(e) = m.ingest_repo() {
+                            log::warn!(
+                                "Mirror ingest failed (continuing with mirror enabled): {e}"
+                            );
+                        }
+                        Some(m)
+                    }
+                    Err(e) => {
+                        log::warn!("Mirror open failed (continuing without mirror): {e}");
+                        None
+                    }
+                }
+            }
+        };
         let mut scrubber = Self {
             client,
             storage,
@@ -77,6 +104,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
             track_provider,
+            #[cfg(feature = "mirror")]
+            mirror,
         };
         scrubber.setup_client_event_forwarding();
         scrubber
@@ -118,13 +147,30 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     fn setup_client_event_forwarding(&mut self) {
         let mut client_event_receiver = self.client.subscribe();
         let event_sender = self.event_sender.clone();
+        #[cfg(feature = "mirror")]
+        let mirror = self.mirror.clone();
 
         tokio::spawn(async move {
             while let Ok(client_event) = client_event_receiver.recv().await {
+                #[cfg(feature = "mirror")]
+                if let Some(m) = &mirror {
+                    if let Err(e) = m.append_edit_attempt_from_client_event(&client_event) {
+                        log::warn!("Failed to append mirror edit attempt record: {e}");
+                    }
+                }
                 let scrubber_event = ScrubberEvent::client_event(client_event);
                 let _ = event_sender.send(scrubber_event);
             }
         });
+    }
+
+    #[cfg(feature = "mirror")]
+    fn mirror_observe_recent_page(&self, page: u32, tracks: &[lastfm_edit::Track]) {
+        if let Some(m) = &self.mirror {
+            if let Err(e) = m.append_scrobble_observations_from_page(page, tracks) {
+                log::warn!("Failed to append mirror scrobble observations: {e}");
+            }
+        }
     }
 
     /// Trigger immediate processing, bypassing the normal wait interval
@@ -544,6 +590,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 continue;
             }
 
+            #[cfg(feature = "mirror")]
+            self.mirror_observe_recent_page(page, &page_tracks);
+
             // For the anchor page, filter to only tracks newer than the anchor
             if page == anchor_page {
                 page_tracks.retain(|track| {
@@ -691,6 +740,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             if page_tracks.is_empty() {
                 break;
             }
+
+            #[cfg(feature = "mirror")]
+            self.mirror_observe_recent_page(page, &page_tracks);
 
             // Record the oldest timestamp in this (raw) page as an exclusive floor for fast-path
             // coverage: pages 1..=page cover all tracks with timestamps strictly greater than this.

@@ -1,10 +1,13 @@
 use chrono::{DateTime, Utc};
-use lastfm_edit::{LastFmEditClient, Result as LastFmResult, Track};
+use lastfm_edit::{
+    ClientEvent, ExactScrobbleEdit, LastFmEditClient, Result as LastFmResult, Track,
+};
 use std::path::{Path, PathBuf};
 
 use scrobble_scrubber_mirror::index::{MirrorIndex, MirrorIndexError, ScrobbleRow};
 use scrobble_scrubber_mirror::records::{
-    FetchContext, MirrorRecord, RecordHeader, RecordSource, Scrobble, ScrobbleObserved, SyncRun,
+    ActionResult, EditAttempted, EditTarget, FetchContext, MirrorRecord, RecordHeader,
+    RecordSource, Scrobble, ScrobbleObserved, SyncRun,
 };
 use scrobble_scrubber_mirror::repo::{MirrorRepo, MirrorRepoError};
 
@@ -94,6 +97,66 @@ impl LibraryMirror {
         Ok(())
     }
 
+    pub fn append_scrobble_observations_from_page(
+        &self,
+        page: u32,
+        tracks: &[Track],
+    ) -> Result<usize, MirrorError> {
+        let observed_at = Utc::now().timestamp() as u64;
+        let mut records = Vec::new();
+
+        for (pos, t) in tracks.iter().enumerate() {
+            let Some(ts) = t.timestamp else {
+                continue;
+            };
+            records.push(self.make_observation_record(
+                observed_at,
+                RecordSource::LastfmScrape,
+                t,
+                Some(FetchContext {
+                    range_from: None,
+                    range_to: None,
+                    page: Some(page),
+                    position: Some(pos as u32),
+                    url: None,
+                }),
+                ts,
+            ));
+        }
+
+        self.append_records(&records)?;
+        Ok(records.len())
+    }
+
+    pub fn append_edit_attempt_from_client_event(
+        &self,
+        event: &ClientEvent,
+    ) -> Result<bool, MirrorError> {
+        let ClientEvent::EditAttempted {
+            edit,
+            success,
+            error_message,
+            duration_ms: _,
+        } = event
+        else {
+            return Ok(false);
+        };
+
+        let attempted_at = Utc::now().timestamp() as u64;
+        let record = MirrorRecord::EditAttempted(EditAttempted {
+            header: self.header(),
+            attempted_at,
+            target: edit_target_from_exact_scrobble_edit(edit),
+            result: ActionResult {
+                success: *success,
+                error: error_message.clone(),
+            },
+        });
+
+        self.append_records(std::slice::from_ref(&record))?;
+        Ok(true)
+    }
+
     pub fn recent_scrobbles(
         &self,
         limit: usize,
@@ -127,7 +190,7 @@ impl LibraryMirror {
                 if let Some(ts) = t.timestamp {
                     records.push(self.make_observation_record(
                         observed_at,
-                        RecordSource::LastfmApi,
+                        RecordSource::LastfmScrape,
                         t,
                         Some(FetchContext {
                             range_from: None,
@@ -205,7 +268,7 @@ impl LibraryMirror {
                 if ts <= anchor_ts {
                     records.push(self.make_observation_record(
                         observed_at,
-                        RecordSource::LastfmApi,
+                        RecordSource::LastfmScrape,
                         t,
                         Some(FetchContext {
                             range_from: None,
@@ -233,7 +296,7 @@ impl LibraryMirror {
                     if ts <= anchor_ts {
                         records.push(self.make_observation_record(
                             observed_at,
-                            RecordSource::LastfmApi,
+                            RecordSource::LastfmScrape,
                             t,
                             Some(FetchContext {
                                 range_from: None,
@@ -290,6 +353,15 @@ impl LibraryMirror {
         }
     }
 
+    fn append_records(&self, records: &[MirrorRecord]) -> Result<(), MirrorError> {
+        if records.is_empty() {
+            return Ok(());
+        }
+        let written = self.repo.append_all(records)?;
+        self.index.ingest_paths(&self.repo, &written)?;
+        Ok(())
+    }
+
     fn make_observation_record(
         &self,
         observed_at: u64,
@@ -311,6 +383,20 @@ impl LibraryMirror {
             },
             context,
         })
+    }
+}
+
+fn edit_target_from_exact_scrobble_edit(edit: &ExactScrobbleEdit) -> EditTarget {
+    EditTarget {
+        played_at: Some(edit.timestamp),
+        artist: Some(edit.artist_name.clone()),
+        track: Some(edit.track_name.clone()),
+        album: Some(edit.album_name.clone()),
+        album_artist: Some(edit.album_artist_name.clone()),
+        artist_original: Some(edit.artist_name_original.clone()),
+        track_original: Some(edit.track_name_original.clone()),
+        album_original: Some(edit.album_name_original.clone()),
+        album_artist_original: Some(edit.album_artist_name_original.clone()),
     }
 }
 
