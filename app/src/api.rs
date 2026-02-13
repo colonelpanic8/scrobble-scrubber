@@ -149,11 +149,14 @@ pub async fn load_artist_tracks(
             albums.len()
         );
 
-        // Use the proper get_album_tracks method with timeout
-        let album_tracks = match tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            client.get_album_tracks(&album_name, &artist_name_clone),
-        )
+        let album_tracks = match tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            let mut iter = client.album_tracks(&album_name, &artist_name_clone);
+            let mut tracks = Vec::new();
+            while let Some(t) = iter.next().await? {
+                tracks.push(t);
+            }
+            Ok::<_, lastfm_edit::LastFmError>(tracks)
+        })
         .await
         {
             Ok(Ok(tracks)) => {

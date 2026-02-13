@@ -147,9 +147,11 @@ pub async fn get_or_create_scrubber(
     } else {
         // Return existing instance. Ensure we also have a non-blocking handle for stop/cancel.
         let scrubber = state.with(|s| {
-            s.scrubber_instance
-                .clone()
-                .ok_or_else(|| "Scrubber instance unexpectedly missing".into())
+            s.scrubber_instance.clone().ok_or_else(|| {
+                Box::<dyn std::error::Error + Send + Sync>::from(
+                    "Scrubber instance unexpectedly missing",
+                )
+            })
         })?;
 
         let handle_missing = state.with(|s| s.scrubber_handle.is_none());
