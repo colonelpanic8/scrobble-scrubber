@@ -360,6 +360,10 @@ enum TimestampCommands {
         #[arg(short, long)]
         tracks: u32,
     },
+    /// Show the current two-frontier state (slow anchor + fast tip coverage)
+    Show,
+    /// Reset only the fast-path tip coverage (forces recent-page preprocessing to redo work)
+    ResetTip,
     /// Set timestamp anchor to a specific timestamp
     SetTimestamp {
         /// Timestamp in ISO 8601 format (e.g., "2025-07-22T07:08:00Z")
@@ -902,6 +906,52 @@ pub async fn run() -> Result<()> {
                         &config.lastfm.username,
                     )
                     .await?;
+                }
+                TimestampCommands::Show => {
+                    use crate::persistence::StateStorage as _;
+
+                    let frontiers =
+                        storage
+                            .lock()
+                            .await
+                            .load_frontiers_state()
+                            .await
+                            .map_err(|e| {
+                                LastFmError::Io(std::io::Error::other(format!(
+                                    "Failed to load frontiers state: {e}"
+                                )))
+                            })?;
+
+                    println!("Frontiers State");
+                    println!("===============");
+                    println!("Slow anchor: {:?}", frontiers.slow_anchor_timestamp);
+                    println!(
+                        "Tip last processed: {:?}",
+                        frontiers.tip_last_processed_timestamp
+                    );
+                    println!(
+                        "Tip floor exclusive: {:?}",
+                        frontiers.tip_floor_exclusive_timestamp
+                    );
+                }
+                TimestampCommands::ResetTip => {
+                    use crate::persistence::StateStorage as _;
+
+                    let mut guard = storage.lock().await;
+                    let mut frontiers = guard.load_frontiers_state().await.map_err(|e| {
+                        LastFmError::Io(std::io::Error::other(format!(
+                            "Failed to load frontiers state: {e}"
+                        )))
+                    })?;
+                    frontiers.tip_last_processed_timestamp = None;
+                    frontiers.tip_floor_exclusive_timestamp = None;
+                    guard.save_frontiers_state(&frontiers).await.map_err(|e| {
+                        LastFmError::Io(std::io::Error::other(format!(
+                            "Failed to save frontiers state: {e}"
+                        )))
+                    })?;
+
+                    println!("✅ Reset fast-path tip coverage");
                 }
                 TimestampCommands::SetTimestamp { timestamp } => {
                     set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;
