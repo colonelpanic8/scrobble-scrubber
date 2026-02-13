@@ -3,6 +3,7 @@ use lastfm_edit::{LastFmEditClient, Result, ScrobbleEdit};
 use uuid::Uuid;
 
 use crate::config::ScrobbleScrubberConfig;
+use crate::config::TrackProviderType;
 use crate::edit::{apply_edit_to_lastfm, dry_run_edit};
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
@@ -53,13 +54,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         action_provider: P,
         config: ScrobbleScrubberConfig,
     ) -> Self {
-        Self::with_track_provider(
-            storage,
-            client,
-            action_provider,
-            config,
-            TrackProvider::Cached(CachedTrackProvider::new()),
-        )
+        let provider = match config.scrubber.track_provider {
+            TrackProviderType::Cached => TrackProvider::Cached(CachedTrackProvider::new()),
+            TrackProviderType::Direct => TrackProvider::Direct(DirectTrackProvider::new()),
+        };
+        Self::with_track_provider(storage, client, action_provider, config, provider)
     }
 
     /// Create a new scrubber with a custom track provider
