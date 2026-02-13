@@ -552,6 +552,30 @@ pub async fn handle_scrubber_event(
     lib_event: ::scrobble_scrubber::events::ScrubberEvent,
     mut state: Signal<AppState>,
 ) {
+    // If the scrubber stops, clear any "waiting" indicators so the UI doesn't look stuck.
+    if matches!(
+        &lib_event.event_type,
+        ::scrobble_scrubber::events::ScrubberEventType::Stopped(_)
+    ) {
+        state.with_mut(|s| {
+            s.scrubber_state.rate_limit_state = None;
+            s.scrubber_state.delay_state = None;
+        });
+    }
+
+    // Best-effort: if we get an explicit stop/cancel info event, also clear waiting indicators.
+    if let ::scrobble_scrubber::events::ScrubberEventType::Info(msg) = &lib_event.event_type {
+        if msg.to_lowercase().contains("stop requested")
+            || msg.to_lowercase().contains("cancelling")
+            || msg.to_lowercase().contains("canceling")
+        {
+            state.with_mut(|s| {
+                s.scrubber_state.rate_limit_state = None;
+                s.scrubber_state.delay_state = None;
+            });
+        }
+    }
+
     // Check for deliberate delay events (operational pacing, backoff, etc.)
     if let Some(delay_state) = crate::types::event_formatting::detect_delay_from_event(&lib_event) {
         state.with_mut(|s| {
