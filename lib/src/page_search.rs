@@ -43,17 +43,8 @@ pub async fn fetch_page(
     client: &(dyn LastFmEditClient + Send + Sync),
     page: u32,
 ) -> Result<Vec<Track>> {
-    // lastfm-edit exposes page-based recent browsing via an iterator. We fetch exactly one page
-    // worth of items (up to 50) to avoid accidentally pulling additional pages.
-    let mut iter = client.recent_tracks_from_page(page);
-    let mut tracks = Vec::new();
-    for _ in 0..50 {
-        match iter.next().await? {
-            Some(track) => tracks.push(track),
-            None => break,
-        }
-    }
-    Ok(tracks)
+    // Use the explicit page endpoint to guarantee we only make a single HTTP request.
+    Ok(client.get_recent_tracks_page(page).await?.tracks)
 }
 
 /// Check if a page contains tracks at or before the given timestamp threshold.

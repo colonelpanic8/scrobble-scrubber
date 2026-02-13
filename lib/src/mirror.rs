@@ -425,13 +425,5 @@ async fn fetch_recent_page(
     client: &(dyn LastFmEditClient + Send + Sync),
     page: u32,
 ) -> LastFmResult<Vec<Track>> {
-    let mut iter = client.recent_tracks_from_page(page);
-    let mut tracks = Vec::new();
-    for _ in 0..50 {
-        match iter.next().await? {
-            Some(t) => tracks.push(t),
-            None => break,
-        }
-    }
-    Ok(tracks)
+    Ok(client.get_recent_tracks_page(page).await?.tracks)
 }
