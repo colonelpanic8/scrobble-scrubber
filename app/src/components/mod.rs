@@ -3,6 +3,7 @@ pub mod artist_processing;
 pub mod cache_management;
 pub mod config_page;
 pub mod default_rules;
+pub mod delay_indicator;
 pub mod live_preview_controls;
 pub mod login;
 pub mod musicbrainz;
@@ -27,6 +28,7 @@ pub use cache_management::CacheManagementPage;
 pub use config_page::ConfigPage;
 pub use default_rules::DefaultRulesSection;
 // pub use live_preview_controls::LivePreviewControls; // TODO: Use this when refactoring rule_workshop and rewrite_rules
+pub use delay_indicator::DelayIndicator;
 pub use login::LoginPage;
 pub use musicbrainz::MusicBrainzPage;
 pub use navigation::Navigation;

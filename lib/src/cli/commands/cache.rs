@@ -391,10 +391,14 @@ pub async fn load_artist_tracks_cli(
         let album_name = &album.name;
         println!("  Album {}/{}: '{album_name}'", idx + 1, albums.len());
 
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            client.get_album_tracks(album_name, artist_name),
-        )
+        match tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            let mut iter = client.album_tracks(album_name, artist_name);
+            let mut tracks = Vec::new();
+            while let Some(track) = iter.next().await? {
+                tracks.push(track);
+            }
+            Ok::<_, lastfm_edit::LastFmError>(tracks)
+        })
         .await
         {
             Ok(Ok(tracks)) => {

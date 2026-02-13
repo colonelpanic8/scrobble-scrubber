@@ -2,14 +2,15 @@ use async_trait::async_trait;
 use std::sync::{Arc, RwLock};
 
 use super::{
-    PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState, StateStorage,
-    TimestampState,
+    CatchUpState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState,
+    StateStorage, TimestampState,
 };
 
 /// In-memory storage implementation - perfect for WASM and testing
 #[derive(Debug)]
 pub struct MemoryStorage {
     timestamp_state: Arc<RwLock<TimestampState>>,
+    catch_up_state: Arc<RwLock<CatchUpState>>,
     rewrite_rules_state: Arc<RwLock<RewriteRulesState>>,
     pending_edits_state: Arc<RwLock<PendingEditsState>>,
     pending_rules_state: Arc<RwLock<PendingRewriteRulesState>>,
@@ -26,6 +27,7 @@ impl MemoryStorage {
     pub fn new() -> Self {
         Self {
             timestamp_state: Arc::new(RwLock::new(TimestampState::default())),
+            catch_up_state: Arc::new(RwLock::new(CatchUpState::default())),
             rewrite_rules_state: Arc::new(RwLock::new(RewriteRulesState::default())),
             pending_edits_state: Arc::new(RwLock::new(PendingEditsState::default())),
             pending_rules_state: Arc::new(RwLock::new(PendingRewriteRulesState::default())),
@@ -61,6 +63,22 @@ impl StateStorage for MemoryStorage {
     async fn load_timestamp_state(&self) -> Result<TimestampState, Self::Error> {
         Ok(self
             .timestamp_state
+            .read()
+            .map_err(|e| MemoryStorageError::LockError(e.to_string()))?
+            .clone())
+    }
+
+    async fn save_catch_up_state(&mut self, state: &CatchUpState) -> Result<(), Self::Error> {
+        *self
+            .catch_up_state
+            .write()
+            .map_err(|e| MemoryStorageError::LockError(e.to_string()))? = state.clone();
+        Ok(())
+    }
+
+    async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error> {
+        Ok(self
+            .catch_up_state
             .read()
             .map_err(|e| MemoryStorageError::LockError(e.to_string()))?
             .clone())

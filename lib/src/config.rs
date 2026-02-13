@@ -136,6 +136,16 @@ pub struct ScrubberConfig {
     pub auto_start: bool,
     /// Track provider type
     pub track_provider: TrackProviderType,
+    /// Limit how many pages are processed per cycle when catching up (None = no limit).
+    ///
+    /// This improves responsiveness after long downtime by chunking catch-up work across cycles.
+    pub max_pages_per_cycle: Option<u32>,
+    /// Process the most recent N pages first (newest-first) for responsiveness, without
+    /// advancing the persisted anchor.
+    ///
+    /// This may cause some duplicate work, but helps reduce "time to first useful work" when
+    /// there is a large backlog.
+    pub preprocess_recent_pages: u32,
     /// JSON logging configuration
     pub json_logging: JsonLoggingConfig,
 }
@@ -281,6 +291,8 @@ impl Default for ScrubberConfig {
             require_proposed_rule_confirmation: true,
             auto_start: false,
             track_provider: TrackProviderType::Direct,
+            max_pages_per_cycle: None,
+            preprocess_recent_pages: 0,
             json_logging: JsonLoggingConfig::default(),
         }
     }

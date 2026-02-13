@@ -552,6 +552,13 @@ pub async fn handle_scrubber_event(
     lib_event: ::scrobble_scrubber::events::ScrubberEvent,
     mut state: Signal<AppState>,
 ) {
+    // Check for deliberate delay events (operational pacing, backoff, etc.)
+    if let Some(delay_state) = crate::types::event_formatting::detect_delay_from_event(&lib_event) {
+        state.with_mut(|s| {
+            s.scrubber_state.delay_state = Some(delay_state);
+        });
+    }
+
     // Check for rate limiting events first
     if let Some(rate_limit_state) =
         crate::types::event_formatting::detect_rate_limit_from_event(&lib_event)
@@ -568,6 +575,13 @@ pub async fn handle_scrubber_event(
             s.scrubber_state.rate_limit_state = None;
         });
         log::info!("Rate limiting ended - normal operation resumed");
+    }
+
+    // Clear delay state when we see subsequent client activity.
+    if crate::types::event_formatting::detect_delay_ended_from_event(&lib_event) {
+        state.with_mut(|s| {
+            s.scrubber_state.delay_state = None;
+        });
     }
     match &lib_event.event_type {
         ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {

@@ -3,8 +3,8 @@ use pickledb::{PickleDb, PickleDbDumpPolicy, SerializationMethod};
 use std::path::Path;
 
 use super::{
-    PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState, StateStorage,
-    TimestampState,
+    CatchUpState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState,
+    StateStorage, TimestampState,
 };
 use crate::rewrite::load_comprehensive_default_rules;
 
@@ -96,6 +96,17 @@ impl StateStorage for FileStorage {
 
     async fn load_timestamp_state(&self) -> Result<TimestampState, Self::Error> {
         Ok(self.db.get("timestamp_state").unwrap_or_default())
+    }
+
+    async fn save_catch_up_state(&mut self, state: &CatchUpState) -> Result<(), Self::Error> {
+        self.db
+            .set("catch_up_state", state)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error> {
+        Ok(self.db.get("catch_up_state").unwrap_or_default())
     }
 
     async fn save_rewrite_rules_state(

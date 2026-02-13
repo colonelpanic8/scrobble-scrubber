@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use lastfm_edit::{
-    EditResponse, LastFmEditClientImpl, LastFmEditSession, MockLastFmEditClient, ScrobbleEdit,
-    Track,
+    AsyncPaginatedIterator, EditResponse, LastFmEditClientImpl, LastFmEditSession,
+    MockLastFmEditClient, ScrobbleEdit, Track,
 };
 use mockall::predicate::*;
 use scrobble_scrubber::config::ScrobbleScrubberConfig;
@@ -13,6 +13,34 @@ use scrobble_scrubber::scrubber::ScrobbleScrubber;
 // SerializableTrack is no longer needed - Track is now serializable
 use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
+
+#[derive(Clone)]
+struct VecIterator<T> {
+    items: Vec<T>,
+    idx: usize,
+}
+
+impl<T> VecIterator<T> {
+    fn new(items: Vec<T>) -> Self {
+        Self { items, idx: 0 }
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl<T: Clone> AsyncPaginatedIterator<T> for VecIterator<T> {
+    async fn next(&mut self) -> lastfm_edit::Result<Option<T>> {
+        if self.idx >= self.items.len() {
+            return Ok(None);
+        }
+        let item = self.items[self.idx].clone();
+        self.idx += 1;
+        Ok(Some(item))
+    }
+
+    fn current_page(&self) -> u32 {
+        0
+    }
+}
 
 #[test_log::test(tokio::test)]
 async fn should_create_scrubber_instance_successfully() {
@@ -146,21 +174,21 @@ async fn should_process_tracks_in_chronological_order() {
     // Mock the pagination method that the iterator uses internally
     // Return tracks in reverse chronological order (newest first, as API does)
     mock_client
-        .expect_get_recent_scrobbles()
-        .with(mockall::predicate::eq(1))
+        .expect_recent_tracks_from_page()
+        .with(mockall::predicate::eq(1u32))
         .returning(move |_| {
-            Ok(vec![
+            Box::new(VecIterator::new(vec![
                 track_newest.clone(),
                 track_middle.clone(),
                 track_oldest.clone(),
-            ])
+            ]))
         });
 
     // Mock subsequent pages to return empty (no more tracks)
     mock_client
-        .expect_get_recent_scrobbles()
-        .with(mockall::predicate::gt(1))
-        .returning(|_| Ok(vec![]));
+        .expect_recent_tracks_from_page()
+        .with(mockall::predicate::gt(1u32))
+        .returning(|_| Box::new(VecIterator::new(vec![])));
 
     // Track the order of edits applied to verify chronological processing
     let edit_order = Arc::new(StdMutex::new(Vec::new()));

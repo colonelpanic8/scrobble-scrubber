@@ -21,3 +21,6 @@ inherits = "dev"
 [profile.android-dev]
 inherits = "dev"
 
+#
+# NOTE: When iterating on local `lastfm-edit` changes, you can temporarily add a
+# `[patch.crates-io]` override here.

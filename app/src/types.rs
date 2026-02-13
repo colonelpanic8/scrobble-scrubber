@@ -44,10 +44,20 @@ pub struct RateLimitState {
     pub rate_limit_type: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct DelayState {
+    pub is_delaying: bool,
+    pub detected_at: chrono::DateTime<chrono::Utc>,
+    pub until: chrono::DateTime<chrono::Utc>,
+    pub message: String,
+    pub delay_ms: u64,
+    pub reason: Option<String>,
+}
+
 // Using library events directly - no need for duplicate types
 
 pub mod event_formatting {
-    use super::RateLimitState;
+    use super::{DelayState, RateLimitState};
     use ::scrobble_scrubber::events::{ScrubberEvent, ScrubberEventType};
 
     /// Format a library event for display in the UI
@@ -113,15 +123,29 @@ pub mod event_formatting {
                 format!("Skipped '{}' by '{}': {}", track.artist, track.name, reason)
             }
             ScrubberEventType::ClientEvent(client_event) => {
-                // Try to extract meaningful information from client events
-                let debug_str = format!("{client_event:?}");
-                if is_rate_limit_event(&debug_str) {
-                    format!(
-                        "⚠️ Rate Limited: {}",
-                        extract_rate_limit_message(&debug_str)
-                    )
-                } else {
-                    format!("Client: {debug_str}")
+                match client_event {
+                    lastfm_edit::ClientEvent::RateLimited { .. } => {
+                        // Let the dedicated rate limit state/UI handle the details; keep activity log concise.
+                        "⚠️ Rate limited (see indicator)".to_string()
+                    }
+                    lastfm_edit::ClientEvent::Delaying {
+                        delay_ms, reason, ..
+                    } => {
+                        let seconds = (*delay_ms as f64 / 1000.0).max(0.0);
+                        format!("⏳ Waiting {:.1}s ({reason:?})", seconds)
+                    }
+                    _ => {
+                        // Try to extract meaningful information from client events
+                        let debug_str = format!("{client_event:?}");
+                        if is_rate_limit_event(&debug_str) {
+                            format!(
+                                "⚠️ Rate Limited: {}",
+                                extract_rate_limit_message(&debug_str)
+                            )
+                        } else {
+                            format!("Client: {debug_str}")
+                        }
+                    }
                 }
             }
             ScrubberEventType::PendingEditCreated {
@@ -279,6 +303,54 @@ pub mod event_formatting {
         None
     }
 
+    /// Detect deliberate delays and create delay state from ClientEvent.
+    pub fn detect_delay_from_event(event: &ScrubberEvent) -> Option<DelayState> {
+        if let ScrubberEventType::ClientEvent(client_event) = &event.event_type {
+            if let lastfm_edit::ClientEvent::Delaying {
+                delay_ms,
+                reason,
+                request,
+                ..
+            } = client_event
+            {
+                let detected_at = event.timestamp;
+                let until = detected_at + chrono::Duration::milliseconds(*delay_ms as i64);
+                let message = format!(
+                    "Waiting {}ms ({reason:?}){}",
+                    delay_ms,
+                    request
+                        .as_ref()
+                        .map(|r| format!(" (request: {})", r.short_description()))
+                        .unwrap_or_default()
+                );
+                return Some(DelayState {
+                    is_delaying: true,
+                    detected_at,
+                    until,
+                    message,
+                    delay_ms: *delay_ms,
+                    reason: Some(format!("{reason:?}")),
+                });
+            }
+        }
+        None
+    }
+
+    /// Check if a delay likely ended based on incoming client events.
+    pub fn detect_delay_ended_from_event(event: &ScrubberEvent) -> bool {
+        if let ScrubberEventType::ClientEvent(client_event) = &event.event_type {
+            matches!(
+                client_event,
+                lastfm_edit::ClientEvent::RequestStarted { .. }
+                    | lastfm_edit::ClientEvent::RequestCompleted { .. }
+                    | lastfm_edit::ClientEvent::EditAttempted { .. }
+                    | lastfm_edit::ClientEvent::RateLimitEnded { .. }
+            )
+        } else {
+            false
+        }
+    }
+
     /// Check if rate limiting has ended from ClientEvent
     pub fn detect_rate_limit_ended_from_event(event: &ScrubberEvent) -> bool {
         if let ScrubberEventType::ClientEvent(client_event) = &event.event_type {
@@ -327,6 +399,7 @@ pub struct ScrubberState {
     pub current_anchor_timestamp: Option<u64>,
     pub next_cycle_timestamp: Option<chrono::DateTime<chrono::Utc>>,
     pub rate_limit_state: Option<RateLimitState>,
+    pub delay_state: Option<DelayState>,
 }
 
 impl PartialEq for ScrubberState {
@@ -337,6 +410,7 @@ impl PartialEq for ScrubberState {
             && self.current_anchor_timestamp == other.current_anchor_timestamp
             && self.next_cycle_timestamp == other.next_cycle_timestamp
             && self.rate_limit_state == other.rate_limit_state
+            && self.delay_state == other.delay_state
             && self.events.len() == other.events.len()
     }
 }
@@ -384,6 +458,7 @@ impl Default for AppState {
                 current_anchor_timestamp: None,
                 next_cycle_timestamp: None,
                 rate_limit_state: None,
+                delay_state: None,
             },
             scrubber_instance: None, // No scrubber instance initially
             track_progress_state: TrackProgressState::default(), // Default progress state

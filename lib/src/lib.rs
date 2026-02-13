@@ -3,6 +3,7 @@ pub mod edit;
 pub mod event_logger;
 pub mod events;
 pub mod json_logger;
+pub mod page_search;
 pub mod rewrite;
 pub mod rewrite_processor;
 pub mod scrub_action_provider;

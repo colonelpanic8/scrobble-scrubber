@@ -1,6 +1,6 @@
 use crate::components::{
     scrubber_controls::handle_scrubber_event, ActivityLogSection, ArtistProcessingSection,
-    RateLimitIndicator, ScrubberControlsSection, TimestampManagementSection,
+    DelayIndicator, RateLimitIndicator, ScrubberControlsSection, TimestampManagementSection,
     TrackProcessingProgressView,
 };
 use crate::scrubber_manager::get_or_create_scrubber;
@@ -16,6 +16,7 @@ use tokio::sync::broadcast;
 pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 1.5rem;",
+            DelayIndicator { state }
             RateLimitIndicator { state }
 
             ScrubberControlsSection { state }

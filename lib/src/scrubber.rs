@@ -6,14 +6,27 @@ use crate::config::ScrobbleScrubberConfig;
 use crate::edit::{apply_edit_to_lastfm, dry_run_edit};
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
-use crate::persistence::{PendingEdit, PendingRewriteRule, StateStorage, TimestampState};
+use crate::page_search::{
+    fetch_page, find_anchor_page_with_tracks_with_progress, AnchorPageWithTracks,
+    AnchorSearchProgress,
+};
+use crate::persistence::{
+    CatchUpState, PendingEdit, PendingRewriteRule, StateStorage, TimestampState,
+};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
 };
 use crate::track_provider::{CachedTrackProvider, DirectTrackProvider, TrackProvider};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
+
+#[derive(Debug, Clone, Copy)]
+struct RecentPreprocessResult {
+    newest_processed: Option<DateTime<Utc>>,
+    floor_exclusive: Option<DateTime<Utc>>,
+}
 
 pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     client: Box<dyn LastFmEditClient + Send + Sync>,
@@ -21,6 +34,7 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     action_provider: P,
     config: ScrobbleScrubberConfig,
     is_running: Arc<RwLock<bool>>,
+    stop_requested: Arc<AtomicBool>,
     should_stop: Arc<Notify>,
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<Notify>,
@@ -58,6 +72,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             action_provider,
             config,
             is_running: Arc::new(RwLock::new(false)),
+            stop_requested: Arc::new(AtomicBool::new(false)),
             should_stop: Arc::new(Notify::new()),
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
@@ -159,6 +174,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Request the scrubber to stop gracefully
     pub fn stop(&self) {
+        self.stop_requested.store(true, Ordering::SeqCst);
         self.should_stop.notify_one();
     }
 
@@ -302,6 +318,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     }
 
     async fn check_and_process_tracks_inner(&mut self) -> Result<()> {
+        if self.stop_requested.load(Ordering::SeqCst) {
+            self.emit_event(ScrubberEvent::info(
+                "Stop requested, skipping processing cycle".to_string(),
+            ));
+            return Ok(());
+        }
         // Step 1: Load current timestamp state to know where we left off
         let timestamp_state = self
             .storage
@@ -315,158 +337,408 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 )))
             })?;
 
-        // Step 2: Ensure we have an anchor timestamp before updating cache
+        // Step 2: Ensure we have an anchor timestamp
         let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
-
-        // Step 3: Update cache with latest tracks from API, using anchor to limit fetch
-        log::debug!("Updating track cache from Last.fm API...");
 
         // The anchor timestamp must be set at this point due to ensure_timestamp_initialized
         let anchor_timestamp = timestamp_state
             .last_processed_timestamp
             .expect("Anchor timestamp should be set after ensure_timestamp_initialized");
 
-        self.track_provider
-            .update_cache_from_api(self.client.as_ref(), Some(anchor_timestamp))
-            .await?;
+        // Optional: process most recent pages first for responsiveness (without advancing anchor).
+        let mut fast_path_tip_for_cycle: Option<DateTime<Utc>> = None;
+        let mut fast_path_floor_for_cycle: Option<DateTime<Utc>> = None;
+        if self.config.scrubber.preprocess_recent_pages > 0
+            && !self.stop_requested.load(Ordering::SeqCst)
+        {
+            let pages = self.config.scrubber.preprocess_recent_pages;
+            let catch_up_state = self
+                .storage
+                .lock()
+                .await
+                .load_catch_up_state()
+                .await
+                .map_err(|e| {
+                    lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                        "Failed to load catch-up state: {e}"
+                    )))
+                })?;
+            let fast_tip = catch_up_state.fast_path_last_processed_timestamp;
+            self.emit_event(ScrubberEvent::info(format!(
+                "Preprocessing most recent {pages} page(s) for responsiveness (anchor unchanged)"
+            )));
+            match self
+                .preprocess_recent_pages_without_anchor_update(anchor_timestamp, pages, fast_tip)
+                .await
+            {
+                Ok(result) => {
+                    let updated_tip = result
+                        .newest_processed
+                        .map(|new_fast_tip| {
+                            fast_tip
+                                .map(|t| t.max(new_fast_tip))
+                                .unwrap_or(new_fast_tip)
+                        })
+                        .or(fast_tip);
 
-        // Step 3: Find tracks to process from cache using current anchor
-        let tracks_to_process = self.find_tracks_to_process(&timestamp_state).await?;
+                    fast_path_tip_for_cycle = updated_tip;
+                    fast_path_floor_for_cycle = result.floor_exclusive;
 
-        log::info!("Found {} tracks to process", tracks_to_process.len());
-
-        // Step 4: Process all collected tracks (oldest first) and update anchor after processing
-        if !tracks_to_process.is_empty() {
-            self.process_tracks_and_update_anchor(&tracks_to_process)
-                .await?;
+                    let updated = CatchUpState {
+                        fast_path_last_processed_timestamp: updated_tip,
+                        fast_path_floor_exclusive_timestamp: result.floor_exclusive,
+                    };
+                    self.storage
+                        .lock()
+                        .await
+                        .save_catch_up_state(&updated)
+                        .await
+                        .map_err(|e| {
+                            lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                                "Failed to save catch-up state: {e}"
+                            )))
+                        })?;
+                }
+                Err(e) => {
+                    log::warn!("Error preprocessing recent pages: {e}");
+                    self.emit_event(ScrubberEvent::error_from_string(format!(
+                        "Error preprocessing recent pages: {e}"
+                    )));
+                }
+            }
         }
 
-        log::info!(
-            "Processing complete: processed {} tracks from cache",
-            tracks_to_process.len()
-        );
+        // Step 3: Use incremental processing with exponential search
+        let total_processed = self
+            .process_tracks_incrementally(
+                anchor_timestamp,
+                fast_path_floor_for_cycle,
+                fast_path_tip_for_cycle,
+            )
+            .await?;
+
+        log::info!("Processing complete: processed {total_processed} tracks incrementally");
 
         self.emit_event(ScrubberEvent::cycle_completed(
-            tracks_to_process.len(),
+            total_processed,
             0, // We'll update this when we track rule applications
         ));
         Ok(())
     }
 
-    /// Process tracks and update anchor to the newest processed track
-    async fn process_tracks_and_update_anchor(
+    /// Process tracks incrementally using exponential search to find the anchor page,
+    /// then processing pages from anchor page down to page 1, updating the anchor
+    /// after each page for incremental progress.
+    async fn process_tracks_incrementally(
         &mut self,
-        tracks: &[lastfm_edit::Track],
-    ) -> Result<()> {
-        // Process tracks first
-        self.process_tracks_individually_no_timestamp_update(tracks)
-            .await?;
+        anchor_timestamp: DateTime<Utc>,
+        fast_path_floor_exclusive: Option<DateTime<Utc>>,
+        fast_path_tip: Option<DateTime<Utc>>,
+    ) -> Result<usize> {
+        log::debug!("Starting incremental processing with anchor at {anchor_timestamp}");
 
-        // After processing, update anchor to the newest (last in chronological
-        // order) processed track Since tracks are processed oldest first, the
-        // newest processed track is the last one
-        if let Some(newest_processed_track) = tracks.last() {
-            if let Some(ts) = newest_processed_track.timestamp {
-                let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
-                let updated_state = TimestampState {
-                    last_processed_timestamp: Some(track_time),
+        // Step 1: Find the page containing the anchor using exponential search
+        let progress_sender = self.event_sender.clone();
+        let AnchorPageWithTracks {
+            page: anchor_page,
+            tracks: mut anchor_page_tracks,
+        } = match find_anchor_page_with_tracks_with_progress(
+            self.client.as_ref(),
+            anchor_timestamp,
+            |progress| {
+                let msg = match progress {
+                    AnchorSearchProgress::Started { anchor } => {
+                        format!("Finding anchor page for {anchor}...")
+                    }
+                    AnchorSearchProgress::ProbingPage { page } => {
+                        format!("Anchor search: probing page {page}")
+                    }
+                    AnchorSearchProgress::BoundaryFound {
+                        last_all_newer_page,
+                        first_contains_older_or_equal_page,
+                    } => format!(
+                        "Anchor search: boundary between pages {last_all_newer_page} and {first_contains_older_or_equal_page}"
+                    ),
+                    AnchorSearchProgress::BinarySearchChecking { page, low, high } => format!(
+                        "Anchor search: binary check page {page} (low={low}, high={high})"
+                    ),
+                    AnchorSearchProgress::FoundAnchorPage { page } => {
+                        format!("Anchor search: found anchor page {page}")
+                    }
+                    AnchorSearchProgress::NoTracks => "Anchor search: no tracks found".to_string(),
                 };
 
-                self.storage
-                    .lock()
-                    .await
-                    .save_timestamp_state(&updated_state)
-                    .await
-                    .map_err(|e| {
-                        lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                            "Failed to save timestamp state: {e}"
-                        )))
-                    })?;
-
-                log::info!(
-                    "Updated anchor to newest processed track: {} (track: '{}' by '{}')",
-                    track_time,
-                    newest_processed_track.name,
-                    newest_processed_track.artist
-                );
-
-                // Emit anchor update event
-                self.emit_event(ScrubberEvent::anchor_updated_from_names(
-                    ts,
-                    &newest_processed_track.name,
-                    &newest_processed_track.artist,
-                ));
+                let _ = progress_sender.send(ScrubberEvent::info(msg));
+            },
+        )
+        .await?
+        {
+            Some(result) => result,
+            None => {
+                log::info!("No tracks found to process");
+                return Ok(0);
             }
-        }
+        };
 
-        Ok(())
-    }
+        log::info!(
+            "Found anchor on page {anchor_page}, will process pages {anchor_page} down to 1"
+        );
 
-    /// Find tracks to process from cache based on timestamp state. The anchor
-    /// points to the last track we processed, so we process all tracks newer
-    /// than the anchor
-    async fn find_tracks_to_process(
-        &self,
-        timestamp_state: &TimestampState,
-    ) -> Result<Vec<lastfm_edit::Track>> {
-        let mut tracks_to_process = Vec::new();
+        // Emit event about total pages to process for progress UI
+        self.emit_event(ScrubberEvent::tracks_found(
+            anchor_page as usize * 50, // Approximate track count (50 per page)
+            anchor_timestamp.timestamp() as u64,
+        ));
 
-        // Get all recent tracks from provider, sorted newest first
-        let cached_tracks = self.track_provider.get_all_recent_tracks();
+        let mut total_processed = 0;
+        let mut current_anchor = anchor_timestamp;
+        let max_pages = self.config.scrubber.max_pages_per_cycle;
+        let mut pages_processed = 0u32;
 
-        // Debug: Show anchor timestamp
-        if let Some(anchor) = timestamp_state.last_processed_timestamp {
-            log::trace!("Using anchor timestamp: {anchor}");
-        } else {
-            log::trace!("No anchor timestamp set (first run)");
-        }
+        // Step 2: Process pages from anchor page down to page 1
+        // This processes tracks in chronological order (oldest to newest)
+        for page in (1..=anchor_page).rev() {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                self.emit_event(ScrubberEvent::info(
+                    "Stop requested, aborting page processing".to_string(),
+                ));
+                break;
+            }
+            if let Some(limit) = max_pages {
+                if pages_processed >= limit {
+                    self.emit_event(ScrubberEvent::info(format!(
+                        "Reached per-cycle page limit ({limit}); will continue next cycle"
+                    )));
+                    break;
+                }
+            }
 
-        for cached_track in cached_tracks {
-            // Check if we've reached our last processed track (anchor point)
-            if let Some(last_processed) = timestamp_state.last_processed_timestamp {
-                if let Some(track_ts) = cached_track.timestamp {
-                    let track_time = DateTime::from_timestamp(track_ts as i64, 0);
-                    if let Some(track_time) = track_time {
-                        log::trace!(
-                            "Examining cached track '{}' by '{}' at {} vs anchor at {}",
-                            cached_track.name,
-                            cached_track.artist,
-                            track_time,
-                            last_processed
-                        );
+            log::debug!("Processing page {page} of {anchor_page}");
 
-                        if track_time <= last_processed {
-                            log::info!("Reached previously processed track {} at {}, found {} new tracks to process",
-                                  cached_track, track_time, tracks_to_process.len());
-                            break; // Stop here - we've caught up to where we left off
+            // Fetch this page
+            let mut page_tracks = if page == anchor_page {
+                // Reuse the tracks from the anchor search to avoid refetching.
+                std::mem::take(&mut anchor_page_tracks)
+            } else {
+                let fetch_result = tokio::select! {
+                    res = fetch_page(self.client.as_ref(), page) => Some(res),
+                    _ = self.should_stop.notified() => None,
+                };
+                match fetch_result {
+                    Some(Ok(tracks)) => tracks,
+                    Some(Err(e)) => return Err(e),
+                    None => {
+                        self.emit_event(ScrubberEvent::info(
+                            "Stop requested, cancelling page fetch".to_string(),
+                        ));
+                        break;
+                    }
+                }
+            };
+
+            if page_tracks.is_empty() {
+                log::debug!("Page {page} is empty, skipping");
+                continue;
+            }
+
+            // For the anchor page, filter to only tracks newer than the anchor
+            if page == anchor_page {
+                page_tracks.retain(|track| {
+                    if let Some(ts) = track.timestamp {
+                        if let Some(track_time) = DateTime::from_timestamp(ts as i64, 0) {
+                            return track_time > current_anchor;
                         }
                     }
-                } else {
-                    log::warn!("Cached track {cached_track} has no timestamp");
+                    false // Skip tracks without valid timestamps
+                });
+
+                if page_tracks.is_empty() {
+                    log::debug!("No new tracks on anchor page {page} after filtering");
+                    continue;
                 }
-            } else {
-                // First run - no anchor timestamp, collect tracks up to limit
-                log::info!("First run - found cached track: {cached_track}");
             }
 
-            // Add track directly since cached_track is already a Track
-            tracks_to_process.push(cached_track);
+            // Tracks are newest-first from API, reverse to process oldest-first
+            page_tracks.reverse();
+
+            let page_track_count = page_tracks.len();
+            log::info!("Processing {page_track_count} tracks from page {page}");
+
+            // Process this page's tracks
+            self.process_tracks_individually_no_timestamp_update(&page_tracks)
+                .await?;
+
+            total_processed += page_track_count;
+            pages_processed += 1;
+
+            // Update anchor to the newest track on this page (last in our reversed list)
+            // Since we reversed, the newest is now at the end
+            if let Some(newest_track) = page_tracks.last() {
+                if let Some(ts) = newest_track.timestamp {
+                    if let Some(track_time) = DateTime::from_timestamp(ts as i64, 0) {
+                        current_anchor = track_time;
+
+                        // Save the updated anchor immediately for incremental progress
+                        let updated_state = TimestampState {
+                            last_processed_timestamp: Some(current_anchor),
+                        };
+
+                        self.storage
+                            .lock()
+                            .await
+                            .save_timestamp_state(&updated_state)
+                            .await
+                            .map_err(|e| {
+                                lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                                    "Failed to save timestamp state: {e}"
+                                )))
+                            })?;
+
+                        log::info!(
+                            "Updated anchor to {} after processing page {page} (track: '{}' by '{}')",
+                            current_anchor,
+                            newest_track.name,
+                            newest_track.artist
+                        );
+
+                        // Emit anchor update event
+                        self.emit_event(ScrubberEvent::anchor_updated_from_names(
+                            ts,
+                            &newest_track.name,
+                            &newest_track.artist,
+                        ));
+                    }
+                }
+            }
+
+            // If we have a fresh fast-path coverage window for this cycle, we can stop once
+            // the slow path anchor has moved past the fast-path floor.
+            if let (Some(floor), Some(tip)) = (fast_path_floor_exclusive, fast_path_tip) {
+                if current_anchor > floor {
+                    let final_anchor = current_anchor.max(tip);
+                    self.emit_event(ScrubberEvent::info(format!(
+                        "Catch-up frontiers met (slow anchor {current_anchor} > fast floor {floor}); advancing anchor to {final_anchor}"
+                    )));
+
+                    let updated_state = TimestampState {
+                        last_processed_timestamp: Some(final_anchor),
+                    };
+                    self.storage
+                        .lock()
+                        .await
+                        .save_timestamp_state(&updated_state)
+                        .await
+                        .map_err(|e| {
+                            lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                                "Failed to save timestamp state: {e}"
+                            )))
+                        })?;
+
+                    self.emit_event(ScrubberEvent::anchor_updated_from_names(
+                        final_anchor.timestamp() as u64,
+                        "(fast-path)",
+                        "(fast-path)",
+                    ));
+                    break;
+                }
+            }
+
+            // Also update the cache with these tracks for future reference
+            if let Some(cache) = self.track_provider.cache_mut() {
+                cache.merge_recent_tracks(page_tracks);
+                if let Err(e) = cache.save() {
+                    log::warn!("Failed to save cache after page {page}: {e}");
+                }
+            }
+
+            // Yield to allow other async tasks
+            tokio::task::yield_now().await;
         }
 
-        // Reverse to process oldest first (tracks were collected newest first)
-        tracks_to_process.reverse();
+        Ok(total_processed)
+    }
 
-        // Emit TracksFound event with count and anchor timestamp
-        let anchor_timestamp = timestamp_state
-            .last_processed_timestamp
-            .map(|ts| ts.timestamp() as u64)
-            .unwrap_or(0);
+    async fn preprocess_recent_pages_without_anchor_update(
+        &mut self,
+        anchor_timestamp: DateTime<Utc>,
+        pages: u32,
+        fast_path_tip: Option<DateTime<Utc>>,
+    ) -> Result<RecentPreprocessResult> {
+        let lower_bound = fast_path_tip
+            .map(|t| t.max(anchor_timestamp))
+            .unwrap_or(anchor_timestamp);
+        let mut newest_processed: Option<DateTime<Utc>> = None;
+        let mut floor_exclusive: Option<DateTime<Utc>> = None;
+        for page in 1..=pages.max(1) {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                self.emit_event(ScrubberEvent::info(
+                    "Stop requested, aborting recent-page preprocessing".to_string(),
+                ));
+                return Ok(RecentPreprocessResult {
+                    newest_processed,
+                    floor_exclusive,
+                });
+            }
 
-        let tracks_found_event =
-            ScrubberEvent::tracks_found(tracks_to_process.len(), anchor_timestamp);
-        let _ = self.event_sender.send(tracks_found_event);
+            self.emit_event(ScrubberEvent::info(format!(
+                "Preprocess: fetching recent page {page}/{pages}"
+            )));
 
-        Ok(tracks_to_process)
+            let mut page_tracks = fetch_page(self.client.as_ref(), page).await?;
+            if page_tracks.is_empty() {
+                break;
+            }
+
+            // Record the oldest timestamp in this (raw) page as an exclusive floor for fast-path
+            // coverage: pages 1..=page cover all tracks with timestamps strictly greater than this.
+            if let Some(min_ts) = page_tracks
+                .iter()
+                .filter_map(|t| t.timestamp)
+                .min()
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
+            {
+                floor_exclusive = Some(min_ts);
+            }
+
+            // Filter to only tracks newer than our lower bound (anchor and/or fast-path tip).
+            page_tracks.retain(|track| {
+                if let Some(ts) = track.timestamp {
+                    if let Some(track_time) = DateTime::from_timestamp(ts as i64, 0) {
+                        return track_time > lower_bound;
+                    }
+                }
+                false
+            });
+
+            if page_tracks.is_empty() {
+                continue;
+            }
+
+            // Tracks are newest-first from API, reverse to process oldest-first within this page.
+            page_tracks.reverse();
+
+            // Track the newest timestamp we processed so we can advance the fast-path tip.
+            if let Some(max_ts) = page_tracks
+                .iter()
+                .filter_map(|t| t.timestamp)
+                .max()
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
+            {
+                newest_processed = Some(
+                    newest_processed
+                        .map(|cur| cur.max(max_ts))
+                        .unwrap_or(max_ts),
+                );
+            }
+
+            self.process_tracks_individually_no_timestamp_update(&page_tracks)
+                .await?;
+        }
+
+        Ok(RecentPreprocessResult {
+            newest_processed,
+            floor_exclusive,
+        })
     }
 
     /// Process the last N tracks without updating timestamp state
@@ -588,6 +860,12 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         for (track_index, track) in tracks.iter().enumerate() {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                self.emit_event(ScrubberEvent::info(
+                    "Stop requested, aborting track processing".to_string(),
+                ));
+                return Ok(());
+            }
             log::debug!(
                 "Processing track {} of {}: {} - {}",
                 track_index + 1,
@@ -625,6 +903,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         total_tracks: usize,
         processing_type: ProcessingType,
     ) -> Result<()> {
+        if self.stop_requested.load(Ordering::SeqCst) {
+            return Ok(());
+        }
         // Emit track processing started event for progress UI
         self.emit_event(ScrubberEvent::track_processing_started(
             track.clone(),
@@ -639,7 +920,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
         // Analyze this single track
         let track_slice = std::slice::from_ref(track);
-        let track_suggestions = self.analyze_tracks(track_slice).await;
+        let track_suggestions = tokio::select! {
+            suggestions = self.analyze_tracks(track_slice) => suggestions,
+            _ = self.should_stop.notified() => {
+                self.emit_event(ScrubberEvent::info("Stop requested, cancelling analysis".to_string()));
+                return Ok(());
+            }
+        };
         let run_id = Uuid::new_v4().to_string();
 
         // Find suggestions for this track (should be at index 0 since we only passed one track)
@@ -655,8 +942,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         log::debug!("Processed track: {track}");
 
         // Apply suggestions using the helper method
-        self.apply_suggestions_to_track(track, suggestions, run_id, track_index, processing_type)
-            .await?;
+        let stop = self.should_stop.clone();
+        tokio::select! {
+            res = self.apply_suggestions_to_track(track, suggestions, run_id, track_index, processing_type) => {
+                res?;
+            }
+            _ = stop.notified() => {
+                self.emit_event(ScrubberEvent::info("Stop requested, cancelling edit application".to_string()));
+                return Ok(());
+            }
+        }
 
         // Always process suggestions and log the result
         let mut summary_parts = Vec::new();

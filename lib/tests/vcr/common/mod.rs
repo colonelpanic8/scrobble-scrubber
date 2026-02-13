@@ -1,10 +1,31 @@
 #![allow(dead_code)]
 use http_client_vcr::{CassetteFormat, FilterChain, NoOpClient, VcrClient, VcrMode};
-use lastfm_edit::vcr_matcher::LastFmEditVcrMatcher;
 use lastfm_edit::vcr_test_utils::create_lastfm_test_filter_chain;
 use lastfm_edit::{LastFmEditClient, LastFmEditClientImpl};
 use std::env;
 use std::fs;
+
+#[derive(Debug)]
+struct MethodUrlMatcher;
+
+impl http_client_vcr::RequestMatcher for MethodUrlMatcher {
+    fn matches(
+        &self,
+        request: &http_client::Request,
+        recorded_request: &http_client_vcr::SerializableRequest,
+    ) -> bool {
+        request.method().to_string() == recorded_request.method
+            && request.url().to_string() == recorded_request.url
+    }
+
+    fn matches_serializable(
+        &self,
+        request: &http_client_vcr::SerializableRequest,
+        recorded_request: &http_client_vcr::SerializableRequest,
+    ) -> bool {
+        request.method == recorded_request.method && request.url == recorded_request.url
+    }
+}
 
 // Default test username for VCR tests (matches recorded cassettes)
 const DEFAULT_TEST_USERNAME: &str = "IvanMalison";
@@ -86,7 +107,7 @@ impl VcrTestSetup {
             let vcr_client = VcrClient::builder(&self.cassette_path)
                 .inner_client(inner_client)
                 .mode(VcrMode::Replay)
-                .matcher(Box::new(LastFmEditVcrMatcher::new()))
+                .matcher(Box::new(MethodUrlMatcher))
                 .format(CassetteFormat::Directory)
                 .build()
                 .await?;
@@ -101,7 +122,7 @@ impl VcrTestSetup {
         let mut builder = VcrClient::builder(&self.cassette_path)
             .inner_client(inner_client)
             .mode(self.mode.clone())
-            .matcher(Box::new(LastFmEditVcrMatcher::new()));
+            .matcher(Box::new(MethodUrlMatcher));
 
         // Add filter chain for Record mode only (Filter mode is handled above)
         if matches!(self.mode, VcrMode::Record) {
@@ -147,7 +168,7 @@ pub async fn create_lastfm_vcr_client(
         let mut builder = VcrClient::builder(&setup.cassette_path)
             .inner_client(Box::new(http_client::native::NativeClient::new()))
             .mode(setup.mode.clone())
-            .matcher(Box::new(LastFmEditVcrMatcher::new()))
+            .matcher(Box::new(MethodUrlMatcher))
             .format(http_client_vcr::CassetteFormat::Directory);
 
         // Add filter chain for recording mode

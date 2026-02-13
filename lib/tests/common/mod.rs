@@ -3,12 +3,12 @@
 #[macro_export]
 macro_rules! skip_if_live_mb_disabled {
     () => {
-        if std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
+        if !std::env::var("SCROBBLE_SCRUBBER_RUN_LIVE_MB_TESTS")
             .map(|v| v == "1" || v.to_lowercase() == "true")
             .unwrap_or(false)
         {
             log::warn!(
-                "Skipping live MusicBrainz test (unset SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS to run)"
+                "Skipping live MusicBrainz test (set SCROBBLE_SCRUBBER_RUN_LIVE_MB_TESTS=1 to run)"
             );
             return;
         }
@@ -59,7 +59,7 @@ macro_rules! mb_live_test {
 /// Helper function version of the macro for cases where a function is preferred
 #[allow(dead_code)]
 pub fn should_skip_live_mb_tests() -> bool {
-    std::env::var("SCROBBLE_SCRUBBER_SKIP_LIVE_MB_TESTS")
+    !std::env::var("SCROBBLE_SCRUBBER_RUN_LIVE_MB_TESTS")
         .map(|v| v == "1" || v.to_lowercase() == "true")
         .unwrap_or(false)
 }

@@ -5,8 +5,10 @@
 [scrubber]
 # Check interval in seconds (default: 300)
 interval = 300
-# Maximum tracks to process per run (default: 100)
-max_tracks = 100
+# Optional: limit how many pages are processed per cycle during catch-up (default: unlimited)
+# max_pages_per_cycle = 10
+# Optional: process the most recent N pages first for responsiveness (default: 0)
+# preprocess_recent_pages = 1
 # Dry run mode - don't actually make edits (default: false)
 dry_run = false
 # Require confirmation for all edits (default: false)

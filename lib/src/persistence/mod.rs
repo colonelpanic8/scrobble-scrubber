@@ -24,6 +24,21 @@ pub struct TimestampState {
     pub last_processed_timestamp: Option<DateTime<Utc>>,
 }
 
+/// State for "fast path" catch-up processing.
+///
+/// This is intentionally separate from `TimestampState` so we can process recent pages for
+/// responsiveness without advancing the main anchor (which represents fully-caught-up progress).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CatchUpState {
+    /// Latest timestamp processed via the fast-path (recent-page preprocessing).
+    pub fast_path_last_processed_timestamp: Option<DateTime<Utc>>,
+    /// Oldest timestamp seen in the last page fetched during fast-path preprocessing.
+    ///
+    /// This is an *exclusive* bound: fast-path coverage is `> fast_path_floor_exclusive_timestamp`.
+    /// Tracks at exactly the floor timestamp may spill onto the next (older) page due to ties.
+    pub fast_path_floor_exclusive_timestamp: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RewriteRulesState {
     pub rewrite_rules: Vec<RewriteRule>,
@@ -271,6 +286,9 @@ pub trait StateStorage: Send + Sync {
 
     async fn save_timestamp_state(&mut self, state: &TimestampState) -> Result<(), Self::Error>;
     async fn load_timestamp_state(&self) -> Result<TimestampState, Self::Error>;
+
+    async fn save_catch_up_state(&mut self, state: &CatchUpState) -> Result<(), Self::Error>;
+    async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error>;
 
     async fn save_rewrite_rules_state(
         &mut self,

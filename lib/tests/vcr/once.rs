@@ -115,8 +115,9 @@ async fn should_run_end_to_end_processing_with_default_rules() {
         }
     });
 
-    // Set timestamp anchor to August 1, 2025 to process recent tracks
-    let anchor_timestamp = DateTime::parse_from_rfc3339("2025-08-01T00:00:00Z")
+    // Set timestamp anchor to a point that keeps the anchor-page search within the recorded
+    // cassette pages (page 1), while still processing some recent scrobbles.
+    let anchor_timestamp = DateTime::parse_from_rfc3339("2025-08-06T00:00:00Z")
         .unwrap()
         .with_timezone(&chrono::Utc);
     scrubber
@@ -124,7 +125,7 @@ async fn should_run_end_to_end_processing_with_default_rules() {
         .await
         .expect("Failed to set timestamp anchor");
 
-    log::debug!("Set timestamp anchor to August 1, 2025");
+    log::debug!("Set timestamp anchor to August 6, 2025");
 
     // Verify initial state
     assert!(
@@ -141,7 +142,7 @@ async fn should_run_end_to_end_processing_with_default_rules() {
 
     assert_eq!(
         initial_timestamp, anchor_timestamp,
-        "Timestamp anchor should be set to August 1, 2025"
+        "Timestamp anchor should be set to August 6, 2025"
     );
 
     // Run one complete processing cycle

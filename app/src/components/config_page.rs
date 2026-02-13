@@ -116,6 +116,36 @@ fn ScrubberConfigSection(config: Signal<ScrubberConfig>) -> Element {
                 help: "How often to check for new tracks to process"
             }
 
+            NumberInput {
+                label: "Max Pages Per Cycle (0 = unlimited)",
+                value: config
+                    .read()
+                    .max_pages_per_cycle
+                    .map(u64::from)
+                    .unwrap_or(0),
+                onchange: move |value| {
+                    config.with_mut(|c| {
+                        c.max_pages_per_cycle = if value == 0 {
+                            None
+                        } else {
+                            Some(u32::try_from(value).unwrap_or(u32::MAX))
+                        };
+                    })
+                },
+                help: "Limits how many pages are processed per cycle during catch-up, to keep the UI responsive"
+            }
+
+            NumberInput {
+                label: "Preprocess Recent Pages",
+                value: u64::from(config.read().preprocess_recent_pages),
+                onchange: move |value| {
+                    config.with_mut(|c| {
+                        c.preprocess_recent_pages = u32::try_from(value).unwrap_or(u32::MAX);
+                    })
+                },
+                help: "Process newest pages first for responsiveness (does not advance the main anchor; may duplicate work)"
+            }
+
             CheckboxInput {
                 label: "Dry Run Mode",
                 checked: config.read().dry_run,
@@ -724,6 +754,9 @@ fn check_if_scrubber_restart_needed(
     old_config.scrubber.interval != new_config.scrubber.interval
         || old_config.scrubber.dry_run != new_config.scrubber.dry_run
         || old_config.scrubber.track_provider != new_config.scrubber.track_provider
+        || old_config.scrubber.max_pages_per_cycle != new_config.scrubber.max_pages_per_cycle
+        || old_config.scrubber.preprocess_recent_pages
+            != new_config.scrubber.preprocess_recent_pages
         || old_config.providers.enable_rewrite_rules != new_config.providers.enable_rewrite_rules
         || old_config.providers.enable_openai != new_config.providers.enable_openai
         || old_config.providers.enable_musicbrainz != new_config.providers.enable_musicbrainz
