@@ -24,6 +24,7 @@ Conventions:
 - [x] Automatically append `ScrobbleObserved` + `EditAttempted` records to the mirror during scrubber runs.
 - [x] Persist a unified two-frontier state (`FrontiersState`) and migrate scrubber + timestamp CLI to use it.
 - [x] Make anchor-page search cooperatively cancelable (stop doesn't look like a hang).
+- [x] App: set anchor by updating `FrontiersState` (avoid stale `frontiers_state`) and load timestamp track list from mirror.
 
 ## Next (High Priority)
 
