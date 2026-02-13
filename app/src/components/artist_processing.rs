@@ -13,7 +13,7 @@ pub fn ArtistProcessingSection(mut state: Signal<AppState>) -> Element {
             h3 { style: "font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;", "Process Specific Artist" }
 
             p { style: "color: #6b7280; margin-bottom: 1rem; font-size: 0.875rem;",
-                "Enter an artist name to process only tracks by that artist. This will apply your saved rules to all tracks by the specified artist in your cache."
+                "Enter an artist name to process only tracks by that artist. This will apply your saved rules to all tracks by the specified artist in the currently loaded recent scrobble list."
             }
 
             // Status display similar to search handling
@@ -127,7 +127,7 @@ fn ProcessArtistButton(
 #[component]
 fn TopArtistsList(mut artist_input: Signal<String>, state: Signal<AppState>) -> Element {
     let state_read = state.read();
-    let artist_tracks = &state_read.track_cache.recent_tracks;
+    let artist_tracks = &state_read.timestamp_tracks;
     let mut artist_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
 
