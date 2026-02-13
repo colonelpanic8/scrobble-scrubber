@@ -1112,6 +1112,17 @@ pub async fn run() -> Result<()> {
         });
     }
 
+    // Handle Ctrl-C to stop the scrubber promptly (also interrupts client backoff sleeps).
+    {
+        let scrubber = scrubber.clone();
+        tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                eprintln!("Ctrl-C received; stopping...");
+                scrubber.lock().await.stop();
+            }
+        });
+    }
+
     // Web interface has been removed
 
     // For scrubber commands, we need to acquire the lock and execute them
