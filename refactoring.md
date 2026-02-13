@@ -20,12 +20,12 @@ Conventions:
 - [x] Make CLI lazy-login: only authenticate to Last.fm when a command truly needs it (`lib/src/cli/mod.rs`).
 - [x] Surface Last.fm rate limit/backoff delays in terminal output (client events).
 - [x] Add cooperative cancellation in `lastfm-edit` for internal delays/backoff (released as `lastfm-edit` v5.0.2).
+- [x] Automatically append `ScrobbleObserved` + `EditAttempted` records to the mirror during scrubber runs.
 
 ## Next (High Priority)
 
-- [ ] Integrate mirror writes into the scrubber runtime:
-  - Emit `ScrobbleObserved` whenever we fetch pages for processing.
-  - Emit records for edit attempts/outcomes (so the mirror is also an audit log).
+- [ ] Expand mirror coverage beyond the main scrubber path:
+  - Capture observations for other fetch paths (e.g. `process_last_n_tracks`, search flows) or centralize fetching behind an observing wrapper.
 - [ ] Add progress events for long-running operations:
   - Surface “waiting for rate limit (sleep Xs)” distinctly from “doing network”.
   - Provide a consistent event stream usable in both terminal and UI.
