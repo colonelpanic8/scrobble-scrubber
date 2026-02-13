@@ -24,6 +24,22 @@ pub struct TimestampState {
     pub last_processed_timestamp: Option<DateTime<Utc>>,
 }
 
+/// Unified two-frontier state.
+///
+/// This replaces the ad-hoc split of `TimestampState` (slow anchor) and `CatchUpState` (fast-path
+/// tip preprocessing). We continue to read/write the legacy keys for backward compatibility.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FrontiersState {
+    /// Slow-path anchor representing fully-caught-up progress.
+    pub slow_anchor_timestamp: Option<DateTime<Utc>>,
+    /// Latest timestamp processed via the fast-path (recent-page preprocessing).
+    pub tip_last_processed_timestamp: Option<DateTime<Utc>>,
+    /// Oldest timestamp seen in the last page fetched during fast-path preprocessing.
+    ///
+    /// This is an *exclusive* bound: tip coverage is `> tip_floor_exclusive_timestamp`.
+    pub tip_floor_exclusive_timestamp: Option<DateTime<Utc>>,
+}
+
 /// State for "fast path" catch-up processing.
 ///
 /// This is intentionally separate from `TimestampState` so we can process recent pages for
@@ -289,6 +305,9 @@ pub trait StateStorage: Send + Sync {
 
     async fn save_catch_up_state(&mut self, state: &CatchUpState) -> Result<(), Self::Error>;
     async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error>;
+
+    async fn save_frontiers_state(&mut self, state: &FrontiersState) -> Result<(), Self::Error>;
+    async fn load_frontiers_state(&self) -> Result<FrontiersState, Self::Error>;
 
     async fn save_rewrite_rules_state(
         &mut self,

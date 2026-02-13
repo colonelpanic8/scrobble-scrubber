@@ -1,6 +1,6 @@
 #[cfg(feature = "mirror")]
 use crate::mirror::LibraryMirror;
-use crate::persistence::{StateStorage, TimestampState};
+use crate::persistence::StateStorage;
 use crate::track_cache::TrackCache;
 use lastfm_edit::{LastFmError, Result};
 use std::sync::Arc;
@@ -44,18 +44,20 @@ pub async fn set_timestamp_anchor(
                                 );
                                 println!("Timestamp: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
 
-                                let timestamp_state = TimestampState {
-                                    last_processed_timestamp: Some(dt),
-                                };
-
+                                let mut storage = storage.lock().await;
+                                let mut frontiers =
+                                    storage.load_frontiers_state().await.map_err(|e| {
+                                        LastFmError::Io(std::io::Error::other(format!(
+                                            "Failed to load frontiers state: {e}"
+                                        )))
+                                    })?;
+                                frontiers.slow_anchor_timestamp = Some(dt);
                                 storage
-                                    .lock()
-                                    .await
-                                    .save_timestamp_state(&timestamp_state)
+                                    .save_frontiers_state(&frontiers)
                                     .await
                                     .map_err(|e| {
                                         LastFmError::Io(std::io::Error::other(format!(
-                                            "Failed to save timestamp state: {e}"
+                                            "Failed to save frontiers state: {e}"
                                         )))
                                     })?;
 
@@ -114,18 +116,19 @@ pub async fn set_timestamp_anchor(
         );
         println!("Timestamp: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
 
-        let timestamp_state = TimestampState {
-            last_processed_timestamp: Some(dt),
-        };
-
+        let mut storage = storage.lock().await;
+        let mut frontiers = storage.load_frontiers_state().await.map_err(|e| {
+            LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load frontiers state: {e}"
+            )))
+        })?;
+        frontiers.slow_anchor_timestamp = Some(dt);
         storage
-            .lock()
-            .await
-            .save_timestamp_state(&timestamp_state)
+            .save_frontiers_state(&frontiers)
             .await
             .map_err(|e| {
                 LastFmError::Io(std::io::Error::other(format!(
-                    "Failed to save timestamp state: {e}"
+                    "Failed to save frontiers state: {e}"
                 )))
             })?;
 
@@ -158,18 +161,19 @@ pub async fn set_timestamp_anchor_to_timestamp(
 
     println!("Setting anchor to: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
 
-    let timestamp_state = TimestampState {
-        last_processed_timestamp: Some(dt),
-    };
-
+    let mut storage = storage.lock().await;
+    let mut frontiers = storage.load_frontiers_state().await.map_err(|e| {
+        LastFmError::Io(std::io::Error::other(format!(
+            "Failed to load frontiers state: {e}"
+        )))
+    })?;
+    frontiers.slow_anchor_timestamp = Some(dt);
     storage
-        .lock()
-        .await
-        .save_timestamp_state(&timestamp_state)
+        .save_frontiers_state(&frontiers)
         .await
         .map_err(|e| {
             LastFmError::Io(std::io::Error::other(format!(
-                "Failed to save timestamp state: {e}"
+                "Failed to save frontiers state: {e}"
             )))
         })?;
 

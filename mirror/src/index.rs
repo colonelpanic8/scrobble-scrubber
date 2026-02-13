@@ -34,6 +34,31 @@ pub struct ScrobbleRow {
     pub album_artist: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EditAttemptRow {
+    pub attempted_at: u64,
+    pub success: bool,
+    pub error: Option<String>,
+    pub played_at: Option<u64>,
+    pub artist: Option<String>,
+    pub track: Option<String>,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActionRow {
+    pub kind: String, // "edit" | "delete"
+    pub attempted_at: u64,
+    pub success: bool,
+    pub error: Option<String>,
+    pub played_at: Option<u64>,
+    pub artist: Option<String>,
+    pub track: Option<String>,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+}
+
 impl MirrorIndex {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, MirrorIndexError> {
         let path = path.as_ref().to_path_buf();
@@ -126,37 +151,27 @@ impl MirrorIndex {
         before_played_at: Option<u64>,
     ) -> Result<Vec<ScrobbleRow>, MirrorIndexError> {
         self.with_conn(|conn| {
-            let mut sql = r#"
-                SELECT played_at, artist, track, album, album_artist
-                FROM (
-                    SELECT
-                        played_at, artist, track, album, album_artist,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY played_at, artist, track, IFNULL(album, ''), IFNULL(album_artist, '')
-                            ORDER BY observed_at DESC
-                        ) AS rn
-                    FROM scrobble_observed
-                    WHERE user = ?1
-            "#
-            .to_string();
-
-            if before_played_at.is_some() {
-                sql.push_str(" AND played_at < ?2 ");
-            }
-
-            sql.push_str(
-                r#"
-                )
-                WHERE rn = 1
-                ORDER BY played_at DESC
-                LIMIT ?3
-                "#,
-            );
-
-            let mut stmt = conn.prepare(&sql)?;
-            let mut out = Vec::new();
-            if let Some(ts) = before_played_at {
-                let rows = stmt.query_map(params![user, ts, limit as i64], |row| {
+            let rows = if let Some(ts) = before_played_at {
+                let mut stmt = conn.prepare(
+                    r#"
+                    SELECT played_at, artist, track, album, album_artist
+                    FROM (
+                        SELECT
+                            played_at, artist, track, album, album_artist,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY played_at, artist, track, IFNULL(album, ''), IFNULL(album_artist, '')
+                                ORDER BY observed_at DESC
+                            ) AS rn
+                        FROM scrobble_observed
+                        WHERE user = ?1 AND played_at < ?2
+                    )
+                    WHERE rn = 1
+                    ORDER BY played_at DESC
+                    LIMIT ?3
+                    "#,
+                )?;
+                let mut rows = Vec::new();
+                let iter = stmt.query_map(params![user, ts, limit as i64], |row| {
                     Ok(ScrobbleRow {
                         played_at: row.get::<_, i64>(0)? as u64,
                         artist: row.get(1)?,
@@ -165,11 +180,31 @@ impl MirrorIndex {
                         album_artist: row.get(4)?,
                     })
                 })?;
-                for r in rows {
-                    out.push(r?);
+                for row in iter {
+                    rows.push(row?);
                 }
+                rows
             } else {
-                let rows = stmt.query_map(params![user, limit as i64], |row| {
+                let mut stmt = conn.prepare(
+                    r#"
+                    SELECT played_at, artist, track, album, album_artist
+                    FROM (
+                        SELECT
+                            played_at, artist, track, album, album_artist,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY played_at, artist, track, IFNULL(album, ''), IFNULL(album_artist, '')
+                                ORDER BY observed_at DESC
+                            ) AS rn
+                        FROM scrobble_observed
+                        WHERE user = ?1
+                    )
+                    WHERE rn = 1
+                    ORDER BY played_at DESC
+                    LIMIT ?2
+                    "#,
+                )?;
+                let mut rows = Vec::new();
+                let iter = stmt.query_map(params![user, limit as i64], |row| {
                     Ok(ScrobbleRow {
                         played_at: row.get::<_, i64>(0)? as u64,
                         artist: row.get(1)?,
@@ -178,12 +213,150 @@ impl MirrorIndex {
                         album_artist: row.get(4)?,
                     })
                 })?;
-                for r in rows {
-                    out.push(r?);
+                for row in iter {
+                    rows.push(row?);
                 }
-            }
+                rows
+            };
 
-            Ok(out)
+            Ok(rows)
+        })
+    }
+
+    pub fn recent_edits(
+        &self,
+        user: &str,
+        limit: usize,
+        before_attempted_at: Option<u64>,
+    ) -> Result<Vec<EditAttemptRow>, MirrorIndexError> {
+        self.with_conn(|conn| {
+            let (sql, params_vec): (&str, Vec<rusqlite::types::Value>) = if let Some(ts) =
+                before_attempted_at
+            {
+                (
+                    r#"
+                    SELECT attempted_at, success, error, played_at, artist, track, album, album_artist
+                    FROM edit_attempted
+                    WHERE user = ?1 AND attempted_at < ?2
+                    ORDER BY attempted_at DESC
+                    LIMIT ?3
+                    "#,
+                    vec![
+                        rusqlite::types::Value::from(user.to_string()),
+                        rusqlite::types::Value::from(ts as i64),
+                        rusqlite::types::Value::from(limit as i64),
+                    ],
+                )
+            } else {
+                (
+                    r#"
+                    SELECT attempted_at, success, error, played_at, artist, track, album, album_artist
+                    FROM edit_attempted
+                    WHERE user = ?1
+                    ORDER BY attempted_at DESC
+                    LIMIT ?2
+                    "#,
+                    vec![
+                        rusqlite::types::Value::from(user.to_string()),
+                        rusqlite::types::Value::from(limit as i64),
+                    ],
+                )
+            };
+
+            let mut stmt = conn.prepare(sql)?;
+            let mut rows = Vec::new();
+            let mut iter = stmt.query(rusqlite::params_from_iter(params_vec))?;
+            while let Some(row) = iter.next()? {
+                rows.push(EditAttemptRow {
+                    attempted_at: row.get::<_, i64>(0)? as u64,
+                    success: row.get::<_, i64>(1)? != 0,
+                    error: row.get(2)?,
+                    played_at: row
+                        .get::<_, Option<i64>>(3)?
+                        .map(|v| v as u64),
+                    artist: row.get(4)?,
+                    track: row.get(5)?,
+                    album: row.get(6)?,
+                    album_artist: row.get(7)?,
+                });
+            }
+            Ok(rows)
+        })
+    }
+
+    pub fn recent_actions(
+        &self,
+        user: &str,
+        limit: usize,
+        before_attempted_at: Option<u64>,
+    ) -> Result<Vec<ActionRow>, MirrorIndexError> {
+        self.with_conn(|conn| {
+            let (sql, params_vec): (&str, Vec<rusqlite::types::Value>) = if let Some(ts) =
+                before_attempted_at
+            {
+                (
+                    r#"
+                    SELECT kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                    FROM (
+                        SELECT 'edit' AS kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                        FROM edit_attempted
+                        WHERE user = ?1 AND attempted_at < ?2
+                        UNION ALL
+                        SELECT 'delete' AS kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                        FROM delete_attempted
+                        WHERE user = ?1 AND attempted_at < ?2
+                    )
+                    ORDER BY attempted_at DESC
+                    LIMIT ?3
+                    "#,
+                    vec![
+                        rusqlite::types::Value::from(user.to_string()),
+                        rusqlite::types::Value::from(ts as i64),
+                        rusqlite::types::Value::from(limit as i64),
+                    ],
+                )
+            } else {
+                (
+                    r#"
+                    SELECT kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                    FROM (
+                        SELECT 'edit' AS kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                        FROM edit_attempted
+                        WHERE user = ?1
+                        UNION ALL
+                        SELECT 'delete' AS kind, attempted_at, success, error, played_at, artist, track, album, album_artist
+                        FROM delete_attempted
+                        WHERE user = ?1
+                    )
+                    ORDER BY attempted_at DESC
+                    LIMIT ?2
+                    "#,
+                    vec![
+                        rusqlite::types::Value::from(user.to_string()),
+                        rusqlite::types::Value::from(limit as i64),
+                    ],
+                )
+            };
+
+            let mut stmt = conn.prepare(sql)?;
+            let mut rows = Vec::new();
+            let mut iter = stmt.query(rusqlite::params_from_iter(params_vec))?;
+            while let Some(row) = iter.next()? {
+                rows.push(ActionRow {
+                    kind: row.get(0)?,
+                    attempted_at: row.get::<_, i64>(1)? as u64,
+                    success: row.get::<_, i64>(2)? != 0,
+                    error: row.get(3)?,
+                    played_at: row
+                        .get::<_, Option<i64>>(4)?
+                        .map(|v| v as u64),
+                    artist: row.get(5)?,
+                    track: row.get(6)?,
+                    album: row.get(7)?,
+                    album_artist: row.get(8)?,
+                });
+            }
+            Ok(rows)
         })
     }
 
@@ -279,6 +452,8 @@ impl MirrorIndex {
 
                 UNIQUE(origin_file, origin_offset)
             );
+            CREATE INDEX IF NOT EXISTS idx_edit_user_attempted_at ON edit_attempted(user, attempted_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_edit_user_success ON edit_attempted(user, success);
 
             CREATE TABLE IF NOT EXISTS delete_attempted (
                 id INTEGER PRIMARY KEY,
@@ -304,6 +479,8 @@ impl MirrorIndex {
 
                 UNIQUE(origin_file, origin_offset)
             );
+            CREATE INDEX IF NOT EXISTS idx_delete_user_attempted_at ON delete_attempted(user, attempted_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_delete_user_success ON delete_attempted(user, success);
 
             CREATE TABLE IF NOT EXISTS sync_run (
                 id INTEGER PRIMARY KEY,
@@ -320,6 +497,7 @@ impl MirrorIndex {
 
                 UNIQUE(origin_file, origin_offset)
             );
+            CREATE INDEX IF NOT EXISTS idx_run_user_started_at ON sync_run(user, started_at DESC);
             "#,
         )?;
         Ok(())

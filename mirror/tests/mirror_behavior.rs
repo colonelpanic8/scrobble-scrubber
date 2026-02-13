@@ -1,4 +1,5 @@
 use chrono::{Datelike, TimeZone, Utc};
+use rusqlite::{params, Connection, OptionalExtension};
 use scrobble_scrubber_mirror::{
     index::{MirrorIndex, MirrorIndexError, ScrobbleRow},
     records::{
@@ -6,7 +7,7 @@ use scrobble_scrubber_mirror::{
         RecordHeader, RecordSource, Scrobble, ScrobbleObserved, SyncRun,
     },
     repo::{MirrorRepo, MirrorRepoError},
-    sink::NullMirrorSink,
+    sink::{MirrorSink, NullMirrorSink},
     writer::MirrorWriter,
 };
 use serde_json::{Map, Value};
@@ -101,7 +102,10 @@ fn custom(user: &str, machine_id: &str, at: u64, name: &str) -> MirrorRecord {
 }
 
 fn expected_shard_path(ts: u64, machine_id: &str, kind: &str) -> std::path::PathBuf {
-    let date = Utc.timestamp_opt(ts as i64, 0).single().expect("valid timestamp");
+    let date = Utc
+        .timestamp_opt(ts as i64, 0)
+        .single()
+        .expect("valid timestamp");
     std::path::PathBuf::from("log")
         .join(kind)
         .join(machine_id)
@@ -110,14 +114,47 @@ fn expected_shard_path(ts: u64, machine_id: &str, kind: &str) -> std::path::Path
         .join(format!("{:02}.jsonl", date.day()))
 }
 
+fn count_rows(conn: &Connection, table: &str) -> i64 {
+    conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+        row.get(0)
+    })
+    .unwrap()
+}
+
+fn file_offset_for_path(conn: &Connection, rel: &str) -> Option<i64> {
+    conn.query_row(
+        "SELECT bytes FROM file_offsets WHERE path = ?1",
+        params![rel],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .unwrap()
+}
+
 #[test]
 fn append_all_groups_records_into_shard_paths() {
     let tmp = tempdir().unwrap();
     let repo = MirrorRepo::new(tmp.path());
 
     let records = vec![
-        scrobble_observed(1_700_000_000, 1_700_000_000, "alice", "machine-a", "A", "track", Some("Album")),
-        scrobble_observed(1_700_000_001, 1_700_000_001, "alice", "machine-a", "B", "track", None),
+        scrobble_observed(
+            1_700_000_000,
+            1_700_000_000,
+            "alice",
+            "machine-a",
+            "A",
+            "track",
+            Some("Album"),
+        ),
+        scrobble_observed(
+            1_700_000_001,
+            1_700_000_001,
+            "alice",
+            "machine-a",
+            "B",
+            "track",
+            None,
+        ),
         edit_attempted("alice", "machine-a", 1_700_000_002),
         sync_run("alice", "machine-a", 1_700_000_003, 1_700_000_004, "tip"),
         custom("alice", "machine-a", 1_700_000_005, "check"),
@@ -188,7 +225,15 @@ fn append_rejects_unrepresentable_timestamp() {
 
 #[test]
 fn null_sink_returns_empty_path_without_error() {
-    let record = scrobble_observed(1_700_000_000, 1_700_000_000, "alice", "machine-a", "A", "T", None);
+    let record = scrobble_observed(
+        1_700_000_000,
+        1_700_000_000,
+        "alice",
+        "machine-a",
+        "A",
+        "T",
+        None,
+    );
 
     let path = NullMirrorSink.append(&record).unwrap();
     assert!(path.as_os_str().is_empty());
@@ -230,7 +275,10 @@ fn writer_records_include_expected_header_and_fields() {
         MirrorRecord::ScrobbleObserved(record) => {
             assert_eq!(record.observed_at, 1_700_000_010);
             assert_eq!(record.scrobble.artist, "Artist");
-            assert_eq!(record.scrobble.album_artist.as_deref(), Some("Album Artist"));
+            assert_eq!(
+                record.scrobble.album_artist.as_deref(),
+                Some("Album Artist")
+            );
             assert_eq!(record.source, RecordSource::LastfmScrape);
             assert_eq!(record.header.machine_id, "machine-a");
             assert_eq!(record.header.user, "alice");
@@ -254,7 +302,8 @@ fn writer_records_include_expected_header_and_fields() {
 }
 
 #[test]
-fn ingest_repo_deduplicates_by_observation_identity_and_orders_desc() -> Result<(), MirrorIndexError> {
+fn ingest_repo_deduplicates_by_observation_identity_and_orders_desc() -> Result<(), MirrorIndexError>
+{
     let tmp = tempdir().unwrap();
     let repo_root = tmp.path().join("repo");
     let index_path = tmp.path().join("mirror_index.sqlite");
@@ -264,9 +313,33 @@ fn ingest_repo_deduplicates_by_observation_identity_and_orders_desc() -> Result<
     let machine_id = "machine-a";
 
     let records = vec![
-        scrobble_observed(1_700_000_010, 1_700_000_020, user, machine_id, "Artist", "Track", Some("Album")),
-        scrobble_observed(1_700_000_011, 1_700_000_020, user, machine_id, "Artist", "Track", Some("Album")),
-        scrobble_observed(1_700_000_012, 1_700_000_030, user, machine_id, "Artist2", "Track2", Some("Album")),
+        scrobble_observed(
+            1_700_000_010,
+            1_700_000_020,
+            user,
+            machine_id,
+            "Artist",
+            "Track",
+            Some("Album"),
+        ),
+        scrobble_observed(
+            1_700_000_011,
+            1_700_000_020,
+            user,
+            machine_id,
+            "Artist",
+            "Track",
+            Some("Album"),
+        ),
+        scrobble_observed(
+            1_700_000_012,
+            1_700_000_030,
+            user,
+            machine_id,
+            "Artist2",
+            "Track2",
+            Some("Album"),
+        ),
     ];
     repo.append_all(&records)?;
 
@@ -305,17 +378,72 @@ fn ingest_repo_deduplicates_by_observation_identity_and_orders_desc() -> Result<
 }
 
 #[test]
-fn ingest_paths_is_incremental_and_idempotent_for_unchanged_offsets() -> Result<(), MirrorIndexError> {
+fn dedupe_respects_track_component_in_identity() -> Result<(), MirrorIndexError> {
+    let tmp = tempdir().unwrap();
+    let repo = MirrorRepo::new(tmp.path().join("repo"));
+    let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
+
+    let user = "alice";
+    let records = vec![
+        scrobble_observed(
+            1_700_000_100,
+            1_700_000_100,
+            user,
+            "m1",
+            "Artist",
+            "Track A",
+            None,
+        ),
+        scrobble_observed(
+            1_700_000_101,
+            1_700_000_100,
+            user,
+            "m1",
+            "Artist",
+            "Track B",
+            None,
+        ),
+    ];
+    repo.append_all(&records)?;
+    index.ingest_repo(&repo)?;
+
+    let rows = index.recent_scrobbles(user, 10, None)?;
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().any(|r| r.track == "Track A"));
+    assert!(rows.iter().any(|r| r.track == "Track B"));
+
+    Ok(())
+}
+
+#[test]
+fn ingest_paths_is_incremental_and_idempotent_for_unchanged_offsets() -> Result<(), MirrorIndexError>
+{
     let tmp = tempdir().unwrap();
     let repo = MirrorRepo::new(tmp.path().join("repo"));
     let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
     let user = "alice";
 
-    let first = repo.append(&scrobble_observed(1_700_000_100, 10, user, "m1", "A", "A", None))?;
+    let first = repo.append(&scrobble_observed(
+        1_700_000_100,
+        10,
+        user,
+        "m1",
+        "A",
+        "A",
+        None,
+    ))?;
     index.ingest_paths(&repo, std::slice::from_ref(&first))?;
     assert_eq!(index.recent_scrobbles(user, 10, None)?.len(), 1);
 
-    let second = repo.append(&scrobble_observed(1_700_000_101, 20, user, "m1", "B", "B", None))?;
+    let second = repo.append(&scrobble_observed(
+        1_700_000_101,
+        20,
+        user,
+        "m1",
+        "B",
+        "B",
+        None,
+    ))?;
     index.ingest_paths(&repo, &[second.clone()])?;
     assert_eq!(
         index.recent_scrobbles(user, 10, None)?,
@@ -428,4 +556,113 @@ fn missing_log_root_is_a_noop() {
 
     index.ingest_repo(&repo).unwrap();
     assert_eq!(index.newest_played_at("anyone").unwrap(), None);
+}
+
+#[test]
+fn ingest_paths_reconciles_incremental_growth_without_reprocessing_previous_rows(
+) -> Result<(), MirrorIndexError> {
+    let tmp = tempdir().unwrap();
+    let repo = MirrorRepo::new(tmp.path().join("repo"));
+    let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
+    let user = "alice";
+
+    let first = repo.append(&scrobble_observed(
+        1_700_000_100,
+        10,
+        user,
+        "m1",
+        "A",
+        "A",
+        None,
+    ))?;
+    index.ingest_paths(&repo, std::slice::from_ref(&first))?;
+
+    let conn = Connection::open(index.path())?;
+    assert_eq!(count_rows(&conn, "scrobble_observed"), 1);
+
+    let second = repo.append(&scrobble_observed(
+        1_700_000_101,
+        20,
+        user,
+        "m1",
+        "B",
+        "B",
+        None,
+    ))?;
+    index.ingest_paths(&repo, &[second])?;
+    assert_eq!(count_rows(&conn, "scrobble_observed"), 2);
+
+    Ok(())
+}
+
+#[test]
+fn ingest_paths_noop_when_file_offset_has_not_advanced() -> Result<(), MirrorIndexError> {
+    let tmp = tempdir().unwrap();
+    let repo = MirrorRepo::new(tmp.path().join("repo"));
+    let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
+    let user = "alice";
+
+    let first = repo.append(&scrobble_observed(
+        1_700_000_100,
+        10,
+        user,
+        "m1",
+        "A",
+        "A",
+        None,
+    ))?;
+    index.ingest_paths(&repo, std::slice::from_ref(&first))?;
+
+    let db = Connection::open(index.path())?;
+    assert_eq!(count_rows(&db, "scrobble_observed"), 1);
+    let rel = first.to_string_lossy().to_string();
+    let observed_bytes = file_offset_for_path(&db, &rel).unwrap();
+
+    index.ingest_paths(&repo, std::slice::from_ref(&first))?;
+    assert_eq!(count_rows(&db, "scrobble_observed"), 1);
+    assert_eq!(file_offset_for_path(&db, &rel).unwrap(), observed_bytes);
+
+    Ok(())
+}
+
+#[test]
+fn ingest_paths_ignores_missing_path_entries() -> Result<(), MirrorIndexError> {
+    let tmp = tempdir().unwrap();
+    let repo = MirrorRepo::new(tmp.path().join("repo"));
+    let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
+
+    let missing = std::path::PathBuf::from("log/observations/machine-a/2000/01/01.jsonl");
+    index.ingest_paths(&repo, std::slice::from_ref(&missing))?;
+
+    let db = Connection::open(index.path())?;
+    assert_eq!(count_rows(&db, "scrobble_observed"), 0);
+    assert_eq!(file_offset_for_path(&db, &missing.to_string_lossy()), None);
+
+    Ok(())
+}
+
+#[test]
+fn ingest_repo_ignores_non_jsonl_log_entries() -> Result<(), MirrorIndexError> {
+    let tmp = tempdir().unwrap();
+    let repo = MirrorRepo::new(tmp.path().join("repo"));
+    let index = MirrorIndex::open(tmp.path().join("mirror_index.sqlite"))?;
+
+    repo.append(&scrobble_observed(
+        1_700_000_100,
+        10,
+        "alice",
+        "m1",
+        "A",
+        "A",
+        None,
+    ))?;
+    let junk_path = repo.root().join("log/observations/m1/1970/01/02.txt");
+    std::fs::create_dir_all(junk_path.parent().unwrap()).unwrap();
+    std::fs::write(&junk_path, b"not-jsonl").unwrap();
+
+    index.ingest_repo(&repo)?;
+    let db = Connection::open(index.path())?;
+    assert_eq!(count_rows(&db, "scrobble_observed"), 1);
+
+    Ok(())
 }

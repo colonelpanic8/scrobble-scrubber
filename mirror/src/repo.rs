@@ -92,8 +92,9 @@ impl MirrorRepo {
 
     fn record_path(&self, record: &MirrorRecord) -> Result<PathBuf, MirrorRepoError> {
         let ts = record.shard_unix_seconds();
+        let ts_i64 = i64::try_from(ts).map_err(|_| MirrorRepoError::InvalidTimestamp(ts))?;
         let date = Utc
-            .timestamp_opt(ts as i64, 0)
+            .timestamp_opt(ts_i64, 0)
             .single()
             .ok_or(MirrorRepoError::InvalidTimestamp(ts))?;
 

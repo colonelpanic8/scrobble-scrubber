@@ -4,7 +4,9 @@ use lastfm_edit::{
 };
 use std::path::{Path, PathBuf};
 
-use scrobble_scrubber_mirror::index::{MirrorIndex, MirrorIndexError, ScrobbleRow};
+use scrobble_scrubber_mirror::index::{
+    ActionRow, EditAttemptRow, MirrorIndex, MirrorIndexError, ScrobbleRow,
+};
 use scrobble_scrubber_mirror::records::{
     ActionResult, EditAttempted, EditTarget, FetchContext, MirrorRecord, RecordHeader,
     RecordSource, Scrobble, ScrobbleObserved, SyncRun,
@@ -186,6 +188,26 @@ impl LibraryMirror {
         Ok(self
             .index
             .recent_scrobbles(&self.user, limit, before_played_at)?)
+    }
+
+    pub fn recent_edits(
+        &self,
+        limit: usize,
+        before_attempted_at: Option<u64>,
+    ) -> Result<Vec<EditAttemptRow>, MirrorError> {
+        Ok(self
+            .index
+            .recent_edits(&self.user, limit, before_attempted_at)?)
+    }
+
+    pub fn recent_actions(
+        &self,
+        limit: usize,
+        before_attempted_at: Option<u64>,
+    ) -> Result<Vec<ActionRow>, MirrorError> {
+        Ok(self
+            .index
+            .recent_actions(&self.user, limit, before_attempted_at)?)
     }
 
     pub fn oldest_played_at(&self) -> Result<Option<u64>, MirrorError> {

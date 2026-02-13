@@ -2,13 +2,14 @@ use async_trait::async_trait;
 use std::sync::{Arc, RwLock};
 
 use super::{
-    CatchUpState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState,
-    StateStorage, TimestampState,
+    CatchUpState, FrontiersState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState,
+    SettingsState, StateStorage, TimestampState,
 };
 
 /// In-memory storage implementation - perfect for WASM and testing
 #[derive(Debug)]
 pub struct MemoryStorage {
+    frontiers_state: Arc<RwLock<FrontiersState>>,
     timestamp_state: Arc<RwLock<TimestampState>>,
     catch_up_state: Arc<RwLock<CatchUpState>>,
     rewrite_rules_state: Arc<RwLock<RewriteRulesState>>,
@@ -26,6 +27,7 @@ pub enum MemoryStorageError {
 impl MemoryStorage {
     pub fn new() -> Self {
         Self {
+            frontiers_state: Arc::new(RwLock::new(FrontiersState::default())),
             timestamp_state: Arc::new(RwLock::new(TimestampState::default())),
             catch_up_state: Arc::new(RwLock::new(CatchUpState::default())),
             rewrite_rules_state: Arc::new(RwLock::new(RewriteRulesState::default())),
@@ -57,6 +59,15 @@ impl StateStorage for MemoryStorage {
             .timestamp_state
             .write()
             .map_err(|e| MemoryStorageError::LockError(e.to_string()))? = state.clone();
+
+        // Keep unified state in sync for callers that use it.
+        {
+            let mut frontiers = self
+                .frontiers_state
+                .write()
+                .map_err(|e| MemoryStorageError::LockError(e.to_string()))?;
+            frontiers.slow_anchor_timestamp = state.last_processed_timestamp;
+        }
         Ok(())
     }
 
@@ -73,12 +84,56 @@ impl StateStorage for MemoryStorage {
             .catch_up_state
             .write()
             .map_err(|e| MemoryStorageError::LockError(e.to_string()))? = state.clone();
+
+        // Keep unified state in sync for callers that use it.
+        {
+            let mut frontiers = self
+                .frontiers_state
+                .write()
+                .map_err(|e| MemoryStorageError::LockError(e.to_string()))?;
+            frontiers.tip_last_processed_timestamp = state.fast_path_last_processed_timestamp;
+            frontiers.tip_floor_exclusive_timestamp = state.fast_path_floor_exclusive_timestamp;
+        }
         Ok(())
     }
 
     async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error> {
         Ok(self
             .catch_up_state
+            .read()
+            .map_err(|e| MemoryStorageError::LockError(e.to_string()))?
+            .clone())
+    }
+
+    async fn save_frontiers_state(&mut self, state: &FrontiersState) -> Result<(), Self::Error> {
+        *self
+            .frontiers_state
+            .write()
+            .map_err(|e| MemoryStorageError::LockError(e.to_string()))? = state.clone();
+
+        // Backward compatibility: keep legacy states updated.
+        {
+            let mut ts = self
+                .timestamp_state
+                .write()
+                .map_err(|e| MemoryStorageError::LockError(e.to_string()))?;
+            ts.last_processed_timestamp = state.slow_anchor_timestamp;
+        }
+        {
+            let mut cu = self
+                .catch_up_state
+                .write()
+                .map_err(|e| MemoryStorageError::LockError(e.to_string()))?;
+            cu.fast_path_last_processed_timestamp = state.tip_last_processed_timestamp;
+            cu.fast_path_floor_exclusive_timestamp = state.tip_floor_exclusive_timestamp;
+        }
+
+        Ok(())
+    }
+
+    async fn load_frontiers_state(&self) -> Result<FrontiersState, Self::Error> {
+        Ok(self
+            .frontiers_state
             .read()
             .map_err(|e| MemoryStorageError::LockError(e.to_string()))?
             .clone())

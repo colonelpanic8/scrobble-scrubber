@@ -11,9 +11,7 @@ use crate::page_search::{
     fetch_page, find_anchor_page_with_tracks_with_progress, AnchorPageWithTracks,
     AnchorSearchProgress,
 };
-use crate::persistence::{
-    CatchUpState, PendingEdit, PendingRewriteRule, StateStorage, TimestampState,
-};
+use crate::persistence::{FrontiersState, PendingEdit, PendingRewriteRule, StateStorage};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
 };
@@ -246,20 +244,20 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         self.run_processing_cycle().await
     }
 
-    /// Ensure timestamp state is initialized with the most recent track if not set
-    async fn ensure_timestamp_initialized(
+    /// Ensure the unified frontiers state has a slow-path anchor (initial run bootstrap).
+    async fn ensure_frontiers_initialized(
         &mut self,
-        timestamp_state: TimestampState,
-    ) -> Result<TimestampState> {
-        if timestamp_state.last_processed_timestamp.is_some() {
-            return Ok(timestamp_state);
+        mut frontiers: FrontiersState,
+    ) -> Result<FrontiersState> {
+        if frontiers.slow_anchor_timestamp.is_some() {
+            return Ok(frontiers);
         }
 
-        log::info!("No timestamp anchor found, initializing with most recent track...");
+        log::info!("No slow-path anchor found, initializing with most recent track...");
 
         let mut recent_iterator = self.client.recent_tracks();
 
-        // Get the first (most recent) track to use as our anchor
+        // Get the first (most recent) track to use as our anchor.
         if let Some(first_track) = recent_iterator.next().await? {
             log::info!(
                 "Most recent track found: '{}' by '{}' (playcount: {})",
@@ -270,41 +268,39 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             if let Some(ts) = first_track.timestamp {
                 let track_time = DateTime::from_timestamp(ts as i64, 0).unwrap_or_else(Utc::now);
-                let new_state = TimestampState {
-                    last_processed_timestamp: Some(track_time),
-                };
+                frontiers.slow_anchor_timestamp = Some(track_time);
 
-                // Save the new timestamp state
+                // Save the new frontiers state.
                 self.storage
                     .lock()
                     .await
-                    .save_timestamp_state(&new_state)
+                    .save_frontiers_state(&frontiers)
                     .await
                     .map_err(|e| {
                         lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                            "Failed to save initial timestamp state: {e}"
+                            "Failed to save initial frontiers state: {e}"
                         )))
                     })?;
 
                 log::info!(
-                    "Initialized timestamp anchor at: {} for track '{}' by '{}'",
+                    "Initialized slow-path anchor at: {} for track '{}' by '{}'",
                     track_time,
                     first_track.name,
                     first_track.artist
                 );
-                return Ok(new_state);
-            } else {
-                log::info!(
-                    "Most recent track '{}' by '{}' has no timestamp, using original state",
-                    first_track.name,
-                    first_track.artist
-                );
+                return Ok(frontiers);
             }
+
+            log::info!(
+                "Most recent track '{}' by '{}' has no timestamp, leaving anchor unset",
+                first_track.name,
+                first_track.artist
+            );
         } else {
-            log::info!("No recent tracks found, using original state");
+            log::info!("No recent tracks found, leaving anchor unset");
         }
 
-        Ok(timestamp_state)
+        Ok(frontiers)
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -381,26 +377,29 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             ));
             return Ok(());
         }
-        // Step 1: Load current timestamp state to know where we left off
-        let timestamp_state = self
+        // Step 1: Load unified frontiers state (slow-path anchor + fast-path tip state).
+        let mut frontiers = self
             .storage
             .lock()
             .await
-            .load_timestamp_state()
+            .load_frontiers_state()
             .await
             .map_err(|e| {
                 lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                    "Failed to load timestamp state: {e}"
+                    "Failed to load frontiers state: {e}"
                 )))
             })?;
 
-        // Step 2: Ensure we have an anchor timestamp
-        let timestamp_state = self.ensure_timestamp_initialized(timestamp_state).await?;
+        // Step 2: Ensure we have a slow-path anchor timestamp.
+        frontiers = self.ensure_frontiers_initialized(frontiers).await?;
 
-        // The anchor timestamp must be set at this point due to ensure_timestamp_initialized
-        let anchor_timestamp = timestamp_state
-            .last_processed_timestamp
-            .expect("Anchor timestamp should be set after ensure_timestamp_initialized");
+        let Some(anchor_timestamp) = frontiers.slow_anchor_timestamp else {
+            log::info!("No anchor timestamp available; nothing to process");
+            self.emit_event(ScrubberEvent::info(
+                "No anchor timestamp available; nothing to process".to_string(),
+            ));
+            return Ok(());
+        };
 
         // Optional: process most recent pages first for responsiveness (without advancing anchor).
         let mut fast_path_tip_for_cycle: Option<DateTime<Utc>> = None;
@@ -409,18 +408,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             && !self.stop_requested.load(Ordering::SeqCst)
         {
             let pages = self.config.scrubber.preprocess_recent_pages;
-            let catch_up_state = self
-                .storage
-                .lock()
-                .await
-                .load_catch_up_state()
-                .await
-                .map_err(|e| {
-                    lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                        "Failed to load catch-up state: {e}"
-                    )))
-                })?;
-            let fast_tip = catch_up_state.fast_path_last_processed_timestamp;
+            let fast_tip = frontiers.tip_last_processed_timestamp;
             self.emit_event(ScrubberEvent::info(format!(
                 "Preprocessing most recent {pages} page(s) for responsiveness (anchor unchanged)"
             )));
@@ -441,18 +429,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     fast_path_tip_for_cycle = updated_tip;
                     fast_path_floor_for_cycle = result.floor_exclusive;
 
-                    let updated = CatchUpState {
-                        fast_path_last_processed_timestamp: updated_tip,
-                        fast_path_floor_exclusive_timestamp: result.floor_exclusive,
-                    };
+                    frontiers.tip_last_processed_timestamp = updated_tip;
+                    frontiers.tip_floor_exclusive_timestamp = result.floor_exclusive;
                     self.storage
                         .lock()
                         .await
-                        .save_catch_up_state(&updated)
+                        .save_frontiers_state(&frontiers)
                         .await
                         .map_err(|e| {
                             lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                                "Failed to save catch-up state: {e}"
+                                "Failed to save frontiers state: {e}"
                             )))
                         })?;
                 }
@@ -468,6 +454,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Step 3: Use incremental processing with exponential search
         let total_processed = self
             .process_tracks_incrementally(
+                &mut frontiers,
                 anchor_timestamp,
                 fast_path_floor_for_cycle,
                 fast_path_tip_for_cycle,
@@ -488,6 +475,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// after each page for incremental progress.
     async fn process_tracks_incrementally(
         &mut self,
+        frontiers: &mut FrontiersState,
         anchor_timestamp: DateTime<Utc>,
         fast_path_floor_exclusive: Option<DateTime<Utc>>,
         fast_path_tip: Option<DateTime<Utc>>,
@@ -638,19 +626,16 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     if let Some(track_time) = DateTime::from_timestamp(ts as i64, 0) {
                         current_anchor = track_time;
 
-                        // Save the updated anchor immediately for incremental progress
-                        let updated_state = TimestampState {
-                            last_processed_timestamp: Some(current_anchor),
-                        };
-
+                        // Save the updated anchor immediately for incremental progress.
+                        frontiers.slow_anchor_timestamp = Some(current_anchor);
                         self.storage
                             .lock()
                             .await
-                            .save_timestamp_state(&updated_state)
+                            .save_frontiers_state(frontiers)
                             .await
                             .map_err(|e| {
                                 lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                                    "Failed to save timestamp state: {e}"
+                                    "Failed to save frontiers state: {e}"
                                 )))
                             })?;
 
@@ -680,17 +665,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         "Catch-up frontiers met (slow anchor {current_anchor} > fast floor {floor}); advancing anchor to {final_anchor}"
                     )));
 
-                    let updated_state = TimestampState {
-                        last_processed_timestamp: Some(final_anchor),
-                    };
+                    frontiers.slow_anchor_timestamp = Some(final_anchor);
                     self.storage
                         .lock()
                         .await
-                        .save_timestamp_state(&updated_state)
+                        .save_frontiers_state(frontiers)
                         .await
                         .map_err(|e| {
                             lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                                "Failed to save timestamp state: {e}"
+                                "Failed to save frontiers state: {e}"
                             )))
                         })?;
 
@@ -1502,18 +1485,20 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// Set the processing timestamp anchor directly
     /// This allows manual control of where the scrubber starts processing from
     pub async fn set_timestamp(&mut self, timestamp: DateTime<Utc>) -> Result<()> {
-        let updated_state = TimestampState {
-            last_processed_timestamp: Some(timestamp),
-        };
+        let mut storage = self.storage.lock().await;
+        let mut frontiers = storage.load_frontiers_state().await.map_err(|e| {
+            lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
+                "Failed to load frontiers state: {e}"
+            )))
+        })?;
 
-        self.storage
-            .lock()
-            .await
-            .save_timestamp_state(&updated_state)
+        frontiers.slow_anchor_timestamp = Some(timestamp);
+        storage
+            .save_frontiers_state(&frontiers)
             .await
             .map_err(|e| {
                 lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                    "Failed to save timestamp state: {e}"
+                    "Failed to save frontiers state: {e}"
                 )))
             })?;
 
@@ -1553,19 +1538,19 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
     /// Get the current timestamp state
     pub async fn get_current_timestamp(&self) -> Result<Option<DateTime<Utc>>> {
-        let timestamp_state = self
+        let frontiers = self
             .storage
             .lock()
             .await
-            .load_timestamp_state()
+            .load_frontiers_state()
             .await
             .map_err(|e| {
                 lastfm_edit::LastFmError::Io(std::io::Error::other(format!(
-                    "Failed to load timestamp state: {e}"
+                    "Failed to load frontiers state: {e}"
                 )))
             })?;
 
-        Ok(timestamp_state.last_processed_timestamp)
+        Ok(frontiers.slow_anchor_timestamp)
     }
 
     async fn analyze_tracks(

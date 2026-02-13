@@ -17,10 +17,12 @@ Conventions:
 
 - [x] Add `mirror/` crate with git-backed append-only logs plus a local sqlite index (`mirror/src/index.rs`).
 - [x] Add `scrobble-scrubber mirror ...` CLI commands (tip/older/status/recent/reindex).
+- [x] Add mirror action-history queries (recent edits/actions) + CLI commands (`mirror edits`, `mirror actions`).
 - [x] Make CLI lazy-login: only authenticate to Last.fm when a command truly needs it (`lib/src/cli/mod.rs`).
 - [x] Surface Last.fm rate limit/backoff delays in terminal output (client events).
 - [x] Add cooperative cancellation in `lastfm-edit` for internal delays/backoff (released as `lastfm-edit` v5.0.2).
 - [x] Automatically append `ScrobbleObserved` + `EditAttempted` records to the mirror during scrubber runs.
+- [x] Persist a unified two-frontier state (`FrontiersState`) and migrate scrubber + timestamp CLI to use it.
 
 ## Next (High Priority)
 
@@ -35,9 +37,9 @@ Conventions:
 
 ## Scan/Backfill Strategy (Avoid Full Scan Before Work)
 
-- [ ] Implement a two-frontier strategy:
-  - Frontier A: newest pages (keep tip fresh)
-  - Frontier B: backfill older history gradually
+- [x] Implement a two-frontier strategy in state + scrubber loop:
+  - Frontier A: newest pages (keep tip fresh, do not advance anchor)
+  - Frontier B: slow-path anchor/backfill (advance anchor incrementally)
 - [ ] Add “anchor/page search” based incremental backfill (already used by mirror older sync):
   - Use an anchor timestamp and search for the page containing it, then walk older pages.
 - [ ] Investigate “strided backward search” (your idea):
@@ -49,6 +51,9 @@ Conventions:
 - [ ] Re-evaluate `TrackCache` and “queue cache”:
   - Decide what stays vs what becomes “queries over the mirror index”.
   - Reduce the number of separate caches that can get out of sync.
+- [ ] Remove or migrate remaining `TrackCache` command surfaces:
+  - `track-cache load-artist` currently still hits legacy cache code.
+  - Prefer “mirror observations + indexed queries” instead.
 - [ ] Mirror repo layout + invalidation:
   - Define log sharding strategy (by month/day) and rotation rules.
   - Add “invalidate and rebuild index” workflow (CLI exists; refine semantics).

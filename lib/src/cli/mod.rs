@@ -393,6 +393,18 @@ enum MirrorCommands {
         #[arg(short, long, default_value = "50")]
         limit: u32,
     },
+    /// Print the most recent edit attempts from the mirror index
+    Edits {
+        /// Maximum number of edit attempts to print
+        #[arg(short, long, default_value = "50")]
+        limit: u32,
+    },
+    /// Print the most recent actions (edits + deletes) from the mirror index
+    Actions {
+        /// Maximum number of actions to print
+        #[arg(short, long, default_value = "50")]
+        limit: u32,
+    },
     /// Rebuild the local mirror index from the mirror repo logs
     Reindex,
 }
@@ -703,19 +715,126 @@ pub async fn run() -> Result<()> {
     // Route non-scrubber commands before we do any expensive initialization (login, providers, etc).
     match &args.command {
         Commands::TrackCache(cache_cmd) => {
+            eprintln!(
+                "Note: `track-cache` commands are deprecated; prefer `scrobble-scrubber mirror ...`."
+            );
             match cache_cmd {
                 TrackCacheCommands::Show { limit, all_pages } => {
+                    #[cfg(feature = "mirror")]
+                    {
+                        if !config.lastfm.username.trim().is_empty() {
+                            if let Ok(m) = LibraryMirror::open(
+                                &config.lastfm.username,
+                                &config.storage.state_file,
+                            ) {
+                                let _ = m.ingest_repo();
+                                let newest = m.newest_played_at().ok().flatten();
+                                let oldest = m.oldest_played_at().ok().flatten();
+                                println!("Mirror status for user '{}':", config.lastfm.username);
+                                println!("  newest_played_at: {newest:?}");
+                                println!("  oldest_played_at: {oldest:?}");
+                                println!("  repo_root: {}", m.repo().root().display());
+                                println!("  index_path: {}", m.index().path().display());
+                                println!();
+                                let rows =
+                                    m.recent_scrobbles(*limit as usize, None).map_err(|e| {
+                                        LastFmError::Io(std::io::Error::other(e.to_string()))
+                                    })?;
+                                for r in rows {
+                                    println!(
+                                        "{} | {} - {}{}",
+                                        r.played_at,
+                                        r.artist,
+                                        r.track,
+                                        r.album
+                                            .as_ref()
+                                            .map(|a| format!(" ({a})"))
+                                            .unwrap_or_default()
+                                    );
+                                }
+                                return Ok(());
+                            }
+                        }
+                    }
+
                     show_cache_state(*limit, *all_pages)?;
                 }
                 TrackCacheCommands::Refresh { pages } => {
                     let client = auth::create_authenticated_client(&config).await?;
+                    #[cfg(feature = "mirror")]
+                    {
+                        if !config.lastfm.username.trim().is_empty() {
+                            if let Ok(m) = LibraryMirror::open(
+                                &config.lastfm.username,
+                                &config.storage.state_file,
+                            ) {
+                                let _ = m.ingest_repo();
+                                let observed =
+                                    m.sync_tip_pages(&client, *pages as u32).await.map_err(
+                                        |e| LastFmError::Io(std::io::Error::other(e.to_string())),
+                                    )?;
+                                println!("Observed {observed} scrobble(s) from tip pages");
+                                return Ok(());
+                            }
+                        }
+                    }
+
                     refresh_cache(&client, *pages).await?;
                 }
                 TrackCacheCommands::Extend { pages } => {
                     let client = auth::create_authenticated_client(&config).await?;
+                    #[cfg(feature = "mirror")]
+                    {
+                        if !config.lastfm.username.trim().is_empty() {
+                            if let Ok(m) = LibraryMirror::open(
+                                &config.lastfm.username,
+                                &config.storage.state_file,
+                            ) {
+                                let _ = m.ingest_repo();
+                                let observed = m
+                                    .sync_older_pages(&client, *pages as u32, 2)
+                                    .await
+                                    .map_err(|e| {
+                                        LastFmError::Io(std::io::Error::other(e.to_string()))
+                                    })?;
+                                println!("Observed {observed} scrobble(s) from older pages");
+                                return Ok(());
+                            }
+                        }
+                    }
+
                     extend_cache(&client, *pages).await?;
                 }
                 TrackCacheCommands::ShowRecent { limit } => {
+                    #[cfg(feature = "mirror")]
+                    {
+                        if !config.lastfm.username.trim().is_empty() {
+                            if let Ok(m) = LibraryMirror::open(
+                                &config.lastfm.username,
+                                &config.storage.state_file,
+                            ) {
+                                let _ = m.ingest_repo();
+                                let rows =
+                                    m.recent_scrobbles(*limit as usize, None).map_err(|e| {
+                                        LastFmError::Io(std::io::Error::other(e.to_string()))
+                                    })?;
+                                for r in rows {
+                                    println!(
+                                        "{} | {} - {}{}",
+                                        r.played_at,
+                                        r.artist,
+                                        r.track,
+                                        r.album
+                                            .as_ref()
+                                            .map(|a| format!(" ({a})"))
+                                            .unwrap_or_default()
+                                    );
+                                }
+                                return Ok(());
+                            }
+                        }
+                    }
+
                     let client = auth::create_authenticated_client(&config).await?;
                     show_recent_tracks_from_api(&client, *limit).await?;
                 }
@@ -860,6 +979,53 @@ pub async fn run() -> Result<()> {
                                 .map(|a| format!(" ({a})"))
                                 .unwrap_or_default()
                         );
+                    }
+                }
+                MirrorCommands::Edits { limit } => {
+                    let rows = mirror
+                        .recent_edits(*limit as usize, None)
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    for r in rows {
+                        let ok = if r.success { "ok" } else { "FAIL" };
+                        let ident = match (r.artist.as_deref(), r.track.as_deref()) {
+                            (Some(a), Some(t)) => format!("{a} - {t}"),
+                            _ => "(unknown target)".to_string(),
+                        };
+                        let played_at = r.played_at.map(|v| v.to_string()).unwrap_or_default();
+                        let err = r.error.unwrap_or_default();
+                        if err.is_empty() {
+                            println!("{} | {ok} | {} {}", r.attempted_at, ident, played_at);
+                        } else {
+                            println!(
+                                "{} | {ok} | {} {} | {}",
+                                r.attempted_at, ident, played_at, err
+                            );
+                        }
+                    }
+                }
+                MirrorCommands::Actions { limit } => {
+                    let rows = mirror
+                        .recent_actions(*limit as usize, None)
+                        .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                    for r in rows {
+                        let ok = if r.success { "ok" } else { "FAIL" };
+                        let ident = match (r.artist.as_deref(), r.track.as_deref()) {
+                            (Some(a), Some(t)) => format!("{a} - {t}"),
+                            _ => "(unknown target)".to_string(),
+                        };
+                        let played_at = r.played_at.map(|v| v.to_string()).unwrap_or_default();
+                        let err = r.error.unwrap_or_default();
+                        if err.is_empty() {
+                            println!(
+                                "{} | {} | {ok} | {} {}",
+                                r.attempted_at, r.kind, ident, played_at
+                            );
+                        } else {
+                            println!(
+                                "{} | {} | {ok} | {} {} | {}",
+                                r.attempted_at, r.kind, ident, played_at, err
+                            );
+                        }
                     }
                 }
                 MirrorCommands::Reindex => {

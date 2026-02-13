@@ -3,8 +3,8 @@ use pickledb::{PickleDb, PickleDbDumpPolicy, SerializationMethod};
 use std::path::Path;
 
 use super::{
-    CatchUpState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState, SettingsState,
-    StateStorage, TimestampState,
+    CatchUpState, FrontiersState, PendingEditsState, PendingRewriteRulesState, RewriteRulesState,
+    SettingsState, StateStorage, TimestampState,
 };
 use crate::rewrite::load_comprehensive_default_rules;
 
@@ -107,6 +107,50 @@ impl StateStorage for FileStorage {
 
     async fn load_catch_up_state(&self) -> Result<CatchUpState, Self::Error> {
         Ok(self.db.get("catch_up_state").unwrap_or_default())
+    }
+
+    async fn save_frontiers_state(&mut self, state: &FrontiersState) -> Result<(), Self::Error> {
+        self.db
+            .set("frontiers_state", state)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        // Backward compatibility: keep legacy keys updated.
+        let ts = TimestampState {
+            last_processed_timestamp: state.slow_anchor_timestamp,
+        };
+        let cu = CatchUpState {
+            fast_path_last_processed_timestamp: state.tip_last_processed_timestamp,
+            fast_path_floor_exclusive_timestamp: state.tip_floor_exclusive_timestamp,
+        };
+        self.db
+            .set("timestamp_state", &ts)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+        self.db
+            .set("catch_up_state", &cu)
+            .map_err(|e| FileStorageError::SerializationError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn load_frontiers_state(&self) -> Result<FrontiersState, Self::Error> {
+        if let Some(state) = self.db.get::<FrontiersState>("frontiers_state") {
+            return Ok(state);
+        }
+
+        // Migration path: derive from legacy states.
+        let ts = self
+            .db
+            .get::<TimestampState>("timestamp_state")
+            .unwrap_or_default();
+        let cu = self
+            .db
+            .get::<CatchUpState>("catch_up_state")
+            .unwrap_or_default();
+        Ok(FrontiersState {
+            slow_anchor_timestamp: ts.last_processed_timestamp,
+            tip_last_processed_timestamp: cu.fast_path_last_processed_timestamp,
+            tip_floor_exclusive_timestamp: cu.fast_path_floor_exclusive_timestamp,
+        })
     }
 
     async fn save_rewrite_rules_state(
