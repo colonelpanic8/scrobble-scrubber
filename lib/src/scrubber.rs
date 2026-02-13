@@ -7,10 +7,7 @@ use crate::config::TrackProviderType;
 use crate::edit::{apply_edit_to_lastfm, dry_run_edit};
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
-use crate::page_search::{
-    fetch_page, find_anchor_page_with_tracks_with_progress, AnchorPageWithTracks,
-    AnchorSearchProgress,
-};
+use crate::page_search::{fetch_page, AnchorPageWithTracks, AnchorSearchProgress};
 use crate::persistence::{FrontiersState, PendingEdit, PendingRewriteRule, StateStorage};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
@@ -46,6 +43,12 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
 }
 
 impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
+    fn is_cancelled_error(e: &lastfm_edit::LastFmError) -> bool {
+        matches!(
+            e,
+            lastfm_edit::LastFmError::Io(io) if io.kind() == std::io::ErrorKind::Interrupted
+        )
+    }
     pub fn new(
         storage: Arc<Mutex<S>>,
         client: Box<dyn LastFmEditClient + Send + Sync>,
@@ -452,14 +455,26 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         // Step 3: Use incremental processing with exponential search
-        let total_processed = self
+        let total_processed = match self
             .process_tracks_incrementally(
                 &mut frontiers,
                 anchor_timestamp,
                 fast_path_floor_for_cycle,
                 fast_path_tip_for_cycle,
             )
-            .await?;
+            .await
+        {
+            Ok(n) => n,
+            Err(e) => {
+                if self.stop_requested.load(Ordering::SeqCst) && Self::is_cancelled_error(&e) {
+                    self.emit_event(ScrubberEvent::info(
+                        "Stop requested; cancelling catch-up".to_string(),
+                    ));
+                    return Ok(());
+                }
+                return Err(e);
+            }
+        };
 
         log::info!("Processing complete: processed {total_processed} tracks incrementally");
 
@@ -487,7 +502,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let AnchorPageWithTracks {
             page: anchor_page,
             tracks: mut anchor_page_tracks,
-        } = match find_anchor_page_with_tracks_with_progress(
+        } = match crate::page_search::find_anchor_page_with_tracks_with_progress_cancelable(
             self.client.as_ref(),
             anchor_timestamp,
             |progress| {
@@ -515,6 +530,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                 let _ = progress_sender.send(ScrubberEvent::info(msg));
             },
+            || self.stop_requested.load(Ordering::SeqCst),
         )
         .await?
         {

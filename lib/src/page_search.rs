@@ -4,8 +4,15 @@
 //! the page containing the anchor timestamp in O(log N) API calls instead of O(N).
 
 use chrono::{DateTime, Utc};
-use lastfm_edit::{LastFmEditClient, Result, Track};
+use lastfm_edit::{LastFmEditClient, LastFmError, Result, Track};
 use std::collections::HashMap;
+
+fn cancelled_error() -> LastFmError {
+    LastFmError::Io(std::io::Error::new(
+        std::io::ErrorKind::Interrupted,
+        "cancelled",
+    ))
+}
 
 /// Result of checking a page for tracks relative to a timestamp threshold.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -152,7 +159,21 @@ pub struct AnchorPageWithTracks {
 pub async fn find_anchor_page_with_tracks_with_progress(
     client: &(dyn LastFmEditClient + Send + Sync),
     anchor: DateTime<Utc>,
+    on_progress: impl FnMut(AnchorSearchProgress),
+) -> Result<Option<AnchorPageWithTracks>> {
+    find_anchor_page_with_tracks_with_progress_cancelable(client, anchor, on_progress, || false)
+        .await
+}
+
+/// Like [`find_anchor_page_with_tracks_with_progress`], but allows cooperative cancellation.
+///
+/// This is intended for long-running catch-up after downtime: callers can plumb a `stop_requested`
+/// flag (or similar) to avoid looking "hung" during multi-page searching.
+pub async fn find_anchor_page_with_tracks_with_progress_cancelable(
+    client: &(dyn LastFmEditClient + Send + Sync),
+    anchor: DateTime<Utc>,
     mut on_progress: impl FnMut(AnchorSearchProgress),
+    mut should_cancel: impl FnMut() -> bool,
 ) -> Result<Option<AnchorPageWithTracks>> {
     on_progress(AnchorSearchProgress::Started { anchor });
     let mut cache: HashMap<u32, Vec<Track>> = HashMap::new();
@@ -163,6 +184,9 @@ pub async fn find_anchor_page_with_tracks_with_progress(
     log::debug!("Starting exponential search for anchor at {anchor}");
 
     loop {
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
         on_progress(AnchorSearchProgress::ProbingPage { page: probe_page });
         log::trace!("Probing page {probe_page}");
         let result = check_page_timestamps_cached(&mut cache, client, probe_page, anchor).await?;
@@ -208,6 +232,9 @@ pub async fn find_anchor_page_with_tracks_with_progress(
         // Anchor is on page 1 or earlier
         log::debug!("Anchor found on page 1");
         on_progress(AnchorSearchProgress::FoundAnchorPage { page: 1 });
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
         let tracks = page_tracks(&mut cache, client, 1).await?;
         return Ok(Some(AnchorPageWithTracks { page: 1, tracks }));
     }
@@ -216,6 +243,9 @@ pub async fn find_anchor_page_with_tracks_with_progress(
     let mut high = probe_page;
 
     while low < high {
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
         let mid = low + (high - low) / 2;
 
         // Check page mid+1 (we know 'low' is all newer, so check the next one)
@@ -230,6 +260,10 @@ pub async fn find_anchor_page_with_tracks_with_progress(
             low,
             high,
         });
+
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
         let result = check_page_timestamps_cached(&mut cache, client, check_page, anchor).await?;
 
         match result {
@@ -253,6 +287,9 @@ pub async fn find_anchor_page_with_tracks_with_progress(
     });
 
     on_progress(AnchorSearchProgress::FoundAnchorPage { page: high });
+    if should_cancel() {
+        return Err(cancelled_error());
+    }
     let tracks = page_tracks(&mut cache, client, high).await?;
     Ok(Some(AnchorPageWithTracks { page: high, tracks }))
 }
