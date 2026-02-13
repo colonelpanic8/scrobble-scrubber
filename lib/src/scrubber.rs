@@ -175,6 +175,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
     /// Request the scrubber to stop gracefully
     pub fn stop(&self) {
         self.stop_requested.store(true, Ordering::SeqCst);
+        // Best-effort: interrupt internal backoff/operational delays in the client so "stop"
+        // doesn't look like a hang during long sleeps.
+        self.client.cancel();
         self.should_stop.notify_one();
     }
 

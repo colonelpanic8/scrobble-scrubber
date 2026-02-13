@@ -1065,6 +1065,53 @@ pub async fn run() -> Result<()> {
         });
     }
 
+    // Print user-visible "waiting" state so rate limiting/backoffs don't look like hangs.
+    {
+        let mut event_receiver = scrubber.lock().await.subscribe_events();
+        tokio::spawn(async move {
+            use tokio::sync::broadcast::error::RecvError;
+
+            loop {
+                match event_receiver.recv().await {
+                    Ok(ev) => {
+                        if let crate::events::ScrubberEventType::ClientEvent(client_ev) =
+                            &ev.event_type
+                        {
+                            match client_ev {
+                                lastfm_edit::ClientEvent::RateLimited {
+                                    delay_seconds,
+                                    rate_limit_type,
+                                    ..
+                                } => {
+                                    eprintln!(
+                                        "Rate limited ({rate_limit_type:?}); waiting {delay_seconds}s"
+                                    );
+                                }
+                                lastfm_edit::ClientEvent::RateLimitEnded {
+                                    total_rate_limit_duration_seconds,
+                                    rate_limit_type,
+                                    ..
+                                } => {
+                                    eprintln!(
+                                        "Rate limiting ended ({rate_limit_type:?}) after {total_rate_limit_duration_seconds}s"
+                                    );
+                                }
+                                lastfm_edit::ClientEvent::Delaying {
+                                    delay_ms, reason, ..
+                                } => {
+                                    eprintln!("Waiting ({reason:?}) for {delay_ms}ms");
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Err(RecvError::Closed) => break,
+                    Err(RecvError::Lagged(_)) => continue,
+                }
+            }
+        });
+    }
+
     // Web interface has been removed
 
     // For scrubber commands, we need to acquire the lock and execute them
