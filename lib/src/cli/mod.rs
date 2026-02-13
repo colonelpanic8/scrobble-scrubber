@@ -776,7 +776,13 @@ pub async fn run() -> Result<()> {
         Commands::Timestamp(timestamp_cmd) => {
             match timestamp_cmd {
                 TimestampCommands::SetAnchor { tracks } => {
-                    set_timestamp_anchor(&storage, *tracks).await?;
+                    set_timestamp_anchor(
+                        &storage,
+                        *tracks,
+                        &config.storage.state_file,
+                        &config.lastfm.username,
+                    )
+                    .await?;
                 }
                 TimestampCommands::SetTimestamp { timestamp } => {
                     set_timestamp_anchor_to_timestamp(&storage, timestamp).await?;

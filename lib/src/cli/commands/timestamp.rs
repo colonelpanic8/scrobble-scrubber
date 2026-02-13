@@ -1,3 +1,5 @@
+#[cfg(feature = "mirror")]
+use crate::mirror::LibraryMirror;
 use crate::persistence::{StateStorage, TimestampState};
 use crate::track_cache::TrackCache;
 use lastfm_edit::{LastFmError, Result};
@@ -8,11 +10,80 @@ use tokio::sync::Mutex;
 pub async fn set_timestamp_anchor(
     storage: &Arc<Mutex<crate::persistence::FileStorage>>,
     tracks_back: u32,
+    state_file: &str,
+    username: &str,
 ) -> Result<()> {
     use chrono::DateTime;
 
     println!("⏰ Setting Timestamp Anchor");
     println!("=========================");
+
+    #[cfg(feature = "mirror")]
+    {
+        if !username.trim().is_empty() {
+            match LibraryMirror::open(username, state_file) {
+                Ok(mirror) => {
+                    // Best-effort: ensure index is current with any git-pulled changes.
+                    if let Err(e) = mirror.ingest_repo() {
+                        log::warn!("Mirror ingest failed, falling back to TrackCache: {e}");
+                    } else {
+                        let needed = (tracks_back as usize) + 1;
+                        match mirror.recent_scrobbles(needed, None) {
+                            Ok(rows) if rows.len() >= needed => {
+                                let target = &rows[tracks_back as usize];
+                                let dt = DateTime::from_timestamp(target.played_at as i64, 0)
+                                    .ok_or_else(|| {
+                                        LastFmError::Io(std::io::Error::other(
+                                            "Invalid timestamp from mirror index",
+                                        ))
+                                    })?;
+
+                                println!(
+                                    "Setting anchor to mirror scrobble '{}' by '{}'",
+                                    target.track, target.artist
+                                );
+                                println!("Timestamp: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
+
+                                let timestamp_state = TimestampState {
+                                    last_processed_timestamp: Some(dt),
+                                };
+
+                                storage
+                                    .lock()
+                                    .await
+                                    .save_timestamp_state(&timestamp_state)
+                                    .await
+                                    .map_err(|e| {
+                                        LastFmError::Io(std::io::Error::other(format!(
+                                            "Failed to save timestamp state: {e}"
+                                        )))
+                                    })?;
+
+                                println!("✅ Timestamp anchor set successfully (from mirror)");
+                                println!(
+                                    "Next scrubber run will process tracks from this point forward"
+                                );
+                                return Ok(());
+                            }
+                            Ok(_) => {
+                                println!(
+                                    "Mirror index does not have enough recent scrobbles; falling back to TrackCache"
+                                );
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "Mirror index query failed, falling back to TrackCache: {e}"
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Mirror open failed, falling back to TrackCache: {e}");
+                }
+            }
+        }
+    }
 
     let cache = TrackCache::load();
     let recent_tracks = cache.get_all_recent_tracks();
