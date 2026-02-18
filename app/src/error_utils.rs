@@ -88,7 +88,16 @@ pub fn create_client_from_session(
     session: lastfm_edit::LastFmEditSession,
 ) -> lastfm_edit::LastFmEditClientImpl {
     let http_client = http_client::native::NativeClient::new();
-    lastfm_edit::LastFmEditClientImpl::from_session(Box::new(http_client), session)
+    let client_config = lastfm_edit::ClientConfig::default()
+        .with_retry_config(lastfm_edit::RetryConfig::unbounded())
+        .with_operational_delays(
+            lastfm_edit::OperationalDelayConfig::default().with_get_delay_ms(1200),
+        );
+    lastfm_edit::LastFmEditClientImpl::from_session_with_client_config(
+        Box::new(http_client),
+        session,
+        client_config,
+    )
 }
 
 /// Async helper to apply an edit using the client without Send issues

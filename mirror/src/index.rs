@@ -59,6 +59,30 @@ pub struct ActionRow {
     pub album_artist: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkItemRow {
+    pub key: String,
+    pub played_at: u64,
+    pub artist: String,
+    pub track: String,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AnchorContextPageBounds {
+    /// Largest observed `context_page` that still had tracks newer than the anchor.
+    pub max_page_with_newer_tracks: Option<u32>,
+    /// Smallest observed `context_page` that had tracks at-or-older than the anchor.
+    pub min_page_with_older_or_equal_tracks: Option<u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorklistOrder {
+    OldestFirst,
+    NewestFirst,
+}
+
 impl MirrorIndex {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, MirrorIndexError> {
         let path = path.as_ref().to_path_buf();
@@ -81,6 +105,7 @@ impl MirrorIndex {
                 r#"
                 DROP TABLE IF EXISTS file_offsets;
                 DROP TABLE IF EXISTS scrobble_observed;
+                DROP TABLE IF EXISTS scrobble_worklist;
                 DROP TABLE IF EXISTS edit_attempted;
                 DROP TABLE IF EXISTS delete_attempted;
                 DROP TABLE IF EXISTS sync_run;
@@ -384,6 +409,81 @@ impl MirrorIndex {
         })
     }
 
+    pub fn anchor_context_page_bounds(
+        &self,
+        user: &str,
+        anchor_played_at: u64,
+    ) -> Result<AnchorContextPageBounds, MirrorIndexError> {
+        self.with_conn(|conn| {
+            let (max_newer, min_older_or_equal): (Option<i64>, Option<i64>) = conn.query_row(
+                r#"
+                SELECT
+                    MAX(CASE WHEN played_at > ?2 THEN context_page END),
+                    MIN(CASE WHEN played_at <= ?2 THEN context_page END)
+                FROM scrobble_observed
+                WHERE user = ?1 AND context_page IS NOT NULL
+                "#,
+                params![user, anchor_played_at as i64],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+
+            Ok(AnchorContextPageBounds {
+                max_page_with_newer_tracks: max_newer.and_then(|v| u32::try_from(v).ok()),
+                min_page_with_older_or_equal_tracks: min_older_or_equal
+                    .and_then(|v| u32::try_from(v).ok()),
+            })
+        })
+    }
+
+    pub fn unprocessed_scrobbles(
+        &self,
+        user: &str,
+        limit: usize,
+        order: WorklistOrder,
+    ) -> Result<Vec<WorkItemRow>, MirrorIndexError> {
+        let (order_sql, idx_hint) = match order {
+            WorklistOrder::OldestFirst => ("ASC", "idx_worklist_user_unprocessed_oldest"),
+            WorklistOrder::NewestFirst => ("DESC", "idx_worklist_user_unprocessed_newest"),
+        };
+
+        // The index hint is advisory; SQLite will ignore it if it can't use it.
+        let sql = format!(
+            "SELECT key, played_at, artist, track, album, album_artist\n             FROM scrobble_worklist INDEXED BY {idx_hint}\n             WHERE user = ?1 AND processed_at IS NULL\n             ORDER BY played_at {order_sql}\n             LIMIT ?2"
+        );
+
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let mut rows = stmt.query(params![user, limit as i64])?;
+            let mut out = Vec::new();
+            while let Some(row) = rows.next()? {
+                out.push(WorkItemRow {
+                    key: row.get::<_, String>(0)?,
+                    played_at: row.get::<_, i64>(1)? as u64,
+                    artist: row.get::<_, String>(2)?,
+                    track: row.get::<_, String>(3)?,
+                    album: row.get::<_, Option<String>>(4)?,
+                    album_artist: row.get::<_, Option<String>>(5)?,
+                });
+            }
+            Ok(out)
+        })
+    }
+
+    pub fn mark_scrobble_processed(
+        &self,
+        key: &str,
+        processed_at: u64,
+        last_result: Option<&str>,
+    ) -> Result<(), MirrorIndexError> {
+        self.with_conn(|conn| {
+            conn.execute(
+                "UPDATE scrobble_worklist SET processed_at = ?2, last_result = ?3 WHERE key = ?1",
+                params![key, processed_at as i64, last_result],
+            )?;
+            Ok(())
+        })
+    }
+
     fn with_conn<T>(
         &self,
         f: impl FnOnce(&mut Connection) -> Result<T, MirrorIndexError>,
@@ -427,6 +527,28 @@ impl MirrorIndex {
             );
             CREATE INDEX IF NOT EXISTS idx_scrobble_user_played_at ON scrobble_observed(user, played_at DESC);
             CREATE INDEX IF NOT EXISTS idx_scrobble_user_artist ON scrobble_observed(user, artist);
+
+            -- Local (non-synced) processing worklist derived from observations.
+            --
+            -- We intentionally allow "best-effort identity" here: it is better to reprocess
+            -- occasionally than to miss work due to an overly-aggressive dedupe key.
+            CREATE TABLE IF NOT EXISTS scrobble_worklist (
+                key TEXT PRIMARY KEY,
+                user TEXT NOT NULL,
+                played_at INTEGER NOT NULL,
+                artist TEXT NOT NULL,
+                track TEXT NOT NULL,
+                album TEXT,
+                album_artist TEXT,
+                first_seen_at INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL,
+                processed_at INTEGER,
+                last_result TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_worklist_user_unprocessed_oldest
+                ON scrobble_worklist(user, processed_at, played_at ASC);
+            CREATE INDEX IF NOT EXISTS idx_worklist_user_unprocessed_newest
+                ON scrobble_worklist(user, processed_at, played_at DESC);
 
             CREATE TABLE IF NOT EXISTS edit_attempted (
                 id INTEGER PRIMARY KEY,
@@ -589,6 +711,24 @@ impl MirrorIndex {
     ) -> Result<(), MirrorIndexError> {
         match rec {
             MirrorRecord::ScrobbleObserved(r) => {
+                fn scrobble_work_key(
+                    user: &str,
+                    played_at: u64,
+                    artist: &str,
+                    track: &str,
+                    album: Option<&str>,
+                    album_artist: Option<&str>,
+                ) -> String {
+                    // Use a delimiter that shouldn't appear in normal text to reduce ambiguity.
+                    // This is best-effort identity: duplicates are preferable to misses.
+                    const SEP: char = '\x1f'; // ASCII unit separator
+                    format!(
+                        "{user}{SEP}{played_at}{SEP}{artist}{SEP}{track}{SEP}{}{SEP}{}",
+                        album.unwrap_or(""),
+                        album_artist.unwrap_or("")
+                    )
+                }
+
                 let ctx = r.context.as_ref();
                 let source = match r.source {
                     RecordSource::LastfmApi => "lastfm_api",
@@ -625,6 +765,42 @@ impl MirrorIndex {
                         ctx.and_then(|c| c.page).map(|v| v as i64),
                         ctx.and_then(|c| c.position).map(|v| v as i64),
                         ctx.and_then(|c| c.url.clone()),
+                    ],
+                )?;
+
+                // Feed the local processing worklist from observations.
+                let key = scrobble_work_key(
+                    &r.header.user,
+                    r.scrobble.played_at,
+                    &r.scrobble.artist,
+                    &r.scrobble.track,
+                    r.scrobble.album.as_deref(),
+                    r.scrobble.album_artist.as_deref(),
+                );
+                tx.execute(
+                    r#"
+                    INSERT INTO scrobble_worklist(
+                        key, user, played_at, artist, track, album, album_artist,
+                        first_seen_at, last_seen_at
+                    ) VALUES (
+                        ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+                    )
+                    ON CONFLICT(key) DO UPDATE SET
+                        last_seen_at = CASE
+                            WHEN excluded.last_seen_at > scrobble_worklist.last_seen_at THEN excluded.last_seen_at
+                            ELSE scrobble_worklist.last_seen_at
+                        END
+                    "#,
+                    params![
+                        key,
+                        r.header.user,
+                        r.scrobble.played_at as i64,
+                        r.scrobble.artist,
+                        r.scrobble.track,
+                        r.scrobble.album,
+                        r.scrobble.album_artist,
+                        r.observed_at as i64,
+                        r.observed_at as i64,
                     ],
                 )?;
             }

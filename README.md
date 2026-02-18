@@ -42,25 +42,27 @@ cargo build --release
 export SCROBBLE_SCRUBBER_LASTFM_USERNAME="your_username"
 export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_password"
 
-# Run the scrubber (checks every 5 minutes by default)
-scrobble-scrubber
+# Run the scrubber continuously (checks every 5 minutes by default)
+scrobble-scrubber scrubber run
 
-# Or with custom settings
-scrobble-scrubber --interval 600 --dry-run
+# Or run one processing cycle and exit
+scrobble-scrubber scrubber once --dry-run
 ```
 
 ## Command Line Options
 
 ```
-scrobble-scrubber [OPTIONS]
+scrobble-scrubber [GLOBAL OPTIONS] <COMMAND>
 
-Options:
-  -i, --interval <SECONDS>     Check interval in seconds [default: 300]
-  -m, --max-tracks <NUMBER>    Maximum tracks to process per run [default: 100]
-  --dry-run                    Preview changes without applying them
-  --config <PATH>              Path to configuration file
-  -h, --help                   Print help information
-  -V, --version                Print version information
+Common commands:
+  scrobble-scrubber scrubber run
+  scrobble-scrubber scrubber once
+  scrobble-scrubber scrubber catch-up
+  scrobble-scrubber timestamp show
+
+For full help:
+  scrobble-scrubber --help
+  scrobble-scrubber scrubber --help
 ```
 
 ## Configuration
@@ -74,6 +76,8 @@ All environment variables use the `SCROBBLE_SCRUBBER_` prefix:
 # Last.fm credentials
 export SCROBBLE_SCRUBBER_LASTFM_USERNAME="your_lastfm_username"
 export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_lastfm_password"
+# Optional: Last.fm API key (enables API-based mirror sync)
+export SCROBBLE_SCRUBBER_LASTFM_API_KEY="your_lastfm_api_key"
 ```
 
 #### Optional Providers
@@ -84,7 +88,7 @@ export SCROBBLE_SCRUBBER_LASTFM_PASSWORD="your_lastfm_password"
 export SCROBBLE_SCRUBBER_PROVIDERS_ENABLE_OPENAI=true
 export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_API_KEY="sk-..."
 
-# Optional: Specify model (defaults to gpt-4o)
+# Optional: Specify model (defaults to gpt-4o-mini)
 export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_MODEL="gpt-4o-mini"
 ```
 
@@ -93,8 +97,11 @@ export SCROBBLE_SCRUBBER_PROVIDERS_OPENAI_MODEL="gpt-4o-mini"
 # Check interval in seconds (default: 300)
 export SCROBBLE_SCRUBBER_SCRUBBER_INTERVAL=300
 
-# Maximum tracks to process per run (default: 100)
-export SCROBBLE_SCRUBBER_SCRUBBER_MAX_TRACKS=100
+# Optional: limit how many pages are processed per cycle during catch-up (0 = unlimited)
+export SCROBBLE_SCRUBBER_SCRUBBER_MAX_PAGES_PER_CYCLE=10
+
+# Optional: process the newest N pages first for responsiveness (anchor unchanged)
+export SCROBBLE_SCRUBBER_SCRUBBER_PREPROCESS_RECENT_PAGES=1
 
 # Dry run mode (default: false)
 export SCROBBLE_SCRUBBER_SCRUBBER_DRY_RUN=true

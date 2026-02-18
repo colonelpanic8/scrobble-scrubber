@@ -438,49 +438,56 @@ async fn process_search_with_events(
         scrubber_guard.process_search_with_limit(query, limit).await
     };
 
-    // Create a future that processes events concurrently
-    let event_processing_future = async {
-        while let Ok(lib_event) = event_receiver.recv().await {
-            handle_scrubber_event(lib_event, state).await;
-        }
-    };
+    let mut processing_future = Box::pin(processing_future);
+    let mut processing_result: Option<lastfm_edit::Result<()>> = None;
+    let mut events_closed = false;
 
-    // Run both futures concurrently - the processing will yield and allow events to be processed
-    let search_result = tokio::select! {
-        result = processing_future => {
-            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-        }
-        _ = event_processing_future => {
-            log::warn!("Event processing completed before search - this shouldn't happen");
-            Ok(())
-        }
-    };
-
-    // Process any remaining events after search completes
-    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
-    tokio::pin!(timeout);
-
-    loop {
+    while processing_result.is_none() {
         tokio::select! {
-            event_result = event_receiver.recv() => {
-                match event_result {
+            res = &mut processing_future => {
+                processing_result = Some(res);
+            }
+            recv_res = event_receiver.recv(), if !events_closed => {
+                match recv_res {
                     Ok(lib_event) => {
                         handle_scrubber_event(lib_event, state).await;
                     }
-                    Err(_) => {
-                        // Channel closed
-                        break;
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        // Ignore: we missed some events; keep processing.
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        events_closed = true;
                     }
                 }
-            }
-            _ = &mut timeout => {
-                // Timeout to catch any final events
-                break;
             }
         }
     }
 
-    search_result
+    // Process any remaining events after search completes
+    if !events_closed {
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                event_result = event_receiver.recv() => {
+                    match event_result {
+                        Ok(lib_event) => {
+                            handle_scrubber_event(lib_event, state).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Ignore.
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                _ = &mut timeout => break,
+            }
+        }
+    }
+
+    let processing_result = processing_result.expect("processing_result must be set");
+    processing_result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
 }
 
 /// Process album search with events to properly surface tracks to UI
@@ -502,49 +509,56 @@ async fn process_album_search_with_events(
         scrubber_guard.process_search_albums(query, limit).await
     };
 
-    // Create a future that processes events concurrently
-    let event_processing_future = async {
-        while let Ok(lib_event) = event_receiver.recv().await {
-            handle_scrubber_event(lib_event, state).await;
-        }
-    };
+    let mut processing_future = Box::pin(processing_future);
+    let mut processing_result: Option<lastfm_edit::Result<()>> = None;
+    let mut events_closed = false;
 
-    // Run both futures concurrently - the processing will yield and allow events to be processed
-    let search_result = tokio::select! {
-        result = processing_future => {
-            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-        }
-        _ = event_processing_future => {
-            log::warn!("Event processing completed before album search - this shouldn't happen");
-            Ok(())
-        }
-    };
-
-    // Process any remaining events after search completes
-    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
-    tokio::pin!(timeout);
-
-    loop {
+    while processing_result.is_none() {
         tokio::select! {
-            event_result = event_receiver.recv() => {
-                match event_result {
+            res = &mut processing_future => {
+                processing_result = Some(res);
+            }
+            recv_res = event_receiver.recv(), if !events_closed => {
+                match recv_res {
                     Ok(lib_event) => {
                         handle_scrubber_event(lib_event, state).await;
                     }
-                    Err(_) => {
-                        // Channel closed
-                        break;
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        // Ignore: we missed some events; keep processing.
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        events_closed = true;
                     }
                 }
-            }
-            _ = &mut timeout => {
-                // Timeout to catch any final events
-                break;
             }
         }
     }
 
-    search_result
+    // Process any remaining events after search completes
+    if !events_closed {
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                event_result = event_receiver.recv() => {
+                    match event_result {
+                        Ok(lib_event) => {
+                            handle_scrubber_event(lib_event, state).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Ignore.
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                _ = &mut timeout => break,
+            }
+        }
+    }
+
+    let processing_result = processing_result.expect("processing_result must be set");
+    processing_result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
 }
 
 /// Handle scrubber events from search processing
@@ -607,6 +621,24 @@ pub async fn handle_scrubber_event(
             s.scrubber_state.delay_state = None;
         });
     }
+
+    // Keep "global" scrubber progress fields in sync across all entrypoints (main loop, search,
+    // artist processing, etc.).
+    state.with_mut(|s| match &lib_event.event_type {
+        ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
+            anchor_timestamp, ..
+        } => {
+            s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
+        }
+        ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
+            s.scrubber_state.processed_count += 1;
+        }
+        ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
+            s.scrubber_state.rules_applied_count += 1;
+        }
+        _ => {}
+    });
+
     match &lib_event.event_type {
         ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
             tracks,

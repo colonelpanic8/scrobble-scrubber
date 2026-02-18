@@ -10,6 +10,11 @@ use std::path::{Path, PathBuf};
 pub enum TrackProviderType {
     Cached,
     Direct,
+    /// Use the local library mirror index as the source of tracks to process.
+    ///
+    /// This enables "sync and process at the same time": the scrubber can ingest observations into
+    /// the mirror while simultaneously processing items from the mirror worklist.
+    Mirror,
 }
 
 impl Default for TrackProviderType {
@@ -273,6 +278,8 @@ pub struct LastFmConfig {
     pub username: String,
     /// Last.fm password
     pub password: String,
+    /// Optional Last.fm public API key for `user.getRecentTracks` mirror sync.
+    pub api_key: Option<String>,
     /// Base URL for Last.fm (defaults to <https://www.last.fm>)
     pub base_url: Option<String>,
 }
@@ -438,6 +445,7 @@ impl Default for ScrobbleScrubberConfig {
             lastfm: LastFmConfig {
                 username: String::new(),
                 password: String::new(),
+                api_key: None,
                 base_url: None,
             },
         }

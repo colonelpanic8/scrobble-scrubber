@@ -32,6 +32,11 @@ pub struct TimestampState {
 pub struct FrontiersState {
     /// Slow-path anchor representing fully-caught-up progress.
     pub slow_anchor_timestamp: Option<DateTime<Utc>>,
+    /// Hint for the library page containing `slow_anchor_timestamp`.
+    ///
+    /// This is a best-effort optimization to avoid redoing the full exponential+binary anchor
+    /// search every cycle, especially when chunking catch-up work (`max_pages_per_cycle`).
+    pub slow_anchor_page_hint: Option<u32>,
     /// Latest timestamp processed via the fast-path (recent-page preprocessing).
     pub tip_last_processed_timestamp: Option<DateTime<Utc>>,
     /// Oldest timestamp seen in the last page fetched during fast-path preprocessing.

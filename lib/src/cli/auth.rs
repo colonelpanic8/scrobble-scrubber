@@ -1,6 +1,8 @@
 use crate::config::ScrobbleScrubberConfig;
 use crate::session_manager::SessionManager;
-use lastfm_edit::{LastFmEditClientImpl, LastFmError, Result};
+use lastfm_edit::{
+    ClientConfig, LastFmEditClientImpl, LastFmError, OperationalDelayConfig, Result, RetryConfig,
+};
 
 /// Create an authenticated Last.fm client, using saved session if available
 pub async fn create_authenticated_client(
@@ -15,9 +17,13 @@ pub async fn create_authenticated_client(
             persisted_session.username
         );
         let http_client = http_client::native::NativeClient::new();
-        return Ok(LastFmEditClientImpl::from_session(
+        let client_config = ClientConfig::default()
+            .with_retry_config(RetryConfig::unbounded())
+            .with_operational_delays(OperationalDelayConfig::default().with_get_delay_ms(1200));
+        return Ok(LastFmEditClientImpl::from_session_with_client_config(
             Box::new(http_client),
             persisted_session,
+            client_config,
         ));
     }
 
@@ -38,9 +44,13 @@ pub async fn create_authenticated_client(
         Ok(persisted_session) => {
             log::info!("Successfully logged in and saved session for future use");
             let http_client = http_client::native::NativeClient::new();
-            Ok(LastFmEditClientImpl::from_session(
+            let client_config = ClientConfig::default()
+                .with_retry_config(RetryConfig::unbounded())
+                .with_operational_delays(OperationalDelayConfig::default().with_get_delay_ms(1200));
+            Ok(LastFmEditClientImpl::from_session_with_client_config(
                 Box::new(http_client),
                 persisted_session,
+                client_config,
             ))
         }
         Err(e) => {

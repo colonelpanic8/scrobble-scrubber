@@ -4040,9 +4040,7 @@ dependencies = [
 
 [[package]]
 name = "lastfm-edit"
-version = "5.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f4438e976541207e16bd0d750e7b6e03b0cd235df3a1b80dc565b26fbf6ca0"
+version = "5.0.4"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6574,6 +6572,7 @@ dependencies = [
  "dioxus",
  "dioxus-router",
  "dirs 5.0.1",
+ "env_logger",
  "futures",
  "http-client-2",
  "image",

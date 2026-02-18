@@ -276,6 +276,34 @@
       "requires_confirmation": false
     },
     {
+      "name": "Remove Parenthetical Remastered Year (Reversed)",
+      "description": "Removes patterns like 'Album (Remastered 2009)'",
+      "examples": [
+        "Tattoo You (Remastered 2009) → Tattoo You",
+        "Let It Bleed (Remaster 2016) → Let It Bleed"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[(]\\s*Remaster(?:ed)?\\s+(\\d{4})\\s*[)]\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Parenthetical Year Re-Mastered",
+      "description": "Removes patterns like 'Album (2009 Re-Mastered)'",
+      "examples": [
+        "Tattoo You (2009 Re-Mastered) → Tattoo You",
+        "Sticky Fingers (2011 Re-Mastered) → Sticky Fingers"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*[(]\\s*\\d{4}\\s+Re[- ]?Master(?:ed)?\\s*[)]\\s*$",
+        "replace": "$1",
+        "flags": "i"
+      },
+      "requires_confirmation": false
+    },
+    {
       "name": "Remove Deluxe Remastered Edition",
       "description": "Removes patterns like 'Album (Deluxe Remastered Edition)' or 'Album (Deluxe Edition Remastered)'",
       "examples": [
@@ -324,6 +352,20 @@
       "album_name": {
         "find": "^(.+?) \\[.*?Remaster.*?\\]$",
         "replace": "$1"
+      },
+      "requires_confirmation": false
+    },
+    {
+      "name": "Remove Album Suffix Remastered Year",
+      "description": "Removes patterns like 'Album - Remastered 2009' or 'Album - Re-Mastered 2010'",
+      "examples": [
+        "Goats Head Soup - Remastered 2009 → Goats Head Soup",
+        "Tattoo You - Re-Mastered 2009 → Tattoo You"
+      ],
+      "album_name": {
+        "find": "^(.+?)\\s*-\\s*(?:Re[- ]?Master(?:ed)?|Remaster(?:ed)?)\\s+(\\d{4})\\s*$",
+        "replace": "$1",
+        "flags": "i"
       },
       "requires_confirmation": false
     },

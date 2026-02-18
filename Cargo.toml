@@ -24,3 +24,7 @@ inherits = "dev"
 #
 # NOTE: When iterating on local `lastfm-edit` changes, you can temporarily add a
 # `[patch.crates-io]` override here.
+
+[patch.crates-io]
+# Local development override (keep this while iterating on `lastfm-edit` changes).
+lastfm-edit = { path = "/home/imalison/Projects/lastfm-edit" }

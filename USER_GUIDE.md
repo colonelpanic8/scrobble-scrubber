@@ -110,6 +110,29 @@ Review changes before they're applied:
 4. **Review pending edits** and approve changes you want
 5. **Customize rules** as needed for your music library
 
+## Processing Model (Anchor + Frontiers)
+
+Scrobble Scrubber tracks progress using a timestamp "anchor" (a processing cursor).
+
+- The **anchor** is the timestamp up to which your library is considered fully processed.
+- Moving the anchor **backwards** causes older tracks to be reprocessed.
+- Moving the anchor **forwards** can skip work (use with care).
+
+To improve usability after long downtime, the scrubber can run in a **two-frontier** mode:
+
+- **Fast path (tip-first)**: optionally preprocess the most recent pages for responsiveness, without advancing the anchor.
+- **Slow path (catch-up)**: advance the anchor forward incrementally until it meets the fast-path coverage window.
+
+### Why "Anchor Search" Exists
+
+Last.fm exposes recent tracks as **newest-first pages**, and page numbers drift over time.
+Given only a timestamp anchor, the scrubber must first find which page currently contains that
+timestamp. It does this with an efficient exponential+binary **anchor page search**, then processes
+pages from that anchor page down toward page 1 (newest), updating the anchor as it goes.
+
+This is not a separate "cleaning model"; it is just the navigation step needed to resume processing
+from a timestamp cursor with a page-based upstream.
+
 ## Configuration Options
 
 ### Authentication Settings
@@ -121,7 +144,8 @@ Review changes before they're applied:
 ### Scrubber Behavior
 
 - **Check Interval**: How often to check for new tracks (default: 5 minutes)
-- **Max Tracks per Run**: Maximum tracks to process at once (default: 100)
+- **Max Pages per Cycle**: Limit how many pages are processed per cycle during catch-up (0/unset = unlimited)
+- **Preprocess Recent Pages**: Optionally process the newest N pages first for responsiveness (anchor unchanged)
 - **Require Confirmation**: Require manual approval before applying edits
 - **Auto-start**: Automatically start scrubbing when the app launches
 

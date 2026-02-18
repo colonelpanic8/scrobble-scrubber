@@ -1,6 +1,6 @@
 use lastfm_edit::{
-    LastFmEditClientImpl, LastFmEditSession, Result as LastFmResult,
-    SessionManager as LastFmSessionManager,
+    ClientConfig, LastFmEditClientImpl, LastFmEditSession, OperationalDelayConfig,
+    Result as LastFmResult, RetryConfig, SessionManager as LastFmSessionManager,
 };
 
 /// Manages session persistence and validation using lastfm-edit's SessionManager
@@ -156,9 +156,16 @@ impl SessionManager {
         log::info!("Creating new Last.fm session...");
 
         let http_client = http_client::native::NativeClient::new();
-        let client =
-            LastFmEditClientImpl::login_with_credentials(Box::new(http_client), username, password)
-                .await?;
+        let client_config = ClientConfig::default()
+            .with_retry_config(RetryConfig::unbounded())
+            .with_operational_delays(OperationalDelayConfig::default().with_get_delay_ms(1200));
+        let client = LastFmEditClientImpl::login_with_credentials_and_client_config(
+            Box::new(http_client),
+            username,
+            password,
+            client_config,
+        )
+        .await?;
 
         let session = client.get_session();
 

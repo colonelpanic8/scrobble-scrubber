@@ -81,6 +81,17 @@ enum ScrubberCommands {
         #[arg(long)]
         dry_run: bool,
 
+        /// Limit how many pages are processed per cycle when catching up.
+        ///
+        /// Use 0 for unlimited (no per-cycle limit).
+        #[arg(long)]
+        max_pages_per_cycle: Option<u32>,
+
+        /// Process the most recent N pages first (newest-first) for responsiveness, without
+        /// advancing the persisted anchor.
+        #[arg(long)]
+        preprocess_recent_pages: Option<u32>,
+
         /// Require confirmation for all edits
         #[arg(long)]
         require_confirmation: bool,
@@ -102,6 +113,49 @@ enum ScrubberCommands {
         /// Dry run mode - don't actually make any edits
         #[arg(long)]
         dry_run: bool,
+
+        /// Limit how many pages are processed per cycle when catching up.
+        ///
+        /// Use 0 for unlimited (no per-cycle limit).
+        #[arg(long)]
+        max_pages_per_cycle: Option<u32>,
+
+        /// Process the most recent N pages first (newest-first) for responsiveness, without
+        /// advancing the persisted anchor.
+        #[arg(long)]
+        preprocess_recent_pages: Option<u32>,
+
+        /// Require confirmation for all edits
+        #[arg(long)]
+        require_confirmation: bool,
+
+        /// Disable all confirmation prompts (overrides config and --require-confirmation)
+        #[arg(long)]
+        no_confirmation: bool,
+
+        /// Require confirmation for proposed rewrite rules
+        #[arg(long)]
+        require_proposed_rule_confirmation: bool,
+    },
+    /// Keep running processing cycles until the scrubber considers itself caught up.
+    ///
+    /// This is like `once`, but persistent: on rate limits it will cool down and retry,
+    /// and when `--max-pages-per-cycle` is set it will run multiple cycles until caught up.
+    CatchUp {
+        /// Dry run mode - don't actually make any edits
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Limit how many pages are processed per cycle when catching up.
+        ///
+        /// Use 0 for unlimited (no per-cycle limit).
+        #[arg(long)]
+        max_pages_per_cycle: Option<u32>,
+
+        /// Process the most recent N pages first (newest-first) for responsiveness, without
+        /// advancing the persisted anchor.
+        #[arg(long)]
+        preprocess_recent_pages: Option<u32>,
 
         /// Require confirmation for all edits
         #[arg(long)]
@@ -389,8 +443,30 @@ enum MirrorCommands {
         #[arg(long, default_value = "0")]
         overlap_seconds: u64,
     },
+    /// Keep syncing until the mirror is fully in sync with upstream (tip + tail)
+    CatchUp {
+        /// Newest pages to refresh each cycle (keeps the tip current while backfilling).
+        #[arg(long, default_value = "1")]
+        tip_pages_per_cycle: u32,
+
+        /// Number of pages to backfill each cycle when extending the tail.
+        #[arg(long, default_value = "25")]
+        older_pages_per_cycle: u32,
+
+        /// Overlap window (seconds) to avoid misses when timestamps tie across pages
+        #[arg(long, default_value = "2")]
+        overlap_seconds: u64,
+
+        /// Safety bound to avoid infinite loops (0 = unlimited).
+        #[arg(long, default_value = "0")]
+        max_cycles: u32,
+    },
     /// Print a summary of mirror coverage
-    Status,
+    Status {
+        /// Also fetch upstream page 1 and report whether the mirrored tip is current.
+        #[arg(long)]
+        check_upstream: bool,
+    },
     /// Print the most recent scrobbles from the mirror index
     Recent {
         /// Maximum number of scrobbles to print
@@ -462,6 +538,8 @@ fn merge_args_into_config(
             ScrubberCommands::Run {
                 interval,
                 dry_run,
+                max_pages_per_cycle,
+                preprocess_recent_pages,
                 require_confirmation,
                 no_confirmation,
                 require_proposed_rule_confirmation,
@@ -471,6 +549,13 @@ fn merge_args_into_config(
                 }
                 if *dry_run {
                     config.scrubber.dry_run = true;
+                }
+                if let Some(pages) = max_pages_per_cycle {
+                    config.scrubber.max_pages_per_cycle =
+                        if *pages == 0 { None } else { Some(*pages) };
+                }
+                if let Some(pages) = preprocess_recent_pages {
+                    config.scrubber.preprocess_recent_pages = *pages;
                 }
                 if *no_confirmation {
                     config.scrubber.require_confirmation = false;
@@ -487,12 +572,51 @@ fn merge_args_into_config(
             ScrubberCommands::Once {
                 set_anchor_timestamp: _,
                 dry_run,
+                max_pages_per_cycle,
+                preprocess_recent_pages,
                 require_confirmation,
                 no_confirmation,
                 require_proposed_rule_confirmation,
             } => {
                 if *dry_run {
                     config.scrubber.dry_run = true;
+                }
+                if let Some(pages) = max_pages_per_cycle {
+                    config.scrubber.max_pages_per_cycle =
+                        if *pages == 0 { None } else { Some(*pages) };
+                }
+                if let Some(pages) = preprocess_recent_pages {
+                    config.scrubber.preprocess_recent_pages = *pages;
+                }
+                if *no_confirmation {
+                    config.scrubber.require_confirmation = false;
+                    config.scrubber.require_proposed_rule_confirmation = false;
+                } else {
+                    if *require_confirmation {
+                        config.scrubber.require_confirmation = true;
+                    }
+                    if *require_proposed_rule_confirmation {
+                        config.scrubber.require_proposed_rule_confirmation = true;
+                    }
+                }
+            }
+            ScrubberCommands::CatchUp {
+                dry_run,
+                max_pages_per_cycle,
+                preprocess_recent_pages,
+                require_confirmation,
+                no_confirmation,
+                require_proposed_rule_confirmation,
+            } => {
+                if *dry_run {
+                    config.scrubber.dry_run = true;
+                }
+                if let Some(pages) = max_pages_per_cycle {
+                    config.scrubber.max_pages_per_cycle =
+                        if *pages == 0 { None } else { Some(*pages) };
+                }
+                if let Some(pages) = preprocess_recent_pages {
+                    config.scrubber.preprocess_recent_pages = *pages;
                 }
                 if *no_confirmation {
                     config.scrubber.require_confirmation = false;
@@ -727,9 +851,10 @@ pub async fn run() -> Result<()> {
                     #[cfg(feature = "mirror")]
                     {
                         if !config.lastfm.username.trim().is_empty() {
-                            if let Ok(m) = LibraryMirror::open(
+                            if let Ok(m) = LibraryMirror::open_with_api_key(
                                 &config.lastfm.username,
                                 &config.storage.state_file,
+                                config.lastfm.api_key.clone(),
                             ) {
                                 let _ = m.ingest_repo();
                                 let newest = m.newest_played_at().ok().flatten();
@@ -768,9 +893,10 @@ pub async fn run() -> Result<()> {
                     #[cfg(feature = "mirror")]
                     {
                         if !config.lastfm.username.trim().is_empty() {
-                            if let Ok(m) = LibraryMirror::open(
+                            if let Ok(m) = LibraryMirror::open_with_api_key(
                                 &config.lastfm.username,
                                 &config.storage.state_file,
+                                config.lastfm.api_key.clone(),
                             ) {
                                 let _ = m.ingest_repo();
                                 let observed =
@@ -790,9 +916,10 @@ pub async fn run() -> Result<()> {
                     #[cfg(feature = "mirror")]
                     {
                         if !config.lastfm.username.trim().is_empty() {
-                            if let Ok(m) = LibraryMirror::open(
+                            if let Ok(m) = LibraryMirror::open_with_api_key(
                                 &config.lastfm.username,
                                 &config.storage.state_file,
+                                config.lastfm.api_key.clone(),
                             ) {
                                 let _ = m.ingest_repo();
                                 let observed = m
@@ -813,9 +940,10 @@ pub async fn run() -> Result<()> {
                     #[cfg(feature = "mirror")]
                     {
                         if !config.lastfm.username.trim().is_empty() {
-                            if let Ok(m) = LibraryMirror::open(
+                            if let Ok(m) = LibraryMirror::open_with_api_key(
                                 &config.lastfm.username,
                                 &config.storage.state_file,
+                                config.lastfm.api_key.clone(),
                             ) {
                                 let _ = m.ingest_repo();
                                 let rows =
@@ -933,6 +1061,28 @@ pub async fn run() -> Result<()> {
                         "Tip floor exclusive: {:?}",
                         frontiers.tip_floor_exclusive_timestamp
                     );
+
+                    let caught_up_to_tip = match (
+                        frontiers.slow_anchor_timestamp,
+                        frontiers.tip_last_processed_timestamp,
+                    ) {
+                        (Some(slow), Some(tip)) => slow >= tip,
+                        _ => false,
+                    };
+
+                    let slow_in_tip_window = match (
+                        frontiers.slow_anchor_timestamp,
+                        frontiers.tip_floor_exclusive_timestamp,
+                    ) {
+                        // Tip window is `> floor_exclusive`, so require strict > here too.
+                        (Some(slow), Some(floor)) => slow > floor,
+                        _ => false,
+                    };
+
+                    println!("Derived");
+                    println!("-------");
+                    println!("Caught up to tip: {caught_up_to_tip}");
+                    println!("Slow anchor in tip window: {slow_in_tip_window}");
                 }
                 TimestampCommands::ResetTip => {
                     use crate::persistence::StateStorage as _;
@@ -973,8 +1123,12 @@ pub async fn run() -> Result<()> {
                 )));
             }
 
-            let mirror = LibraryMirror::open(&config.lastfm.username, &config.storage.state_file)
-                .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+            let mirror = LibraryMirror::open_with_api_key(
+                &config.lastfm.username,
+                &config.storage.state_file,
+                config.lastfm.api_key.clone(),
+            )
+            .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
 
             // Always ingest first so the index reflects any git-pulled changes.
             mirror
@@ -1001,7 +1155,109 @@ pub async fn run() -> Result<()> {
                         .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
                     println!("Observed {observed} scrobble(s) from older pages");
                 }
-                MirrorCommands::Status => {
+                MirrorCommands::CatchUp {
+                    tip_pages_per_cycle,
+                    older_pages_per_cycle,
+                    overlap_seconds,
+                    max_cycles,
+                } => {
+                    let client = auth::create_authenticated_client(&config).await?;
+
+                    let page_1 = client.get_recent_tracks_page(1).await?;
+                    let upstream_total_pages = page_1.total_pages;
+                    let upstream_newest = page_1.tracks.iter().find_map(|t| t.timestamp);
+                    let upstream_oldest = match upstream_total_pages {
+                        Some(p) if p > 0 => {
+                            let last_page = client.get_recent_tracks_page(p).await?;
+                            last_page.tracks.iter().filter_map(|t| t.timestamp).min()
+                        }
+                        _ => None,
+                    };
+
+                    println!("Mirror catch-up for user '{}':", config.lastfm.username);
+                    println!("  upstream_total_pages: {upstream_total_pages:?}");
+                    println!("  upstream_newest_played_at: {upstream_newest:?}");
+                    println!("  upstream_oldest_played_at: {upstream_oldest:?}");
+                    println!("  tip_pages_per_cycle: {tip_pages_per_cycle}");
+                    println!("  older_pages_per_cycle: {older_pages_per_cycle}");
+                    println!("  overlap_seconds: {overlap_seconds}");
+                    println!("  max_cycles: {max_cycles}");
+
+                    let mut cycle = 0u32;
+                    let mut last_oldest = None::<u64>;
+
+                    loop {
+                        cycle += 1;
+                        if *max_cycles != 0 && cycle > *max_cycles {
+                            println!("Reached max_cycles={max_cycles}; stopping.");
+                            break;
+                        }
+
+                        let newest = mirror
+                            .newest_played_at()
+                            .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+                        let oldest = mirror
+                            .oldest_played_at()
+                            .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
+
+                        let tip_caught_up = match (newest, upstream_newest) {
+                            (Some(local), Some(upstream)) => local >= upstream,
+                            _ => false,
+                        };
+                        let tail_caught_up = match (oldest, upstream_oldest) {
+                            (Some(local), Some(upstream)) => local <= upstream,
+                            _ => false,
+                        };
+                        let fully_synced = tip_caught_up && tail_caught_up;
+
+                        println!("Cycle {cycle}:");
+                        println!("  newest_played_at: {newest:?}");
+                        println!("  oldest_played_at: {oldest:?}");
+                        println!("  tip_caught_up: {tip_caught_up}");
+                        println!("  tail_caught_up: {tail_caught_up}");
+                        println!("  fully_synced: {fully_synced}");
+
+                        if fully_synced {
+                            break;
+                        }
+
+                        if !tip_caught_up {
+                            let observed = mirror
+                                .sync_tip_pages(&client, *tip_pages_per_cycle)
+                                .await
+                                .map_err(|e| {
+                                    LastFmError::Io(std::io::Error::other(e.to_string()))
+                                })?;
+                            println!("  synced tip: observed={observed}");
+                        }
+
+                        if !tail_caught_up {
+                            let before = oldest;
+                            let observed = mirror
+                                .sync_older_pages(&client, *older_pages_per_cycle, *overlap_seconds)
+                                .await
+                                .map_err(|e| {
+                                    LastFmError::Io(std::io::Error::other(e.to_string()))
+                                })?;
+                            let after = mirror.oldest_played_at().map_err(|e| {
+                                LastFmError::Io(std::io::Error::other(e.to_string()))
+                            })?;
+                            println!("  synced older: observed={observed}, oldest {before:?} -> {after:?}");
+
+                            // Safety: if the tail doesn't move, avoid looping forever.
+                            if after == before {
+                                if last_oldest == after {
+                                    println!("  tail did not advance for two consecutive cycles; stopping.");
+                                    break;
+                                }
+                                last_oldest = after;
+                            } else {
+                                last_oldest = None;
+                            }
+                        }
+                    }
+                }
+                MirrorCommands::Status { check_upstream } => {
                     let newest = mirror
                         .newest_played_at()
                         .map_err(|e| LastFmError::Io(std::io::Error::other(e.to_string())))?;
@@ -1013,6 +1269,38 @@ pub async fn run() -> Result<()> {
                     println!("  oldest_played_at: {oldest:?}");
                     println!("  repo_root: {}", mirror.repo().root().display());
                     println!("  index_path: {}", mirror.index().path().display());
+
+                    if *check_upstream {
+                        let client = auth::create_authenticated_client(&config).await?;
+                        let page_1 = client.get_recent_tracks_page(1).await?;
+                        let upstream_newest = page_1.tracks.iter().find_map(|t| t.timestamp);
+                        let upstream_total_pages = page_1.total_pages;
+
+                        let upstream_oldest = match upstream_total_pages {
+                            Some(p) if p > 0 => {
+                                let last_page = client.get_recent_tracks_page(p).await?;
+                                last_page.tracks.iter().filter_map(|t| t.timestamp).min()
+                            }
+                            _ => None,
+                        };
+
+                        let tip_caught_up = match (newest, upstream_newest) {
+                            (Some(local), Some(upstream)) => local >= upstream,
+                            _ => false,
+                        };
+                        let tail_caught_up = match (oldest, upstream_oldest) {
+                            (Some(local), Some(upstream)) => local <= upstream,
+                            _ => false,
+                        };
+                        let fully_synced = tip_caught_up && tail_caught_up;
+
+                        println!("  upstream_total_pages: {upstream_total_pages:?}");
+                        println!("  upstream_newest_played_at: {upstream_newest:?}");
+                        println!("  upstream_oldest_played_at: {upstream_oldest:?}");
+                        println!("  tip_caught_up: {tip_caught_up}");
+                        println!("  tail_caught_up: {tail_caught_up}");
+                        println!("  fully_synced: {fully_synced}");
+                    }
                 }
                 MirrorCommands::Recent { limit } => {
                     let rows = mirror
@@ -1355,89 +1643,171 @@ pub async fn run() -> Result<()> {
 
     let mut scrubber_guard = scrubber.lock().await;
     match &args.command {
-        Commands::Scrubber(scrubber_cmd) => match scrubber_cmd {
-            ScrubberCommands::Run { .. } => {
-                log::info!("Starting continuous monitoring mode");
-                scrubber_guard.run().await?;
-            }
-            ScrubberCommands::Once {
-                set_anchor_timestamp,
-                ..
-            } => {
-                if let Some(timestamp_str) = set_anchor_timestamp {
-                    log::info!("Setting timestamp anchor before processing");
-                    drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
-                    set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
-                    scrubber_guard = scrubber.lock().await; // Re-acquire lock
+        Commands::Scrubber(scrubber_cmd) => {
+            match scrubber_cmd {
+                ScrubberCommands::Run { .. } => {
+                    log::info!("Starting continuous monitoring mode");
+                    scrubber_guard.run().await?;
                 }
-                log::info!("Running single pass");
-                scrubber_guard.trigger_run().await?;
-            }
-            ScrubberCommands::LastN {
-                tracks,
-                rule_focus,
-                no_existing_rules,
-                ..
-            } => {
-                let mode_info = match (rule_focus, no_existing_rules) {
-                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
-                    (true, false) => " (rule focus mode)",
-                    (false, true) => " (no existing rules)",
-                    (false, false) => "",
-                };
-                log::info!("Processing last {tracks} tracks{mode_info}");
-                scrubber_guard.process_last_n_tracks(*tracks).await?;
-            }
-            ScrubberCommands::Artist { name, album, .. } => {
-                if let Some(album_name) = album {
-                    log::info!("Processing tracks for album '{album_name}' by artist '{name}'");
-                    scrubber_guard.process_album(name, album_name).await?;
-                } else {
-                    log::info!("Processing all tracks for artist '{name}'");
-                    scrubber_guard.process_artist(name).await?;
+                ScrubberCommands::Once {
+                    set_anchor_timestamp,
+                    ..
+                } => {
+                    if let Some(timestamp_str) = set_anchor_timestamp {
+                        log::info!("Setting timestamp anchor before processing");
+                        drop(scrubber_guard); // Release lock before calling set_timestamp_anchor_to_timestamp
+                        set_timestamp_anchor_to_timestamp(&storage, timestamp_str).await?;
+                        scrubber_guard = scrubber.lock().await; // Re-acquire lock
+                    }
+                    log::info!("Running single pass");
+                    scrubber_guard.trigger_run().await?;
                 }
-            }
-            ScrubberCommands::Search {
-                query,
-                limit,
-                rule_focus,
-                no_existing_rules,
-                ..
-            } => {
-                let mode_info = match (rule_focus, no_existing_rules) {
-                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
-                    (true, false) => " (rule focus mode)",
-                    (false, true) => " (no existing rules)",
-                    (false, false) => "",
-                };
-                log::info!(
+                ScrubberCommands::CatchUp { .. } => {
+                    use crate::persistence::StateStorage as _;
+
+                    log::info!("Running catch-up cycles until caught up (Ctrl-C to stop)...");
+
+                    // Don't hold the scrubber lock across sleeps/retries.
+                    drop(scrubber_guard);
+
+                    let stop_notifier = scrubber_handle.stop_notifier();
+                    let mut rate_limit_streak: u32 = 0;
+                    loop {
+                        let res = tokio::select! {
+                            _ = stop_notifier.notified() => break,
+                            res = async {
+                                let mut guard = scrubber.lock().await;
+                                guard.trigger_run().await
+                            } => res,
+                        };
+
+                        match res {
+                            Ok(()) => {
+                                rate_limit_streak = 0;
+
+                                let frontiers =
+                                    storage.lock().await.load_frontiers_state().await.map_err(
+                                        |e| {
+                                            LastFmError::Io(std::io::Error::other(format!(
+                                                "Failed to load frontiers state: {e}"
+                                            )))
+                                        },
+                                    )?;
+
+                                let caught_up = match (
+                                    frontiers.slow_anchor_timestamp,
+                                    frontiers.tip_last_processed_timestamp,
+                                ) {
+                                    (Some(slow), Some(tip)) => slow >= tip,
+                                    _ => {
+                                        // If the fast-path tip frontier isn't available, we can't
+                                        // reliably decide "caught up" without extra upstream checks.
+                                        // Treat a successful cycle as "done" to avoid infinite loops.
+                                        println!("Cycle completed, but no tip frontier is available to verify caught-up state.");
+                                        break;
+                                    }
+                                };
+
+                                if caught_up {
+                                    println!("Caught up.");
+                                    break;
+                                }
+
+                                // Not caught up yet (usually due to a per-cycle page limit). Run another cycle.
+                                continue;
+                            }
+                            Err(e) => {
+                                if let LastFmError::RateLimit { retry_after, .. } = e {
+                                    rate_limit_streak = rate_limit_streak.saturating_add(1);
+                                    let multiplier = 2u64
+                                        .saturating_pow(rate_limit_streak.saturating_sub(1).min(4));
+                                    let wait_seconds = (retry_after as u64)
+                                        .saturating_mul(multiplier)
+                                        .max(retry_after as u64);
+
+                                    eprintln!(
+                                    "Rate limited; cooling down for {wait_seconds}s (retry-after={retry_after}s, consecutive={rate_limit_streak})"
+                                );
+
+                                    tokio::select! {
+                                        _ = tokio::time::sleep(std::time::Duration::from_secs(wait_seconds)) => {},
+                                        _ = stop_notifier.notified() => { break; }
+                                    }
+
+                                    continue;
+                                }
+
+                                return Err(e);
+                            }
+                        }
+                    }
+                }
+                ScrubberCommands::LastN {
+                    tracks,
+                    rule_focus,
+                    no_existing_rules,
+                    ..
+                } => {
+                    let mode_info = match (rule_focus, no_existing_rules) {
+                        (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                        (true, false) => " (rule focus mode)",
+                        (false, true) => " (no existing rules)",
+                        (false, false) => "",
+                    };
+                    log::info!("Processing last {tracks} tracks{mode_info}");
+                    scrubber_guard.process_last_n_tracks(*tracks).await?;
+                }
+                ScrubberCommands::Artist { name, album, .. } => {
+                    if let Some(album_name) = album {
+                        log::info!("Processing tracks for album '{album_name}' by artist '{name}'");
+                        scrubber_guard.process_album(name, album_name).await?;
+                    } else {
+                        log::info!("Processing all tracks for artist '{name}'");
+                        scrubber_guard.process_artist(name).await?;
+                    }
+                }
+                ScrubberCommands::Search {
+                    query,
+                    limit,
+                    rule_focus,
+                    no_existing_rules,
+                    ..
+                } => {
+                    let mode_info = match (rule_focus, no_existing_rules) {
+                        (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                        (true, false) => " (rule focus mode)",
+                        (false, true) => " (no existing rules)",
+                        (false, false) => "",
+                    };
+                    log::info!(
                     "Processing tracks matching search query '{query}' (limit: {limit}){mode_info}"
                 );
-                scrubber_guard.process_search(query, *limit).await?;
-            }
-            ScrubberCommands::SearchAlbums {
-                query,
-                limit,
-                rule_focus,
-                no_existing_rules,
-                ..
-            } => {
-                let mode_info = match (rule_focus, no_existing_rules) {
-                    (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
-                    (true, false) => " (rule focus mode)",
-                    (false, true) => " (no existing rules)",
-                    (false, false) => "",
-                };
-                let limit_info = match limit {
-                    Some(l) => format!("limit: {l} albums"),
-                    None => "no limit".to_string(),
-                };
-                log::info!(
+                    scrubber_guard.process_search(query, *limit).await?;
+                }
+                ScrubberCommands::SearchAlbums {
+                    query,
+                    limit,
+                    rule_focus,
+                    no_existing_rules,
+                    ..
+                } => {
+                    let mode_info = match (rule_focus, no_existing_rules) {
+                        (true, true) => " (PATTERN ANALYSIS MODE - rule focus, no existing rules)",
+                        (true, false) => " (rule focus mode)",
+                        (false, true) => " (no existing rules)",
+                        (false, false) => "",
+                    };
+                    let limit_info = match limit {
+                        Some(l) => format!("limit: {l} albums"),
+                        None => "no limit".to_string(),
+                    };
+                    log::info!(
                     "Processing tracks from albums matching search query '{query}' ({limit_info}){mode_info}"
                 );
-                scrubber_guard.process_search_albums(query, *limit).await?;
+                    scrubber_guard.process_search_albums(query, *limit).await?;
+                }
             }
-        },
+        }
         Commands::TrackCache(_)
         | Commands::Rules(_)
         | Commands::Pending(_)

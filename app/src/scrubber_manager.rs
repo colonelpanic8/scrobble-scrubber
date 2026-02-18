@@ -9,7 +9,9 @@ use ::scrobble_scrubber::scrub_action_provider::{
 };
 use ::scrobble_scrubber::scrubber::ScrobbleScrubber;
 use dioxus::prelude::*;
-use lastfm_edit::{LastFmEditClientImpl, LastFmEditSession};
+use lastfm_edit::{
+    ClientConfig, LastFmEditClientImpl, LastFmEditSession, OperationalDelayConfig, RetryConfig,
+};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -25,7 +27,14 @@ pub async fn create_scrubber_instance(
 
     // Create a client with the restored session
     let http_client = http_client::native::NativeClient::new();
-    let client = LastFmEditClientImpl::from_session(Box::new(http_client), session);
+    let client_config = ClientConfig::default()
+        .with_retry_config(RetryConfig::unbounded())
+        .with_operational_delays(OperationalDelayConfig::default().with_get_delay_ms(1200));
+    let client = LastFmEditClientImpl::from_session_with_client_config(
+        Box::new(http_client),
+        session,
+        client_config,
+    );
 
     // Create action provider chain with enabled providers
     let mut action_provider = OrScrubActionProvider::new();
@@ -75,6 +84,13 @@ pub async fn create_scrubber_instance(
             config.clone(),
         ),
         TrackProviderType::Direct => ScrobbleScrubber::with_direct_provider(
+            storage.clone(),
+            Box::new(client),
+            action_provider,
+            config.clone(),
+        ),
+        // Mirror-driven mode bypasses the track provider fetch path, but still needs a scrubber instance.
+        TrackProviderType::Mirror => ScrobbleScrubber::with_direct_provider(
             storage.clone(),
             Box::new(client),
             action_provider,

@@ -7,7 +7,9 @@ use crate::config::TrackProviderType;
 use crate::edit::{apply_edit_to_lastfm, dry_run_edit};
 use crate::events::ScrubberEvent;
 use crate::events::{LogEditInfo, ProcessingContext, ProcessingType};
-use crate::page_search::{fetch_page, AnchorPageWithTracks, AnchorSearchProgress};
+use crate::page_search::{
+    fetch_page_resilient_cancelable, AnchorPageWithTracks, AnchorSearchProgress,
+};
 use crate::persistence::{FrontiersState, PendingEdit, PendingRewriteRule, StateStorage};
 use crate::scrub_action_provider::{
     ScrubActionProvider, ScrubActionSuggestion, SuggestionWithContext,
@@ -20,6 +22,8 @@ use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 
 #[cfg(feature = "mirror")]
 use crate::mirror::LibraryMirror;
+#[cfg(feature = "mirror")]
+use scrobble_scrubber_mirror::index::WorklistOrder;
 
 #[derive(Debug, Clone, Copy)]
 struct RecentPreprocessResult {
@@ -73,6 +77,8 @@ pub struct ScrobbleScrubber<S: StateStorage, P: ScrubActionProvider> {
     event_sender: broadcast::Sender<ScrubberEvent>,
     trigger_immediate: Arc<Notify>,
     track_provider: TrackProvider,
+    // Consecutive cycle-level rate limit failures (used to reduce optional work).
+    rate_limit_streak: u32,
     #[cfg(feature = "mirror")]
     mirror: Option<LibraryMirror>,
 }
@@ -84,6 +90,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             lastfm_edit::LastFmError::Io(io) if io.kind() == std::io::ErrorKind::Interrupted
         )
     }
+
+    fn rate_limited_retry_after_seconds(e: &lastfm_edit::LastFmError) -> Option<u64> {
+        match e {
+            lastfm_edit::LastFmError::RateLimit { retry_after, .. } => Some(*retry_after),
+            _ => None,
+        }
+    }
     pub fn new(
         storage: Arc<Mutex<S>>,
         client: Box<dyn LastFmEditClient + Send + Sync>,
@@ -93,6 +106,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let provider = match config.scrubber.track_provider {
             TrackProviderType::Cached => TrackProvider::Cached(CachedTrackProvider::new()),
             TrackProviderType::Direct => TrackProvider::Direct(DirectTrackProvider::new()),
+            // Mirror-driven processing bypasses `TrackProvider` entirely, but we still need a value.
+            TrackProviderType::Mirror => TrackProvider::Direct(DirectTrackProvider::new()),
         };
         Self::with_track_provider(storage, client, action_provider, config, provider)
     }
@@ -113,7 +128,11 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             if username.is_empty() {
                 None
             } else {
-                match LibraryMirror::open(username, &config.storage.state_file) {
+                match LibraryMirror::open_with_api_key(
+                    username,
+                    &config.storage.state_file,
+                    config.lastfm.api_key.clone(),
+                ) {
                     Ok(m) => {
                         if let Err(e) = m.ingest_repo() {
                             log::warn!(
@@ -140,6 +159,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             event_sender,
             trigger_immediate: Arc::new(Notify::new()),
             track_provider,
+            rate_limit_streak: 0,
             #[cfg(feature = "mirror")]
             mirror,
         };
@@ -358,6 +378,10 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(
             self.config.scrubber.interval,
         ));
+        // Avoid running multiple cycles back-to-back if a cycle takes longer than the interval.
+        // The default "burst" behavior causes immediate catch-up ticks which looks like thrash
+        // after long rate limit waits.
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         interval.tick().await; // Skip the first immediate tick
 
         loop {
@@ -365,8 +389,35 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 // Regular interval tick
                 _ = interval.tick() => {
                     log::info!("Starting scheduled track monitoring cycle...");
-                    if let Err(e) = self.run_processing_cycle().await {
-                        log::warn!("Error during scheduled processing cycle: {e}");
+                    match self.run_processing_cycle().await {
+                        Ok(()) => {
+                            self.rate_limit_streak = 0;
+                        }
+                        Err(e) => {
+                            log::warn!("Error during scheduled processing cycle: {e}");
+
+                            if let Some(retry_after) = Self::rate_limited_retry_after_seconds(&e) {
+                                self.rate_limit_streak = self.rate_limit_streak.saturating_add(1);
+
+                                // Exponential-ish backoff on top of server-provided retry-after.
+                                // Cap multiplier so we don't end up sleeping for hours.
+                                let multiplier = 2u64
+                                    .saturating_pow(self.rate_limit_streak.saturating_sub(1).min(4));
+                                let wait_seconds = retry_after.saturating_mul(multiplier).max(retry_after);
+
+                                let msg = format!(
+                                    "Rate limited; cooling down for {wait_seconds}s (retry-after={retry_after}s, consecutive={})",
+                                    self.rate_limit_streak
+                                );
+                                log::warn!("{msg}");
+                                self.emit_event(ScrubberEvent::info(msg));
+
+                                tokio::select! {
+                                    _ = tokio::time::sleep(Duration::from_secs(wait_seconds)) => {}
+                                    _ = self.should_stop.notified() => { break; }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -376,8 +427,32 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     self.emit_event(ScrubberEvent::info(
                         "Immediate processing triggered".to_string(),
                     ));
-                    if let Err(e) = self.run_processing_cycle().await {
-                        log::warn!("Error during immediate processing cycle: {e}");
+                    match self.run_processing_cycle().await {
+                        Ok(()) => {
+                            self.rate_limit_streak = 0;
+                        }
+                        Err(e) => {
+                            log::warn!("Error during immediate processing cycle: {e}");
+
+                            if let Some(retry_after) = Self::rate_limited_retry_after_seconds(&e) {
+                                self.rate_limit_streak = self.rate_limit_streak.saturating_add(1);
+                                let multiplier = 2u64
+                                    .saturating_pow(self.rate_limit_streak.saturating_sub(1).min(4));
+                                let wait_seconds = retry_after.saturating_mul(multiplier).max(retry_after);
+
+                                let msg = format!(
+                                    "Rate limited; cooling down for {wait_seconds}s (retry-after={retry_after}s, consecutive={})",
+                                    self.rate_limit_streak
+                                );
+                                log::warn!("{msg}");
+                                self.emit_event(ScrubberEvent::info(msg));
+
+                                tokio::select! {
+                                    _ = tokio::time::sleep(Duration::from_secs(wait_seconds)) => {}
+                                    _ = self.should_stop.notified() => { break; }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -426,6 +501,23 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             ));
             return Ok(());
         }
+
+        if matches!(
+            self.config.scrubber.track_provider,
+            TrackProviderType::Mirror
+        ) {
+            #[cfg(feature = "mirror")]
+            {
+                return self.check_and_process_tracks_inner_mirror_driven().await;
+            }
+            #[cfg(not(feature = "mirror"))]
+            {
+                return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                    "Mirror track provider selected, but built without `mirror` feature",
+                )));
+            }
+        }
+
         // Step 1: Load unified frontiers state (slow-path anchor + fast-path tip state).
         let mut frontiers = self
             .storage
@@ -453,14 +545,20 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         // Optional: process most recent pages first for responsiveness (without advancing anchor).
         let mut fast_path_tip_for_cycle: Option<DateTime<Utc>> = None;
         let mut fast_path_floor_for_cycle: Option<DateTime<Utc>> = None;
-        if self.config.scrubber.preprocess_recent_pages > 0
+        if self.rate_limit_streak > 0 {
+            self.emit_event(ScrubberEvent::info(
+                "Skipping recent-page preprocessing due to rate limiting".to_string(),
+            ));
+        } else if self.config.scrubber.preprocess_recent_pages > 0
             && !self.stop_requested.load(Ordering::SeqCst)
         {
             let pages = self.config.scrubber.preprocess_recent_pages;
             let fast_tip = frontiers.tip_last_processed_timestamp;
-            self.emit_event(ScrubberEvent::info(format!(
+            let msg = format!(
                 "Preprocessing most recent {pages} page(s) for responsiveness (anchor unchanged)"
-            )));
+            );
+            log::info!("{msg}");
+            self.emit_event(ScrubberEvent::info(msg));
             match self
                 .preprocess_recent_pages_without_anchor_update(anchor_timestamp, pages, fast_tip)
                 .await
@@ -501,7 +599,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         }
 
         // Step 3: Use incremental processing with exponential search
-        let total_processed = match self
+        let (total_processed, hit_page_limit) = match self
             .process_tracks_incrementally(
                 &mut frontiers,
                 anchor_timestamp,
@@ -510,7 +608,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             )
             .await
         {
-            Ok(n) => n,
+            Ok((n, hit_limit)) => (n, hit_limit),
             Err(e) => {
                 if self.stop_requested.load(Ordering::SeqCst) && Self::is_cancelled_error(&e) {
                     self.emit_event(ScrubberEvent::info(
@@ -528,7 +626,192 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             total_processed,
             0, // We'll update this when we track rule applications
         ));
+
+        // If we deliberately chunked catch-up work (per-cycle page limit), immediately schedule the
+        // next cycle so we keep making progress without waiting for the normal interval.
+        //
+        // This keeps the "bounded work per cycle" UX while avoiding the "it did 50 and then sat
+        // there for a long time" perception (or reality, if interval is large).
+        if hit_page_limit && !self.stop_requested.load(Ordering::SeqCst) {
+            self.emit_event(ScrubberEvent::info(
+                "Catch-up backlog remains; scheduling another cycle immediately".to_string(),
+            ));
+            self.trigger_immediate.notify_one();
+        }
         Ok(())
+    }
+
+    #[cfg(feature = "mirror")]
+    async fn check_and_process_tracks_inner_mirror_driven(&mut self) -> Result<()> {
+        let Some(mirror) = self.mirror.clone() else {
+            return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                "Mirror track provider selected, but mirror is not available",
+            )));
+        };
+
+        let pages = self.config.scrubber.preprocess_recent_pages.max(1);
+        let older_pages: u32 = 1;
+        let overlap_seconds: u64 = 60;
+
+        self.emit_event(ScrubberEvent::info(format!(
+            "Mirror-driven cycle: syncing tip {pages} page(s) + older {older_pages} page(s), then processing from mirror worklist"
+        )));
+
+        // Budget by the existing "pages per cycle" knob so users don't get surprised by unlimited work.
+        let budget_tracks: usize = self
+            .config
+            .scrubber
+            .max_pages_per_cycle
+            .unwrap_or(10)
+            .saturating_mul(50) as usize;
+        let batch_size: usize = 50;
+
+        let mut tip_records = 0usize;
+        let mut older_records = 0usize;
+        let mut processed = 0usize;
+
+        // Interleave tip sync and processing so we can start processing after the first page lands.
+        for page in 1..=pages {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                break;
+            }
+            let tracks = match mirror
+                .fetch_recent_page_resilient_cancelable(self.client.as_ref(), page, || {
+                    self.stop_requested.load(Ordering::SeqCst)
+                })
+                .await
+            {
+                Ok(t) => t,
+                Err(crate::mirror::MirrorError::Lastfm(e)) => return Err(e),
+                Err(e) => {
+                    return Err(lastfm_edit::LastFmError::Io(std::io::Error::other(
+                        format!("Mirror page fetch failed: {e}"),
+                    )))
+                }
+            };
+
+            // Persist observations to the mirror index immediately.
+            if let Err(e) = mirror.append_scrobble_observations_from_page_with_source(
+                page,
+                &tracks,
+                mirror.sync_record_source(),
+                None,
+                None,
+            ) {
+                log::warn!("Failed to append mirror observations for page {page}: {e}");
+            } else {
+                tip_records = tip_records.saturating_add(tracks.len());
+            }
+
+            while processed < budget_tracks && !self.stop_requested.load(Ordering::SeqCst) {
+                // Newest-first first for responsiveness.
+                let n1 = self
+                    .process_mirror_worklist_batch(&mirror, WorklistOrder::NewestFirst, batch_size)
+                    .await?;
+                processed = processed.saturating_add(n1);
+                if processed >= budget_tracks || n1 > 0 {
+                    break;
+                }
+                let n2 = self
+                    .process_mirror_worklist_batch(&mirror, WorklistOrder::OldestFirst, batch_size)
+                    .await?;
+                processed = processed.saturating_add(n2);
+                if n2 == 0 {
+                    break;
+                }
+            }
+        }
+
+        if !self.stop_requested.load(Ordering::SeqCst) {
+            // Slow background extension of the mirror's floor. This may use anchor search internally.
+            match mirror
+                .sync_older_pages(self.client.as_ref(), older_pages, overlap_seconds)
+                .await
+            {
+                Ok(n) => older_records = n,
+                Err(crate::mirror::MirrorError::Lastfm(e)) => return Err(e),
+                Err(e) => log::warn!("Mirror older sync failed: {e}"),
+            }
+        }
+
+        while processed < budget_tracks && !self.stop_requested.load(Ordering::SeqCst) {
+            let n1 = self
+                .process_mirror_worklist_batch(&mirror, WorklistOrder::NewestFirst, batch_size)
+                .await?;
+            processed = processed.saturating_add(n1);
+            if processed >= budget_tracks || n1 > 0 {
+                continue;
+            }
+            let n2 = self
+                .process_mirror_worklist_batch(&mirror, WorklistOrder::OldestFirst, batch_size)
+                .await?;
+            processed = processed.saturating_add(n2);
+            if n2 == 0 {
+                break;
+            }
+        }
+
+        self.emit_event(ScrubberEvent::info(format!(
+            "Mirror-driven cycle complete (tip_records={tip_records}, older_records={older_records}); processed {processed} work item(s) this cycle"
+        )));
+        self.emit_event(ScrubberEvent::cycle_completed(processed, 0));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "mirror")]
+    async fn process_mirror_worklist_batch(
+        &mut self,
+        mirror: &LibraryMirror,
+        order: WorklistOrder,
+        batch_size: usize,
+    ) -> Result<usize> {
+        let items = match mirror.unprocessed_scrobbles(batch_size, order) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Mirror worklist query failed: {e}");
+                return Ok(0);
+            }
+        };
+        if items.is_empty() {
+            return Ok(0);
+        }
+
+        let tracks: Vec<lastfm_edit::Track> = items
+            .iter()
+            .map(|r| lastfm_edit::Track {
+                name: r.track.clone(),
+                artist: r.artist.clone(),
+                playcount: 1,
+                timestamp: Some(r.played_at),
+                album: r.album.clone(),
+                album_artist: r.album_artist.clone(),
+            })
+            .collect();
+
+        self.emit_event(ScrubberEvent::processing_batch_started(
+            tracks.clone(),
+            ProcessingType::Track,
+        ));
+
+        let mut processed_now = 0usize;
+        for (i, (row, track)) in items.iter().zip(tracks.iter()).enumerate() {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                break;
+            }
+
+            self.process_single_track_with_context(track, i, tracks.len(), ProcessingType::Track)
+                .await?;
+
+            // Mark as processed in the local mirror index so we can resume across runs.
+            let processed_at = Utc::now().timestamp() as u64;
+            if let Err(e) = mirror.mark_scrobble_processed(&row.key, processed_at, None) {
+                log::warn!("Failed to mark mirror work item processed: {e}");
+            }
+            processed_now += 1;
+        }
+
+        Ok(processed_now)
     }
 
     /// Process tracks incrementally using exponential search to find the anchor page,
@@ -540,17 +823,53 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         anchor_timestamp: DateTime<Utc>,
         fast_path_floor_exclusive: Option<DateTime<Utc>>,
         fast_path_tip: Option<DateTime<Utc>>,
-    ) -> Result<usize> {
+    ) -> Result<(usize, bool)> {
         log::debug!("Starting incremental processing with anchor at {anchor_timestamp}");
 
         // Step 1: Find the page containing the anchor using exponential search
         let progress_sender = self.event_sender.clone();
+        let mut page_hint = frontiers.slow_anchor_page_hint;
+        #[cfg(feature = "mirror")]
+        if let Some(mirror) = &self.mirror {
+            let anchor_ts_u64 = anchor_timestamp.timestamp() as u64;
+            match mirror.anchor_context_page_bounds(anchor_ts_u64) {
+                Ok(bounds) => {
+                    let lower = bounds
+                        .max_page_with_newer_tracks
+                        .map(|p| p.saturating_add(1));
+                    let upper = bounds.min_page_with_older_or_equal_tracks;
+                    let mirror_hint = match (lower, upper) {
+                        (Some(l), Some(u)) if l <= u => Some(l + (u - l) / 2),
+                        (Some(l), Some(_u)) => Some(l),
+                        (Some(l), None) => Some(l),
+                        (None, Some(u)) => Some(u),
+                        (None, None) => None,
+                    };
+
+                    if let Some(h) = mirror_hint {
+                        if page_hint != Some(h) {
+                            log::info!(
+                                "Anchor hint refined using mirror context: state_hint={page_hint:?}, mirror_bounds=({lower:?}, {upper:?}), using={h}"
+                            );
+                            self.emit_event(ScrubberEvent::info(format!(
+                                "Anchor search: using refined hint page {h} from mirror context"
+                            )));
+                        }
+                        page_hint = Some(h);
+                    }
+                }
+                Err(e) => {
+                    log::debug!("Failed to refine anchor hint from mirror context: {e}");
+                }
+            }
+        }
         let AnchorPageWithTracks {
             page: anchor_page,
             tracks: mut anchor_page_tracks,
-        } = match crate::page_search::find_anchor_page_with_tracks_with_progress_cancelable(
+        } = match crate::page_search::find_anchor_page_with_tracks_with_progress_cancelable_with_hint(
             self.client.as_ref(),
             anchor_timestamp,
+            page_hint,
             |progress| {
                 let msg = match progress {
                     AnchorSearchProgress::Started { anchor } => {
@@ -574,6 +893,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     AnchorSearchProgress::NoTracks => "Anchor search: no tracks found".to_string(),
                 };
 
+                // `ScrubberEvent::Info` isn't printed by the CLI by default; log it so long
+                // catch-up operations don't look like hangs.
+                log::info!("{msg}");
                 let _ = progress_sender.send(ScrubberEvent::info(msg));
             },
             || self.stop_requested.load(Ordering::SeqCst),
@@ -583,13 +905,14 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             Some(result) => result,
             None => {
                 log::info!("No tracks found to process");
-                return Ok(0);
+                return Ok((0, false));
             }
         };
 
         log::info!(
             "Found anchor on page {anchor_page}, will process pages {anchor_page} down to 1"
         );
+        frontiers.slow_anchor_page_hint = Some(anchor_page);
 
         // Emit event about total pages to process for progress UI
         self.emit_event(ScrubberEvent::tracks_found(
@@ -601,6 +924,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
         let mut current_anchor = anchor_timestamp;
         let max_pages = self.config.scrubber.max_pages_per_cycle;
         let mut pages_processed = 0u32;
+        let mut hit_page_limit = false;
 
         // Step 2: Process pages from anchor page down to page 1
         // This processes tracks in chronological order (oldest to newest)
@@ -616,11 +940,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     self.emit_event(ScrubberEvent::info(format!(
                         "Reached per-cycle page limit ({limit}); will continue next cycle"
                     )));
+                    hit_page_limit = true;
                     break;
                 }
             }
 
             log::debug!("Processing page {page} of {anchor_page}");
+            let msg = format!("Catch-up: processing page {page}/{anchor_page}");
+            log::info!("{msg}");
+            self.emit_event(ScrubberEvent::info(msg));
 
             // Fetch this page
             let mut page_tracks = if page == anchor_page {
@@ -628,7 +956,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                 std::mem::take(&mut anchor_page_tracks)
             } else {
                 let fetch_result = tokio::select! {
-                    res = fetch_page(self.client.as_ref(), page) => Some(res),
+                    res = fetch_page_resilient_cancelable(self.client.as_ref(), page, || self.stop_requested.load(Ordering::SeqCst)) => Some(res),
                     _ = self.should_stop.notified() => None,
                 };
                 match fetch_result {
@@ -673,6 +1001,9 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
             let page_track_count = page_tracks.len();
             log::info!("Processing {page_track_count} tracks from page {page}");
+            let msg = format!("Catch-up: processing {page_track_count} tracks from page {page}");
+            log::info!("{msg}");
+            self.emit_event(ScrubberEvent::info(msg));
 
             // Process this page's tracks
             self.process_tracks_individually_no_timestamp_update(&page_tracks)
@@ -690,6 +1021,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
 
                         // Save the updated anchor immediately for incremental progress.
                         frontiers.slow_anchor_timestamp = Some(current_anchor);
+                        // Best-effort: anchor page for this timestamp is usually the page we just processed.
+                        frontiers.slow_anchor_page_hint = Some(page);
                         self.storage
                             .lock()
                             .await
@@ -728,6 +1061,8 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                     )));
 
                     frontiers.slow_anchor_timestamp = Some(final_anchor);
+                    // Anchor jumps near the tip; page hint becomes unreliable.
+                    frontiers.slow_anchor_page_hint = None;
                     self.storage
                         .lock()
                         .await
@@ -760,7 +1095,7 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             tokio::task::yield_now().await;
         }
 
-        Ok(total_processed)
+        Ok((total_processed, hit_page_limit))
     }
 
     async fn preprocess_recent_pages_without_anchor_update(
@@ -788,8 +1123,13 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
             self.emit_event(ScrubberEvent::info(format!(
                 "Preprocess: fetching recent page {page}/{pages}"
             )));
+            log::info!("Preprocess: fetching recent page {page}/{pages}");
 
-            let mut page_tracks = fetch_page(self.client.as_ref(), page).await?;
+            let mut page_tracks =
+                fetch_page_resilient_cancelable(self.client.as_ref(), page, || {
+                    self.stop_requested.load(Ordering::SeqCst)
+                })
+                .await?;
             if page_tracks.is_empty() {
                 break;
             }
@@ -2079,9 +2419,15 @@ impl<S: StateStorage, P: ScrubActionProvider> ScrobbleScrubber<S, P> {
                         e.to_string(),
                     ));
 
-                    // For timeout errors, warn and continue instead of failing
-                    if e.contains("Timeout") {
-                        log::info!("Continuing after timeout error");
+                    // For certain operational errors, warn and continue instead of failing the run.
+                    // Rationale: we want long-running scrub/reprocess jobs to make progress even if
+                    // Last.fm's HTML shape changes for a single track page.
+                    let is_timeout = e.contains("Timeout");
+                    let is_missing_form = e.contains("No scrobble forms found")
+                        || e.contains("No chartlist table found on track page");
+
+                    if is_timeout || is_missing_form {
+                        log::info!("Continuing after non-fatal edit error");
                         // Don't return an error, just continue processing
                     } else {
                         return Err(lastfm_edit::LastFmError::EditFailed(e));

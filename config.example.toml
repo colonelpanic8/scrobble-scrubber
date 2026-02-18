@@ -5,6 +5,8 @@
 [scrubber]
 # Check interval in seconds (default: 300)
 interval = 300
+# Track provider: "direct" (no caching), "cached" (legacy TrackCache), or "mirror" (process from mirror index)
+# track_provider = "direct"
 # Optional: limit how many pages are processed per cycle during catch-up (default: unlimited)
 # max_pages_per_cycle = 10
 # Optional: process the most recent N pages first for responsiveness (default: 0)
@@ -18,6 +20,8 @@ require_confirmation = false
 # Last.fm credentials (required)
 username = "your_lastfm_username"
 password = "your_lastfm_password"
+# Optional: Last.fm public API key (used for API-based mirror sync via user.getRecentTracks)
+# api_key = "your_lastfm_api_key"
 # Base URL (optional, defaults to https://www.last.fm)
 base_url = "https://www.last.fm"
 

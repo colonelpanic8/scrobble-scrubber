@@ -3,7 +3,7 @@ use crate::components::{
     DelayIndicator, RateLimitIndicator, ScrubberControlsSection, TimestampManagementSection,
     TrackProcessingProgressView,
 };
-use crate::scrubber_manager::get_or_create_scrubber;
+use crate::scrubber_manager::{clear_scrubber_instance, get_or_create_scrubber};
 use crate::types::{AppState, ScrubberStatus};
 use ::scrobble_scrubber::events::ScrubberEvent;
 use chrono::Utc;
@@ -33,6 +33,14 @@ pub fn ScrobbleScrubberPage(mut state: Signal<AppState>) -> Element {
 }
 
 pub async fn start_scrubber(mut state: Signal<AppState>) {
+    // Always recreate a scrubber instance for the background loop.
+    //
+    // Rationale: the scrubber handle uses a `Notify` for stop. Once notified, it can remain
+    // "signaled" and cause a subsequent start to immediately stop without doing work, which
+    // looks like "it did one batch and then stopped making progress".
+    clear_scrubber_instance(state);
+    state.with_mut(|s| s.scrubber_handle = None);
+
     // Set status to starting
     state.with_mut(|s| s.scrubber_state.status = ScrubberStatus::Starting);
 
@@ -96,6 +104,10 @@ pub async fn stop_scrubber(mut state: Signal<AppState>) {
     if let Some(handle) = state.read().scrubber_handle.clone() {
         handle.stop();
     }
+
+    // Force recreation on next start (see comment in `start_scrubber`).
+    clear_scrubber_instance(state);
+    state.with_mut(|s| s.scrubber_handle = None);
 }
 
 pub async fn trigger_manual_processing(mut state: Signal<AppState>) {
@@ -491,108 +503,72 @@ async fn process_with_scrubber(
     let start_event = ScrubberEvent {
         timestamp: Utc::now(),
         event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-            "Starting cache-based track processing...".to_string(),
+            "Starting scrubber processing cycle...".to_string(),
         ),
     };
     let _ = sender.send(start_event.clone());
     state.with_mut(|s| s.scrubber_state.events.push(start_event));
 
-    // Run a single processing cycle using cache-based processing
-    let processing_result = scrubber.trigger_run().await;
+    // Run the processing cycle while concurrently draining/forwarding events so the UI doesn't
+    // appear "hung" during long waits (rate limiting, backoff, anchor search, etc.).
+    let mut processing_future = Box::pin(scrubber.trigger_run());
+    let mut processing_result: Option<lastfm_edit::Result<()>> = None;
+    let mut events_closed = false;
 
-    // Process events after scrubbing completes - forward ALL events without compression
-    let mut has_cycle_completed = false;
-
-    while !has_cycle_completed {
-        match tokio::time::timeout(
-            tokio::time::Duration::from_millis(500),
-            event_receiver.recv(),
-        )
-        .await
-        {
-            Ok(Ok(lib_event)) => {
-                // Forward ALL events to both broadcast channel and state without any filtering
-                let _ = sender.send(lib_event.clone());
-
-                // Handle special state updates for certain event types
-                match &lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::AnchorUpdated {
-                        anchor_timestamp,
-                        ..
-                    } => {
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.scrubber_state.current_anchor_timestamp = Some(*anchor_timestamp);
-                        });
+    while processing_result.is_none() {
+        tokio::select! {
+            res = &mut processing_future => {
+                processing_result = Some(res);
+            }
+            recv_res = event_receiver.recv(), if !events_closed => {
+                match recv_res {
+                    Ok(lib_event) => {
+                        let _ = sender.send(lib_event.clone());
+                        handle_scrubber_event(lib_event, *state).await;
                     }
-                    ::scrobble_scrubber::events::ScrubberEventType::CycleCompleted { .. } => {
-                        has_cycle_completed = true;
-                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        // Ignore: we missed some events; keep processing.
                     }
-                    ::scrobble_scrubber::events::ScrubberEventType::ProcessingBatchStarted {
-                        tracks,
-                        processing_type,
-                    } => {
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.start_batch(
-                                tracks.clone(),
-                                processing_type.display_name().to_string(),
-                            );
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingStarted {
-                        track_index,
-                        ..
-                    } => {
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.start_track_processing(*track_index);
-                        });
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessingCompleted {
-                        track_index,
-                        success,
-                        result,
-                        ..
-                    } => {
-                        state.with_mut(|s| {
-                            s.scrubber_state.events.push(lib_event.clone());
-                            s.track_progress_state.complete_track_processing(
-                                *track_index,
-                                *success,
-                                result.summary(),
-                            );
-                        });
-                    }
-                    _ => {
-                        // Add all other events to state
-                        state.with_mut(|s| s.scrubber_state.events.push(lib_event.clone()));
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        events_closed = true;
                     }
                 }
-
-                // Update global counters
-                state.with_mut(|s| match &lib_event.event_type {
-                    ::scrobble_scrubber::events::ScrubberEventType::TrackProcessed { .. } => {
-                        s.scrubber_state.processed_count += 1;
-                    }
-                    ::scrobble_scrubber::events::ScrubberEventType::RuleApplied { .. } => {
-                        s.scrubber_state.rules_applied_count += 1;
-                    }
-                    _ => {}
-                });
             }
-            Ok(Err(_)) => break, // Channel closed
-            Err(_) => break,     // Timeout - stop waiting
         }
     }
+
+    // Best-effort: drain any remaining events emitted right after the processing future resolves.
+    if !events_closed {
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                recv_res = event_receiver.recv() => {
+                    match recv_res {
+                        Ok(lib_event) => {
+                            let _ = sender.send(lib_event.clone());
+                            handle_scrubber_event(lib_event, *state).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Ignore.
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                _ = &mut timeout => break,
+            }
+        }
+    }
+
+    let processing_result = processing_result.expect("processing_result must be set");
 
     match processing_result {
         Ok(()) => {
             let success_event = ScrubberEvent {
                 timestamp: Utc::now(),
                 event_type: ::scrobble_scrubber::events::ScrubberEventType::Info(
-                    "Cache-based processing completed successfully".to_string(),
+                    "Scrubber processing cycle completed successfully".to_string(),
                 ),
             };
             let _ = sender.send(success_event.clone());
@@ -742,41 +718,54 @@ async fn process_artist_with_shared_scrubber(
         scrubber_guard.process_artist(artist_name).await
     };
 
-    // Create a future that processes events concurrently
-    let event_processing_future = async {
-        while let Ok(lib_event) = event_receiver.recv().await {
-            handle_scrubber_event(lib_event, *state).await;
-        }
-    };
+    let mut processing_future = Box::pin(processing_future);
+    let mut processing_result: Option<lastfm_edit::Result<()>> = None;
+    let mut events_closed = false;
 
-    // Run both futures concurrently - the processing will yield and allow events to be processed
-    let processing_result = tokio::select! {
-        result = processing_future => {
-            result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-        }
-        _ = event_processing_future => {
-            log::warn!("Event processing completed before artist processing - this shouldn't happen");
-            Ok(())
-        }
-    };
-
-    // Process any remaining events after processing completes
-    let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
-    tokio::pin!(timeout);
-
-    loop {
+    while processing_result.is_none() {
         tokio::select! {
-            event_result = event_receiver.recv() => {
-                match event_result {
+            res = &mut processing_future => {
+                processing_result = Some(res);
+            }
+            recv_res = event_receiver.recv(), if !events_closed => {
+                match recv_res {
                     Ok(lib_event) => {
                         handle_scrubber_event(lib_event, *state).await;
                     }
-                    Err(_) => break, // Channel closed
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        // Ignore: we missed some events; keep processing.
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        events_closed = true;
+                    }
                 }
             }
-            _ = &mut timeout => break, // Timeout reached
         }
     }
 
-    processing_result
+    // Process any remaining events after processing completes
+    if !events_closed {
+        let timeout = tokio::time::sleep(tokio::time::Duration::from_millis(500));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                event_result = event_receiver.recv() => {
+                    match event_result {
+                        Ok(lib_event) => {
+                            handle_scrubber_event(lib_event, *state).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Ignore.
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                _ = &mut timeout => break,
+            }
+        }
+    }
+
+    let processing_result = processing_result.expect("processing_result must be set");
+    processing_result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
 }

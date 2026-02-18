@@ -204,11 +204,26 @@ async fn check_auto_start_scrubber(state: Signal<AppState>) {
 }
 
 fn main() {
+    init_logging();
     let config = icons::create_desktop_config_with_icon();
 
     dioxus::LaunchBuilder::desktop()
         .with_cfg(config)
         .launch(app);
+}
+
+fn init_logging() {
+    // Default to a useful filter for debugging long catch-up periods, while still allowing
+    // callers to override with `RUST_LOG=...`.
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var(
+            "RUST_LOG",
+            "info,scrobble_scrubber=info,scrobble_scrubber_app=info,lastfm_edit=info",
+        );
+    }
+
+    // Best-effort: ignore "already initialized" if another subsystem initialized logging.
+    let _ = env_logger::builder().format_timestamp_secs().try_init();
 }
 
 fn app() -> Element {

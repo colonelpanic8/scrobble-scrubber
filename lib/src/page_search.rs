@@ -54,6 +54,48 @@ pub async fn fetch_page(
     Ok(client.get_recent_tracks_page(page).await?.tracks)
 }
 
+async fn sleep_seconds_cancelable(
+    seconds: u64,
+    should_cancel: &mut impl FnMut() -> bool,
+) -> Result<()> {
+    // Keep it responsive to stop/cancel without needing to plumb a `Notify` down here.
+    for _ in 0..seconds {
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    Ok(())
+}
+
+/// Fetch a page, but if `lastfm-edit` gives up with `RateLimit { retry_after }`, keep waiting and
+/// retry until success or cancellation.
+///
+/// This prevents the scrubber from spinning cycles that repeatedly redo anchor search without ever
+/// getting to processing.
+pub async fn fetch_page_resilient_cancelable(
+    client: &(dyn LastFmEditClient + Send + Sync),
+    page: u32,
+    mut should_cancel: impl FnMut() -> bool,
+) -> Result<Vec<Track>> {
+    loop {
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
+
+        match fetch_page(client, page).await {
+            Ok(tracks) => return Ok(tracks),
+            Err(LastFmError::RateLimit { retry_after }) => {
+                log::warn!(
+                    "Rate limited fetching page {page}; waiting {retry_after}s and retrying"
+                );
+                sleep_seconds_cancelable(retry_after, &mut should_cancel).await?;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 /// Check if a page contains tracks at or before the given timestamp threshold.
 ///
 /// Returns:
@@ -91,27 +133,28 @@ fn check_page_timestamps_from_tracks(
     Ok(PageCheckResult::AllNewer)
 }
 
-async fn page_tracks(
+async fn page_tracks_resilient_cancelable(
     cache: &mut HashMap<u32, Vec<Track>>,
     client: &(dyn LastFmEditClient + Send + Sync),
     page: u32,
+    should_cancel: &mut impl FnMut() -> bool,
 ) -> Result<Vec<Track>> {
     if let Some(tracks) = cache.get(&page) {
         return Ok(tracks.clone());
     }
-
-    let tracks = fetch_page(client, page).await?;
+    let tracks = fetch_page_resilient_cancelable(client, page, || should_cancel()).await?;
     cache.insert(page, tracks.clone());
     Ok(tracks)
 }
 
-async fn check_page_timestamps_cached(
+async fn check_page_timestamps_cached_resilient_cancelable(
     cache: &mut HashMap<u32, Vec<Track>>,
     client: &(dyn LastFmEditClient + Send + Sync),
     page: u32,
     threshold: DateTime<Utc>,
+    should_cancel: &mut impl FnMut() -> bool,
 ) -> Result<PageCheckResult> {
-    let tracks = page_tracks(cache, client, page).await?;
+    let tracks = page_tracks_resilient_cancelable(cache, client, page, should_cancel).await?;
     check_page_timestamps_from_tracks(&tracks, threshold)
 }
 
@@ -172,16 +215,207 @@ pub async fn find_anchor_page_with_tracks_with_progress(
 pub async fn find_anchor_page_with_tracks_with_progress_cancelable(
     client: &(dyn LastFmEditClient + Send + Sync),
     anchor: DateTime<Utc>,
+    on_progress: impl FnMut(AnchorSearchProgress),
+    should_cancel: impl FnMut() -> bool,
+) -> Result<Option<AnchorPageWithTracks>> {
+    find_anchor_page_with_tracks_with_progress_cancelable_with_hint(
+        client,
+        anchor,
+        None,
+        on_progress,
+        should_cancel,
+    )
+    .await
+}
+
+/// Like [`find_anchor_page_with_tracks_with_progress_cancelable`], but starts from a best-effort
+/// page hint.
+///
+/// `page_hint` is expected to be the last known anchor page for the same (or nearby) anchor
+/// timestamp. It's treated as advisory only: if it is stale, the search will still converge.
+pub async fn find_anchor_page_with_tracks_with_progress_cancelable_with_hint(
+    client: &(dyn LastFmEditClient + Send + Sync),
+    anchor: DateTime<Utc>,
+    page_hint: Option<u32>,
     mut on_progress: impl FnMut(AnchorSearchProgress),
     mut should_cancel: impl FnMut() -> bool,
 ) -> Result<Option<AnchorPageWithTracks>> {
+    fn invalid_hint(h: u32) -> bool {
+        h == 0
+    }
+
+    async fn binary_search_first_contains_older_or_missing(
+        cache: &mut HashMap<u32, Vec<Track>>,
+        client: &(dyn LastFmEditClient + Send + Sync),
+        anchor: DateTime<Utc>,
+        mut low: u32, // predicate false ("all newer"); low==0 is a sentinel that is always false
+        mut high: u32, // predicate true ("contains older/equal" or missing)
+        on_progress: &mut impl FnMut(AnchorSearchProgress),
+        should_cancel: &mut impl FnMut() -> bool,
+    ) -> Result<u32> {
+        debug_assert!(low < high);
+        while low.saturating_add(1) < high {
+            if should_cancel() {
+                return Err(cancelled_error());
+            }
+            let mid = low + (high - low) / 2;
+            if mid == 0 {
+                // Sentinel page 0: never fetch.
+                low = 0;
+                continue;
+            }
+            on_progress(AnchorSearchProgress::BinarySearchChecking {
+                page: mid,
+                low,
+                high,
+            });
+            let result = check_page_timestamps_cached_resilient_cancelable(
+                cache,
+                client,
+                mid,
+                anchor,
+                should_cancel,
+            )
+            .await?;
+            match result {
+                PageCheckResult::AllNewer => low = mid,
+                PageCheckResult::ContainsOlderOrEqual | PageCheckResult::PageNotFound => high = mid,
+            }
+        }
+        Ok(high)
+    }
+
     on_progress(AnchorSearchProgress::Started { anchor });
     let mut cache: HashMap<u32, Vec<Track>> = HashMap::new();
     // Phase 1: Exponential search to find upper bound
     let mut last_all_newer_page = 0u32; // Page where all tracks were newer
     let mut probe_page = 1u32;
+    // When starting from a useful hint, gallop forward by additive doubling:
+    // hint+1, hint+3, hint+7, ... This is much tighter than jumping straight to hint*2.
+    let mut local_gallop_step: Option<u32> = None;
 
     log::debug!("Starting exponential search for anchor at {anchor}");
+
+    if let Some(hint) = page_hint.filter(|h| !invalid_hint(*h)) {
+        if should_cancel() {
+            return Err(cancelled_error());
+        }
+        on_progress(AnchorSearchProgress::ProbingPage { page: hint });
+        let hint_result = check_page_timestamps_cached_resilient_cancelable(
+            &mut cache,
+            client,
+            hint,
+            anchor,
+            &mut should_cancel,
+        )
+        .await;
+
+        match hint_result {
+            Ok(PageCheckResult::ContainsOlderOrEqual) => {
+                // If hint-1 is all newer, the hint itself is already the exact anchor page.
+                if hint == 1 {
+                    on_progress(AnchorSearchProgress::BoundaryFound {
+                        last_all_newer_page: 0,
+                        first_contains_older_or_equal_page: hint,
+                    });
+                    on_progress(AnchorSearchProgress::FoundAnchorPage { page: hint });
+                    if should_cancel() {
+                        return Err(cancelled_error());
+                    }
+                    let tracks = page_tracks_resilient_cancelable(
+                        &mut cache,
+                        client,
+                        hint,
+                        &mut should_cancel,
+                    )
+                    .await?;
+                    return Ok(Some(AnchorPageWithTracks { page: hint, tracks }));
+                }
+
+                let prev = hint - 1;
+                on_progress(AnchorSearchProgress::ProbingPage { page: prev });
+                let prev_result = check_page_timestamps_cached_resilient_cancelable(
+                    &mut cache,
+                    client,
+                    prev,
+                    anchor,
+                    &mut should_cancel,
+                )
+                .await?;
+
+                match prev_result {
+                    PageCheckResult::AllNewer => {
+                        on_progress(AnchorSearchProgress::BoundaryFound {
+                            last_all_newer_page: prev,
+                            first_contains_older_or_equal_page: hint,
+                        });
+                        on_progress(AnchorSearchProgress::FoundAnchorPage { page: hint });
+                        if should_cancel() {
+                            return Err(cancelled_error());
+                        }
+                        let tracks = page_tracks_resilient_cancelable(
+                            &mut cache,
+                            client,
+                            hint,
+                            &mut should_cancel,
+                        )
+                        .await?;
+                        return Ok(Some(AnchorPageWithTracks { page: hint, tracks }));
+                    }
+                    PageCheckResult::ContainsOlderOrEqual => {
+                        // Hint is too old; the anchor is earlier than `hint`.
+                        on_progress(AnchorSearchProgress::BoundaryFound {
+                            last_all_newer_page: 0,
+                            first_contains_older_or_equal_page: prev,
+                        });
+                        let anchor_page = binary_search_first_contains_older_or_missing(
+                            &mut cache,
+                            client,
+                            anchor,
+                            0,
+                            prev,
+                            &mut on_progress,
+                            &mut should_cancel,
+                        )
+                        .await?;
+                        on_progress(AnchorSearchProgress::FoundAnchorPage { page: anchor_page });
+                        if should_cancel() {
+                            return Err(cancelled_error());
+                        }
+                        let tracks = page_tracks_resilient_cancelable(
+                            &mut cache,
+                            client,
+                            anchor_page,
+                            &mut should_cancel,
+                        )
+                        .await?;
+                        return Ok(Some(AnchorPageWithTracks {
+                            page: anchor_page,
+                            tracks,
+                        }));
+                    }
+                    PageCheckResult::PageNotFound => {
+                        // Unexpected (previous page missing while hint exists). Fall through to
+                        // the standard search, seeded by this hint.
+                        last_all_newer_page = 0;
+                        probe_page = hint;
+                    }
+                }
+            }
+            Ok(PageCheckResult::AllNewer) => {
+                // Anchor is on a later page than the hint; start tight local galloping.
+                last_all_newer_page = hint;
+                probe_page = hint.saturating_add(1);
+                local_gallop_step = Some(1);
+            }
+            Ok(PageCheckResult::PageNotFound) => {
+                // Stale hint beyond end: fall back to standard search starting at page 1.
+                probe_page = 1;
+                last_all_newer_page = 0;
+            }
+            Err(e) => return Err(e),
+        }
+    }
 
     loop {
         if should_cancel() {
@@ -189,13 +423,33 @@ pub async fn find_anchor_page_with_tracks_with_progress_cancelable(
         }
         on_progress(AnchorSearchProgress::ProbingPage { page: probe_page });
         log::trace!("Probing page {probe_page}");
-        let result = check_page_timestamps_cached(&mut cache, client, probe_page, anchor).await?;
+        let result = check_page_timestamps_cached_resilient_cancelable(
+            &mut cache,
+            client,
+            probe_page,
+            anchor,
+            &mut should_cancel,
+        )
+        .await?;
 
         match result {
             PageCheckResult::AllNewer => {
                 // All tracks on this page are newer than anchor, keep searching
                 last_all_newer_page = probe_page;
-                probe_page = probe_page.saturating_mul(2).max(probe_page + 1);
+                if let Some(step) = local_gallop_step {
+                    let next_step = step.saturating_mul(2).max(1);
+                    let next_probe = probe_page.saturating_add(next_step);
+                    if next_probe == probe_page {
+                        // Saturation guard; fall back to global exponential behavior.
+                        local_gallop_step = None;
+                        probe_page = probe_page.saturating_mul(2).max(probe_page + 1);
+                    } else {
+                        probe_page = next_probe;
+                        local_gallop_step = Some(next_step);
+                    }
+                } else {
+                    probe_page = probe_page.saturating_mul(2).max(probe_page + 1);
+                }
             }
             PageCheckResult::ContainsOlderOrEqual => {
                 // Found a page with older tracks, anchor is between last_all_newer_page and probe_page
@@ -216,82 +470,81 @@ pub async fn find_anchor_page_with_tracks_with_progress_cancelable(
                     on_progress(AnchorSearchProgress::NoTracks);
                     return Ok(None);
                 }
-                // Anchor is beyond all available tracks, return the last page with tracks
-                log::debug!(
-                    "Anchor is beyond all available tracks, last page with tracks: {last_all_newer_page}"
-                );
-                // Need to find the actual last page with binary search
-                probe_page = last_all_newer_page;
-                break;
+                // Anchor is older than all available tracks: every existing page is "AllNewer".
+                // We still need the *actual* last existing page so callers can process the entire
+                // library (e.g. when starting from an anchor before the first scrobble).
+                let mut low = last_all_newer_page; // exists
+                let mut high = probe_page; // known missing/empty
+                while low.saturating_add(1) < high {
+                    if should_cancel() {
+                        return Err(cancelled_error());
+                    }
+                    let mid = low + (high - low) / 2;
+                    on_progress(AnchorSearchProgress::BinarySearchChecking {
+                        page: mid,
+                        low,
+                        high,
+                    });
+                    let tracks = page_tracks_resilient_cancelable(
+                        &mut cache,
+                        client,
+                        mid,
+                        &mut should_cancel,
+                    )
+                    .await?;
+                    if tracks.is_empty() {
+                        high = mid;
+                    } else {
+                        low = mid;
+                    }
+                }
+
+                log::info!("Anchor is older than all tracks; last existing page is {low}");
+                on_progress(AnchorSearchProgress::FoundAnchorPage { page: low });
+                if should_cancel() {
+                    return Err(cancelled_error());
+                }
+                let tracks =
+                    page_tracks_resilient_cancelable(&mut cache, client, low, &mut should_cancel)
+                        .await?;
+                return Ok(Some(AnchorPageWithTracks { page: low, tracks }));
             }
         }
     }
 
     // Phase 2: Binary search between last_all_newer_page and probe_page
-    if last_all_newer_page == 0 {
-        // Anchor is on page 1 or earlier
-        log::debug!("Anchor found on page 1");
-        on_progress(AnchorSearchProgress::FoundAnchorPage { page: 1 });
-        if should_cancel() {
-            return Err(cancelled_error());
-        }
-        let tracks = page_tracks(&mut cache, client, 1).await?;
-        return Ok(Some(AnchorPageWithTracks { page: 1, tracks }));
-    }
+    let low = last_all_newer_page;
+    let high = probe_page;
+    let anchor_page = binary_search_first_contains_older_or_missing(
+        &mut cache,
+        client,
+        anchor,
+        low,
+        high,
+        &mut on_progress,
+        &mut should_cancel,
+    )
+    .await?;
 
-    let mut low = last_all_newer_page;
-    let mut high = probe_page;
-
-    while low < high {
-        if should_cancel() {
-            return Err(cancelled_error());
-        }
-        let mid = low + (high - low) / 2;
-
-        // Check page mid+1 (we know 'low' is all newer, so check the next one)
-        let check_page = mid + 1;
-        if check_page > high {
-            break;
-        }
-
-        log::trace!("Binary search: checking page {check_page} (low={low}, high={high})");
-        on_progress(AnchorSearchProgress::BinarySearchChecking {
-            page: check_page,
-            low,
-            high,
-        });
-
-        if should_cancel() {
-            return Err(cancelled_error());
-        }
-        let result = check_page_timestamps_cached(&mut cache, client, check_page, anchor).await?;
-
-        match result {
-            PageCheckResult::AllNewer => {
-                // Page check_page is all newer, so anchor is on a later page
-                low = check_page;
-            }
-            PageCheckResult::ContainsOlderOrEqual | PageCheckResult::PageNotFound => {
-                // Page check_page contains older tracks or doesn't exist
-                high = check_page;
-            }
-        }
-    }
-
-    // 'high' is the first page that contains tracks at or before the anchor
-    log::info!("Found anchor page: {high} (searched {} pages)", {
+    // 'anchor_page' is the first page that contains tracks at or before the anchor
+    log::info!("Found anchor page: {anchor_page} (searched {} pages)", {
         // Rough estimate of pages probed
         let exp_probes = (probe_page as f64).log2().ceil() as u32;
         let bin_probes = ((probe_page - last_all_newer_page) as f64).log2().ceil() as u32;
         exp_probes + bin_probes
     });
 
-    on_progress(AnchorSearchProgress::FoundAnchorPage { page: high });
+    on_progress(AnchorSearchProgress::FoundAnchorPage { page: anchor_page });
     if should_cancel() {
         return Err(cancelled_error());
     }
-    let tracks = page_tracks(&mut cache, client, high).await?;
-    Ok(Some(AnchorPageWithTracks { page: high, tracks }))
+    let tracks =
+        page_tracks_resilient_cancelable(&mut cache, client, anchor_page, &mut should_cancel)
+            .await?;
+    Ok(Some(AnchorPageWithTracks {
+        page: anchor_page,
+        tracks,
+    }))
 }
 
 /// Information about the anchor page search result.

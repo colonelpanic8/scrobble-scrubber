@@ -180,6 +180,7 @@ impl StateStorage for FileStorage {
             .unwrap_or_default();
         Ok(FrontiersState {
             slow_anchor_timestamp: ts.last_processed_timestamp,
+            slow_anchor_page_hint: None,
             tip_last_processed_timestamp: cu.fast_path_last_processed_timestamp,
             tip_floor_exclusive_timestamp: cu.fast_path_floor_exclusive_timestamp,
         })

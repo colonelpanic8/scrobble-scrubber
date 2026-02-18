@@ -277,6 +277,13 @@ fn LastFmConfigSection(config: Signal<LastFmConfig>) -> Element {
             }
 
             TextInput {
+                label: "API Key (optional)",
+                value: config.read().api_key.clone().unwrap_or_default(),
+                onchange: move |value: String| config.with_mut(|c| c.api_key = if value.is_empty() { None } else { Some(value) }),
+                help: "Last.fm API key for API-based mirror sync (user.getRecentTracks)"
+            }
+
+            TextInput {
                 label: "Base URL (optional)",
                 value: config.read().base_url.clone().unwrap_or_default(),
                 onchange: move |value: String| config.with_mut(|c| c.base_url = if value.is_empty() { None } else { Some(value) }),
@@ -679,6 +686,7 @@ fn TrackProviderSelect(
                     let new_value = match e.value().as_str() {
                         "cached" => TrackProviderType::Cached,
                         "direct" => TrackProviderType::Direct,
+                        "mirror" => TrackProviderType::Mirror,
                         _ => TrackProviderType::Direct, // Default fallback
                     };
                     onchange.call(new_value);
@@ -693,10 +701,15 @@ fn TrackProviderSelect(
                     selected: matches!(value, TrackProviderType::Cached),
                     "Cached (persistent storage)"
                 }
+                option {
+                    value: "mirror",
+                    selected: matches!(value, TrackProviderType::Mirror),
+                    "Mirror Index (sync + process)"
+                }
             }
             p {
                 style: "margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280;",
-                "How to fetch tracks: Direct queries Last.fm API each time, Cached stores tracks locally"
+                "How to fetch tracks: Direct queries Last.fm API each time, Cached stores tracks locally, Mirror processes from the local mirror index while syncing observations"
             }
         }
     }
@@ -765,6 +778,7 @@ fn check_if_scrubber_restart_needed(
         || old_config.storage.state_file != new_config.storage.state_file
         || old_config.lastfm.username != new_config.lastfm.username
         || old_config.lastfm.password != new_config.lastfm.password
+        || old_config.lastfm.api_key != new_config.lastfm.api_key
         || old_config.lastfm.base_url != new_config.lastfm.base_url
 }
 
